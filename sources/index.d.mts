@@ -1,4 +1,4 @@
-export { validate, create, exportDoc, set, render, match } from "./commands/index.mjs";
+export { validate, create, exportDoc, set, render, match, query } from "./commands/index.mjs";
 export { Template } from "./Template.mjs";
 export { Reader } from "./Reader.mjs";
 export { Writer } from "./Writer.mjs";
@@ -17,7 +17,8 @@ export type {
   MatchContext, MatchOptions,
   ListTreeItem, ListTreeItemMetadata, ListTreeValue, MarkdownBlockNode, MarkdownInlineNode, MarkdownNode,
   OutputRegionElement, OutputRegionMetadata, ParagraphNode, PositionedNode, RawNode, RawValue,
-  ReadSnapshot, ReaderOptions, RegionElement, RegionMetadata, RenderOptions, SafeParseResult,
+  QueryContext, QueryMatch, QueryOptions, QueryRegionMetadata, ReadSnapshot, ReaderOptions, RegionElement,
+  RegionMetadata, RenderOptions, SafeParseResult,
   SafeParseSchema, SetOptions, SlotMetadata, SourcePoint, SourcePosition, TableAlignment,
   TableCell, TableNode, TableValue, TemplateFunction, TextNode, ThematicBreakNode,
   ValidateOptions, WriteSnapshot, WriterOptions,

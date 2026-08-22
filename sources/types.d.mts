@@ -322,6 +322,11 @@ export interface RegionMetadata {
   elements: RegionElement[];
 }
 
+export interface QueryRegionMetadata {
+  sourceOffsetStart: number;
+  sourceOffsetEnd: number;
+}
+
 export interface OutputRegionElement {
   path: string;
   outputOffsetStart: number;
@@ -399,6 +404,20 @@ export interface MatchOptions extends BaseCommandOptions {
 
 export interface MatchContext {
   matches: string[];
+}
+
+export interface QueryOptions extends ValidateOptions {
+  all?: boolean;
+}
+
+export interface QueryMatch<TContext extends Record<string, unknown> = Record<string, unknown>> {
+  start: number;
+  end: number;
+  context: TContext;
+}
+
+export interface QueryContext<TContext extends Record<string, unknown> = Record<string, unknown>> {
+  matches: QueryMatch<TContext>[];
 }
 
 export interface CommandSuccess<TContext = unknown> {

@@ -149,7 +149,7 @@ test("npm pack + isolated global install exposes do-md and do-md-mcp", { timeout
 });
 
 test(
-  "installed do-md runs validate, export, create, set, render, and match from a clean temp project",
+  "installed do-md runs validate, export, create, set, render, match, and query from a clean temp project",
   { timeout: INSTALL_TIMEOUT_MS },
   async () => {
     const install = await getInstall();
@@ -178,6 +178,10 @@ Released on 2026-05-02.
 `,
       );
       await fs.writeFile(path.join(dir, "other.tpl.md"), 'Version: {% doc.line().as("version") %}\n');
+      await fs.writeFile(
+        path.join(dir, "z-query.tpl.md"),
+        '{% doc.rawUntil("## Changes"); doc.query((match) => { match.literal("## Changes\\n\\n"); match.list().as("changes") }); doc.rawRest() %}',
+      );
 
       const validated = runInstalled(install.doMd, ["validate", "release.md", "release.tpl.md"], { cwd: dir });
       assert.equal(validated.status, 0, validated.stderr);
@@ -186,6 +190,12 @@ Released on 2026-05-02.
       const matched = runInstalled(install.doMd, ["match", "release.md", "*.tpl.md"], { cwd: dir });
       assert.equal(matched.status, 0, matched.stderr);
       assert.match(matched.stdout.replaceAll("\\", "/"), /\/release\.tpl\.md\s*$/);
+
+      const queried = runInstalled(install.doMd, ["query", "release.md", "z-query.tpl.md"], { cwd: dir });
+      assert.equal(queried.status, 0, queried.stderr);
+      assert.deepEqual(JSON.parse(queried.stdout).context, {
+        changes: ["Added Doc interface", "Removed dual-compile"],
+      });
 
       const exported = runInstalled(
         install.doMd,

@@ -99,11 +99,11 @@ test("shipped README documents the supported commands", async () => {
   assert.match(readme, /do-md set\s+<file> <template>/);
   assert.match(readme, /do-md render\s+<file> <parse-template>/);
   assert.match(readme, /do-md match\s+<file> <templates>/);
+  assert.match(readme, /do-md query\s+<file> <template>/);
   const postV1 = [
     "diff",
     "schema",
     "mock",
-    "query",
     "format",
     "lint",
     "coverage",

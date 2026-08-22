@@ -24,7 +24,7 @@ import { ERROR_CODES, makeParseError, makeUserError } from "../../sources/Syntax
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const MCP_BIN = path.join(ROOT, "bin/do-md-mcp.mjs");
-const V1_TOOLS = ["validate", "export", "create", "set", "render", "match"];
+const V1_TOOLS = ["validate", "export", "create", "set", "render", "match", "query"];
 
 async function withRoot(fn) {
   const root = await fs.mkdtemp(path.join(tmpdir(), "do-md-sdk-"));
@@ -33,6 +33,10 @@ async function withRoot(fn) {
     await fs.writeFile(path.join(root, "bad.md"), "not a heading\n");
     await fs.writeFile(path.join(root, "tpl.md"), '# {% doc.line().as("title") %}\n');
     await fs.writeFile(path.join(root, "match.tpl.md"), '# {% doc.line().as("title") %}\n');
+    await fs.writeFile(
+      path.join(root, "query.tpl.md"),
+      '{% doc.rawUntil("# "); doc.query((match) => { match.literal("# "); match.line().as("title") }); doc.rawRest() %}',
+    );
     await fn(root);
   } finally {
     await fs.rm(root, { recursive: true, force: true });
@@ -148,6 +152,17 @@ test("official SDK client negotiates, lists, and invokes tools", async () => {
       assert.equal(matchResult.matches.length, 1);
       assert.match(matchResult.matches[0], /match\.tpl\.md$/);
       assert.deepEqual(matchResult.errors, []);
+
+      const queried = await client.callTool({
+        name: "query",
+        arguments: { file: "ok.md", template: "query.tpl.md" },
+      });
+      assert.equal(queried.isError, false);
+      assert.deepEqual(payload(queried), {
+        ok: true,
+        matches: [{ start: 0, end: 7, context: { title: "Hello" } }],
+        errors: [],
+      });
 
       const invalid = await client.callTool({
         name: "validate",

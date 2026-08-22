@@ -83,6 +83,7 @@ export class Reader extends Parser {
     this.data = null;
     this.slotMap = [];
     this.regionMap = [];
+    this.queryMap = [];
     this.bindings = new Map();
     this.slotPathPrefix = "";
     this._matchedBinds = 0;
@@ -418,6 +419,27 @@ export class Reader extends Parser {
       sourceOffsetStart: start,
       sourceOffsetEnd: this.offset,
     });
+  }
+
+  query(fn) {
+    if (typeof fn !== "function") {
+      throw makeTemplateError("query requires a callback");
+    }
+    if (this._queryActive) {
+      throw makeTemplateError("query regions cannot be nested");
+    }
+    const start = this.offset;
+    this._queryActive = true;
+    try {
+      fn(this);
+    } finally {
+      this._queryActive = false;
+    }
+    this.queryMap.push({
+      sourceOffsetStart: start,
+      sourceOffsetEnd: this.offset,
+    });
+    return this;
   }
 
   optional(fn) {
@@ -774,6 +796,7 @@ export class Reader extends Parser {
       bindings: new Map(this.bindings),
       slotMap: this.slotMap.slice(),
       regionMap: this.regionMap.slice(),
+      queryMap: this.queryMap.slice(),
       matchedBinds: this._matchedBinds,
       usedAsArray: this._usedAsArray,
       switchToRequiredOnMatch: this._switchToRequiredOnMatch,
@@ -790,6 +813,7 @@ export class Reader extends Parser {
     this.bindings = snap.bindings;
     this.slotMap = snap.slotMap;
     this.regionMap = snap.regionMap;
+    this.queryMap = snap.queryMap;
     this._matchedBinds = snap.matchedBinds;
     this._usedAsArray = snap.usedAsArray;
     this._switchToRequiredOnMatch = snap.switchToRequiredOnMatch;

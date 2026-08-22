@@ -17,12 +17,11 @@ const EXIT_BY_CODE = {
   [ERROR_CODES.DO_MD_CONFLICT]: 4,
 };
 
-const V1_USAGE = "Usage: do-md <validate|create|export|set|render|match> ...\n";
+const V1_USAGE = "Usage: do-md <validate|create|export|set|render|match|query> ...\n";
 const POST_V1_COMMANDS = [
   "diff",
   "schema",
   "mock",
-  "query",
   "format",
   "lint",
   "coverage",
@@ -118,7 +117,7 @@ test("missing command prints usage and exits with code 1", () => {
 });
 
 test("CLI help lists the supported commands", () => {
-  assert.equal(USAGE, "Usage: do-md <validate|create|export|set|render|match> ...");
+  assert.equal(USAGE, "Usage: do-md <validate|create|export|set|render|match|query> ...");
   assert.equal(formatUsage(), V1_USAGE);
   for (const args of [[], ["--help"], ["-h"], ["not-a-command"]]) {
     const result = runCli(args);
@@ -227,6 +226,27 @@ test("match prints the first template or all matches", () => {
     const none = runCli(["match", "doc.md", "templates/broken.tpl.md"], { cwd: dir });
     assert.equal(none.status, 2);
     assert.match(none.stderr, /no matching template/);
+  });
+});
+
+test("query prints first or all occurrence contexts and shifted offsets", () => {
+  withTempDir((dir) => {
+    writeSimpleProject(dir, { doc: "target:one\nother\ntarget:two\n" });
+    writeFileSync(
+      path.join(dir, "query.tpl.md"),
+      '{% doc.rawUntil("target:"); doc.query((match) => { match.literal("target:"); match.line().as("value") }); doc.rawRest() %}',
+    );
+
+    const first = runCli(["query", "doc.md", "query.tpl.md"], { cwd: dir });
+    assert.equal(first.status, 0, first.stderr);
+    assert.deepEqual(JSON.parse(first.stdout), { start: 0, end: 10, context: { value: "one" } });
+
+    const all = runCli(["query", "doc.md", "query.tpl.md", "--all"], { cwd: dir });
+    assert.equal(all.status, 0, all.stderr);
+    assert.deepEqual(JSON.parse(all.stdout), [
+      { start: 0, end: 10, context: { value: "one" } },
+      { start: 17, end: 27, context: { value: "two" } },
+    ]);
   });
 });
 

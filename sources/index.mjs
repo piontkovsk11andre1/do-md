@@ -1,4 +1,4 @@
-export { validate, create, exportDoc, set, render, match } from "./commands/index.mjs";
+export { validate, create, exportDoc, set, render, match, query } from "./commands/index.mjs";
 export { Template } from "./Template.mjs";
 export { Reader } from "./Reader.mjs";
 export { Writer } from "./Writer.mjs";

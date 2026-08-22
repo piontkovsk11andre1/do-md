@@ -589,6 +589,15 @@ test("checkbox returns a boolean for task markers", () => {
   assert.equal(new Reader("[ ] rest").checkbox().value, false);
 });
 
+test("query records an exact source region around its callback", () => {
+  const reader = new Reader("before target after");
+  reader.rawUntil("target");
+  reader.query((match) => match.literal("target"));
+  reader.rawRest();
+  assert.deepEqual(reader.queryMap, [{ sourceOffsetStart: 7, sourceOffsetEnd: 13 }]);
+  assert.throws(() => reader.query(() => reader.query(() => {})), /cannot be nested/);
+});
+
 test("required inline-leaf mismatches record a parse error; optional mismatches rewind", () => {
   const required = new Reader("hello", { file: "doc.md" });
   assert.equal(required.link().value, null);

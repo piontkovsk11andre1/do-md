@@ -19,6 +19,7 @@ const EXPECTED_PUBLIC_EXPORTS = [
   "match",
   "NodeFilesystem",
   "Parser",
+  "query",
   "Reader",
   "render",
   "set",
@@ -88,6 +89,7 @@ test("public API re-exports command functions from commands/index.mjs", () => {
   assert.equal(api.set, commands.set);
   assert.equal(api.render, commands.render);
   assert.equal(api.match, commands.match);
+  assert.equal(api.query, commands.query);
 });
 
 test("public API re-exports IO adapters from IO/index.mjs", () => {
@@ -97,7 +99,7 @@ test("public API re-exports IO adapters from IO/index.mjs", () => {
 });
 
 test("documented public exports have the expected kinds", () => {
-  for (const name of ["validate", "create", "exportDoc", "set", "render", "match"]) {
+  for (const name of ["validate", "create", "exportDoc", "set", "render", "match", "query"]) {
     assert.equal(typeof api[name], "function", name);
   }
   for (const name of [

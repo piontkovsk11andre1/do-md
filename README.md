@@ -23,6 +23,7 @@ do-md export   <file> <template> --save <ctx.json>
 do-md set      <file> <template> [--key k --value v] [--patch <patch.json>] [--out <file>]
 do-md render   <file> <parse-template> <render-template> <out-file>
 do-md match    <file> <templates> [--all]
+do-md query    <file> <template> [--all]
 ```
 
 ### Template
@@ -97,6 +98,32 @@ single template, a directory, or a glob. Directories recursively search
 default and `--all` prints every match. Invalid candidates are skipped. No
 match exits `2`.
 
+### Query
+
+```
+$ do-md query document.md query.tpl.md --all
+```
+
+Query templates consume the complete source slice while marking exactly one
+result region with `doc.query()`. Raw operations can ignore content around the
+region:
+
+```md
+{%
+doc.rawUntil("## Target")
+doc.query((match) => {
+  match.literal("## Target\n\n")
+  match.paragraph().as("content")
+})
+doc.rawRest()
+%}
+```
+
+The first non-overlapping occurrence is returned by default. `--all` resumes
+at the previous region's end and returns every occurrence. Each result includes
+its document-relative `start`, `end`, and captured `context`. No match exits
+`2`.
+
 ## Library
 
 ```js
@@ -107,6 +134,7 @@ import {
     set,
     render,
     match,
+    query,
     Template,
     Reader,
     Writer,
@@ -210,7 +238,7 @@ do-md mcp --root <dir> [--max-input-bytes <n>] [--timeout-ms <n>] [--no-snippets
 ```
 
 `--root` is required and must exist. Tools are `validate`, `export`,
-`create`, `set`, `render`, and `match`.
+`create`, `set`, `render`, `match`, and `query`.
 
 ## Exit codes
 

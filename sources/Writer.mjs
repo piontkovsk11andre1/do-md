@@ -741,6 +741,14 @@ export class Writer {
     return new Slot(this, { leafType: "checkbox" });
   }
 
+  query(fn) {
+    if (typeof fn !== "function") {
+      throw makeTemplateError("query requires a callback");
+    }
+    fn(this);
+    return this;
+  }
+
   skipUntilHeading(_predicate) {
     return false;
   }

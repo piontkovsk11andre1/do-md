@@ -1,6 +1,6 @@
 import { Slot } from "./Slot.mjs";
 import { SyntaxError } from "./SyntaxError.mjs";
-import type { CodeBlockValue, CursorSnapshot, DocumentNode, FrontmatterValue, HeadingNode, ImageValue, LinkValue, ListTreeValue, ReaderOptions, RegionMetadata, SafeParseSchema, SlotMetadata, TableValue } from "./types.d.mts";
+import type { CodeBlockValue, CursorSnapshot, DocumentNode, FrontmatterValue, HeadingNode, ImageValue, LinkValue, ListTreeValue, QueryRegionMetadata, ReaderOptions, RegionMetadata, SafeParseSchema, SlotMetadata, TableValue } from "./types.d.mts";
 export class Reader<TContext extends Record<string, unknown> = Record<string, unknown>> {
   constructor(source?: unknown, options?: ReaderOptions);
   inputSourceText: string;
@@ -16,6 +16,7 @@ export class Reader<TContext extends Record<string, unknown> = Record<string, un
   data: null;
   slotMap: SlotMetadata[];
   regionMap: RegionMetadata[];
+  queryMap: QueryRegionMetadata[];
   bindings: Map<string, "as" | "asArray">;
   static fromMarkdown(source?: unknown, options?: ReaderOptions): DocumentNode;
   reset(): void;
@@ -56,6 +57,7 @@ export class Reader<TContext extends Record<string, unknown> = Record<string, un
   autolink(): Slot<string>;
   codeSpan(): Slot<string>;
   checkbox(): Slot<boolean>;
+  query(fn: (reader: this) => void): this;
   optional(): this;
   optional(fn: (reader: this) => void): boolean;
   scope(key: string, fn: (reader: Reader<Record<string, unknown>>, index: number) => void): void;

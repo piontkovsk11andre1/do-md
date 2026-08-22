@@ -13,10 +13,11 @@ import { handleCreate } from "./tools/create.mjs";
 import { handleSet } from "./tools/set.mjs";
 import { handleRender } from "./tools/render.mjs";
 import { handleMatch } from "./tools/match.mjs";
+import { handleQuery } from "./tools/query.mjs";
 
 export const DEFAULT_MAX_INPUT_BYTES = 1_048_576;
 export const DEFAULT_TIMEOUT_MS = 30_000;
-export const TOOL_NAMES = Object.freeze(["validate", "export", "create", "set", "render", "match"]);
+export const TOOL_NAMES = Object.freeze(["validate", "export", "create", "set", "render", "match", "query"]);
 export const MCP_CODES = Object.freeze({
   DO_MD_USER_ERROR: "DO_MD_USER_ERROR",
   DO_MD_TIMEOUT: "DO_MD_TIMEOUT",
@@ -31,6 +32,7 @@ const HANDLERS = Object.freeze({
   set: handleSet,
   render: handleRender,
   match: handleMatch,
+  query: handleQuery,
 });
 const jsonObject = z.record(z.string(), z.json());
 
@@ -87,6 +89,15 @@ const TOOL_DEFINITIONS = Object.freeze({
     inputSchema: z.strictObject({
       file: z.string().min(1),
       templates: z.string().min(1),
+      all: z.boolean().default(false),
+      options: jsonObject.optional(),
+    }),
+  },
+  query: {
+    description: "Find content occurrences using a query template",
+    inputSchema: z.strictObject({
+      file: z.string().min(1),
+      template: z.string().min(1),
       all: z.boolean().default(false),
       options: jsonObject.optional(),
     }),
@@ -200,7 +211,8 @@ function emptyResult(name) {
     case "create": return { ok: false, output: null, wrote: null, errors: [] };
     case "set": return { ok: false, output: null, wrote: null, context: null, errors: [] };
     case "render": return { ok: false, output: null, wrote: null, errors: [] };
-    case "match": return { ok: false, matches: [], errors: [] };
+    case "match":
+    case "query": return { ok: false, matches: [], errors: [] };
     default: return { ok: false, errors: [] };
   }
 }

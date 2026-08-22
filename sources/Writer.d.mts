@@ -33,6 +33,7 @@ export class Writer<TData extends Record<string, unknown> = Record<string, unkno
   autolink(): Slot<string>;
   codeSpan(): Slot<string>;
   checkbox(): Slot<boolean>;
+  query(fn: (writer: this) => void): this;
   skipUntilHeading(predicate?: unknown): false;
   optional(): this;
   optional(fn: (writer: this) => void): boolean;

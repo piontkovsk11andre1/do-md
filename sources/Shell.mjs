@@ -8,14 +8,15 @@ import {
   set,
   render,
   match,
+  query,
 } from "./commands/index.mjs";
 import { NodeFilesystem } from "./IO/NodeFilesystem.mjs";
 import { run as runMcpServer } from "./McpServer.mjs";
 import { ERROR_CODES, makeUserError } from "./SyntaxError.mjs";
 
-export const USAGE = "Usage: do-md <validate|create|export|set|render|match> ...";
+export const USAGE = "Usage: do-md <validate|create|export|set|render|match|query> ...";
 
-const COMMANDS = new Set(["validate", "create", "export", "set", "render", "match"]);
+const COMMANDS = new Set(["validate", "create", "export", "set", "render", "match", "query"]);
 
 export function formatUsage() {
   return `${USAGE}\n`;
@@ -216,6 +217,13 @@ function parseArgv(argv) {
         describe: "Return every matching template",
       });
     })
+    .command("query <file> <template>", "Find content matching a query template", (cmd) => {
+      cmd.option("all", {
+        type: "boolean",
+        default: false,
+        describe: "Return every non-overlapping match",
+      });
+    })
     .fail((msg, err) => {
       const error = err instanceof Error ? err : new Error(msg);
       if (!error.code) {
@@ -325,12 +333,21 @@ export async function execute(argv = process.argv.slice(2)) {
           cwd,
         });
         break;
+      case "query":
+        result = await query({
+          io,
+          file: parsed.file,
+          template: parsed.template,
+          all: parsed.all === true,
+          cwd,
+        });
+        break;
       default:
         process.stdout.write(formatUsage());
         return 1;
     }
 
-    reportResult(result, { ...flags, showOutput: token === "match" });
+    reportResult(result, { ...flags, showOutput: token === "match" || token === "query" });
     return exitFromResult(result);
   } catch (error) {
     return reportRejected(error, flags);

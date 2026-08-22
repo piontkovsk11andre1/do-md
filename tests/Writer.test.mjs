@@ -899,6 +899,12 @@ test("checkbox emits [x] or [ ] from a boolean", () => {
   assert.equal(writer.toMarkdown(), "[x] [ ]");
 });
 
+test("query executes its callback when writing", () => {
+  const writer = new Writer({ value: "found" });
+  writer.query((match) => match.line().as("value"));
+  assert.equal(writer.toMarkdown(), "found");
+});
+
 test("missing keys emit nothing unless a default is provided", () => {
   const missing = new Writer({});
   missing.literal("pre");

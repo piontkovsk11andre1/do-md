@@ -179,6 +179,10 @@ export function parseSource(source, fn, { file, templatePath, options, io }) {
         element.sourceOffsetEnd += bomOffset;
       }
     }
+    for (const region of reader.queryMap) {
+      region.sourceOffsetStart += bomOffset;
+      region.sourceOffsetEnd += bomOffset;
+    }
   }
   return reader;
 }
