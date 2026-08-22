@@ -7,14 +7,15 @@ import {
   exportDoc,
   set,
   render,
+  match,
 } from "./commands/index.mjs";
 import { NodeFilesystem } from "./IO/NodeFilesystem.mjs";
 import { run as runMcpServer } from "./McpServer.mjs";
 import { ERROR_CODES, makeUserError } from "./SyntaxError.mjs";
 
-export const USAGE = "Usage: do-md <validate|create|export|set|render> ...";
+export const USAGE = "Usage: do-md <validate|create|export|set|render|match> ...";
 
-const COMMANDS = new Set(["validate", "create", "export", "set", "render"]);
+const COMMANDS = new Set(["validate", "create", "export", "set", "render", "match"]);
 
 export function formatUsage() {
   return `${USAGE}\n`;
@@ -94,7 +95,7 @@ function resultPayload(result) {
   };
 }
 
-function reportResult(result, { json, quiet }) {
+function reportResult(result, { json, quiet, showOutput = false }) {
   if (json) {
     if (result.ok && quiet) {
       return;
@@ -104,7 +105,9 @@ function reportResult(result, { json, quiet }) {
     return;
   }
 
-  if (!result.ok) {
+  if (result.ok && showOutput && !quiet && result.output) {
+    writeLine(process.stdout, result.output);
+  } else if (!result.ok) {
     for (const error of result.errors ?? []) {
       writeLine(process.stderr, formatDiagnostic(error));
     }
@@ -206,6 +209,13 @@ function parseArgv(argv) {
       cmd.option("out", { type: "string", describe: "Write to a different file" });
     })
     .command("render <file> <parseTemplate> <renderTemplate> <outFile>", "Parse with one template and render with another")
+    .command("match <file> <templates>", "Find templates that match a Markdown file", (cmd) => {
+      cmd.option("all", {
+        type: "boolean",
+        default: false,
+        describe: "Return every matching template",
+      });
+    })
     .fail((msg, err) => {
       const error = err instanceof Error ? err : new Error(msg);
       if (!error.code) {
@@ -306,12 +316,21 @@ export async function execute(argv = process.argv.slice(2)) {
           cwd,
         });
         break;
+      case "match":
+        result = await match({
+          io,
+          file: parsed.file,
+          templates: parsed.templates,
+          all: parsed.all === true,
+          cwd,
+        });
+        break;
       default:
         process.stdout.write(formatUsage());
         return 1;
     }
 
-    reportResult(result, flags);
+    reportResult(result, { ...flags, showOutput: token === "match" });
     return exitFromResult(result);
   } catch (error) {
     return reportRejected(error, flags);

@@ -256,6 +256,7 @@ export interface FileStat {
 }
 
 export interface IOAdapter {
+  globAsync?(pattern: string, options?: { cwd?: string }): Promise<string[]>;
   readFileAsync(path: string, options?: unknown): Promise<string | Uint8Array>;
   writeFileAsync(path: string, content: string | Uint8Array, options?: unknown): Promise<void>;
   readFileSnapshotAsync?(path: string, options?: unknown): Promise<ReadSnapshot<string | Uint8Array>>;
@@ -388,6 +389,16 @@ export interface RenderOptions extends BaseCommandOptions {
   parseTemplate: string;
   renderTemplate: string;
   outFile: string;
+}
+
+export interface MatchOptions extends BaseCommandOptions {
+  file: string;
+  templates: string;
+  all?: boolean;
+}
+
+export interface MatchContext {
+  matches: string[];
 }
 
 export interface CommandSuccess<TContext = unknown> {

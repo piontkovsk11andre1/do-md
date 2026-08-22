@@ -67,7 +67,7 @@ test("both package binaries expose the same official MCP server", async () => {
       }));
     }
     assert.deepEqual(results[0], results[1]);
-    assert.deepEqual(results[0].tools, ["validate", "export", "create", "set", "render"]);
+    assert.deepEqual(results[0].tools, ["validate", "export", "create", "set", "render", "match"]);
     assert.deepEqual(results[0].payload, { ok: true, errors: [] });
   });
 });

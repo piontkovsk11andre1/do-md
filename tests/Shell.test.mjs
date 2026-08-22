@@ -17,7 +17,7 @@ const EXIT_BY_CODE = {
   [ERROR_CODES.DO_MD_CONFLICT]: 4,
 };
 
-const V1_USAGE = "Usage: do-md <validate|create|export|set|render> ...\n";
+const V1_USAGE = "Usage: do-md <validate|create|export|set|render|match> ...\n";
 const POST_V1_COMMANDS = [
   "diff",
   "schema",
@@ -117,8 +117,8 @@ test("missing command prints usage and exits with code 1", () => {
   assert.match(output, /Usage: do-md/);
 });
 
-test("CLI help lists only the five v1 commands", () => {
-  assert.equal(USAGE, "Usage: do-md <validate|create|export|set|render> ...");
+test("CLI help lists the supported commands", () => {
+  assert.equal(USAGE, "Usage: do-md <validate|create|export|set|render|match> ...");
   assert.equal(formatUsage(), V1_USAGE);
   for (const args of [[], ["--help"], ["-h"], ["not-a-command"]]) {
     const result = runCli(args);
@@ -204,6 +204,30 @@ test("validate positional form exits 0", () => {
   ]);
   assert.equal(result.status, 0);
   assert.equal(result.stderr, "");
+});
+
+test("match prints the first template or all matches", () => {
+  withTempDir((dir) => {
+    writeSimpleProject(dir);
+    const templates = path.join(dir, "templates");
+    mkdirSync(templates);
+    writeFileSync(path.join(templates, "a.tpl.md"), '# {% doc.line().as("title") %}\n');
+    writeFileSync(path.join(templates, "b.tpl.md"), '# {% doc.line().as("heading") %}\n');
+    writeFileSync(path.join(templates, "broken.tpl.md"), "{% invalid javascript %}");
+
+    const first = runCli(["match", "doc.md", "templates"], { cwd: dir });
+    assert.equal(first.status, 0);
+    assert.equal(first.stderr, "");
+    assert.ok(fileEndsWith(first.stdout.trim(), "templates/a.tpl.md"));
+
+    const all = runCli(["match", "doc.md", "templates/**/*.tpl.md", "--all"], { cwd: dir });
+    assert.equal(all.status, 0);
+    assert.deepEqual(all.stdout.trim().split(/\r?\n/).map((file) => path.basename(file)), ["a.tpl.md", "b.tpl.md"]);
+
+    const none = runCli(["match", "doc.md", "templates/broken.tpl.md"], { cwd: dir });
+    assert.equal(none.status, 2);
+    assert.match(none.stderr, /no matching template/);
+  });
 });
 
 test("validate reports parse diagnostics and exits 2", () => {

@@ -44,7 +44,7 @@ test("package manifest is CLI-compatible", async () => {
   const pkg = JSON.parse(packageText);
 
   assert.equal(pkg.name, "@p10i/do-md");
-  assert.equal(pkg.version, "1.0.2");
+  assert.equal(pkg.version, "1.1.0");
   assert.equal(pkg.license, "MIT");
   assert.equal(pkg.type, "module");
   assert.equal(pkg.engines?.node, ">=20.0.0");
@@ -59,6 +59,7 @@ test("package manifest is CLI-compatible", async () => {
     "@modelcontextprotocol/sdk": "1.30.0",
     yargs: "^17.0.0",
     chalk: "^5.0.0",
+    "fast-glob": "^3.3.3",
     yaml: "^2.9.0",
     zod: "4.4.3",
   });
@@ -90,13 +91,14 @@ test("every exported runtime source has a declaration", async () => {
   }
 });
 
-test("shipped README documents only the five v1 commands", async () => {
+test("shipped README documents the supported commands", async () => {
   const readme = await fs.readFile(path.join(root, "README.md"), "utf8");
   assert.match(readme, /do-md validate <file> <template>/);
   assert.match(readme, /do-md create\s+<file> <template>/);
   assert.match(readme, /do-md export\s+<file> <template>/);
   assert.match(readme, /do-md set\s+<file> <template>/);
   assert.match(readme, /do-md render\s+<file> <parse-template>/);
+  assert.match(readme, /do-md match\s+<file> <templates>/);
   const postV1 = [
     "diff",
     "schema",

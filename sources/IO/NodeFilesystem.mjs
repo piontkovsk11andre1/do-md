@@ -9,6 +9,7 @@ import {
 } from "node:fs/promises";
 import { dirname, resolve as resolvePath } from "node:path";
 import { randomUUID } from "node:crypto";
+import fastGlob from "fast-glob";
 
 import { createConflictError, createIoError, ERROR_CODES } from "../SyntaxError.mjs";
 import { createContentRevision } from "../IO.mjs";
@@ -59,6 +60,41 @@ async function syncDirectory(path) {
 }
 
 export class NodeFilesystem {
+  async globAsync(pattern, { cwd = process.cwd() } = {}) {
+    const input = String(pattern ?? "");
+    const resolved = resolvePath(cwd, input);
+    try {
+      const info = await statRaw(resolved);
+      if (info.isFile()) {
+        return [resolved];
+      }
+      if (info.isDirectory()) {
+        return (await fastGlob("**/*.tpl.md", {
+          absolute: true,
+          cwd: resolved,
+          followSymbolicLinks: false,
+          onlyFiles: true,
+          unique: true,
+        })).map((path) => resolvePath(path)).sort();
+      }
+    } catch (error) {
+      if (error?.code !== "ENOENT") {
+        throw wrapIoError(error, "candidate discovery failed", resolved);
+      }
+    }
+    try {
+      return (await fastGlob(input.replace(/\\/g, "/"), {
+        absolute: true,
+        cwd: resolvePath(cwd),
+        followSymbolicLinks: false,
+        onlyFiles: true,
+        unique: true,
+      })).map((path) => resolvePath(path)).sort();
+    } catch (error) {
+      throw wrapIoError(error, "candidate discovery failed", input);
+    }
+  }
+
   async readFileAsync(path, options = "utf8") {
     try {
       return await readFileRaw(path, options);

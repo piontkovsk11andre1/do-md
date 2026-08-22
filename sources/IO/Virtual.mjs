@@ -11,12 +11,51 @@ function missingFile(path) {
   });
 }
 
+function globRegExp(pattern) {
+  let source = "^";
+  for (let index = 0; index < pattern.length; index++) {
+    const char = pattern[index];
+    if (char === "*" && pattern[index + 1] === "*") {
+      index += 1;
+      if (pattern[index + 1] === "/") {
+        index += 1;
+        source += "(?:.*/)?";
+      } else {
+        source += ".*";
+      }
+    } else if (char === "*") {
+      source += "[^/]*";
+    } else if (char === "?") {
+      source += "[^/]";
+    } else {
+      source += char.replace(/[\\^$.[\]{}()+|]/g, "\\$&");
+    }
+  }
+  return new RegExp(`${source}$`);
+}
+
 export class Virtual {
   constructor(entries = {}) {
     this.entries = new Map();
     for (const [path, content] of Object.entries(entries)) {
       this.entries.set(normalizeIoPath(path), String(content));
     }
+  }
+
+  async globAsync(pattern, { cwd = "" } = {}) {
+    const target = resolveIoPath(cwd, pattern);
+    if (this.entries.has(target)) {
+      return [target];
+    }
+    const directoryPrefix = target === "/" ? "/" : `${target.replace(/\/$/, "")}/`;
+    const directoryMatches = [...this.entries.keys()].filter(
+      (path) => path.startsWith(directoryPrefix) && path.endsWith(".tpl.md"),
+    );
+    if (directoryMatches.length > 0 && !/[?*]/.test(target)) {
+      return directoryMatches.sort();
+    }
+    const matcher = globRegExp(target);
+    return [...this.entries.keys()].filter((path) => matcher.test(path)).sort();
   }
 
   async readFileAsync(path) {

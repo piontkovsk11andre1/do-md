@@ -40,3 +40,14 @@ test("resolvePath joins relative paths and keeps absolute ones", () => {
   assert.equal(io.resolvePath("/tmp", "a.txt"), "/tmp/a.txt");
   assert.equal(io.resolvePath("/tmp", "/abs/b.txt"), "/abs/b.txt");
 });
+
+test("globAsync expands template directories and glob patterns", async () => {
+  const io = new Virtual({
+    "/templates/a.tpl.md": "a",
+    "/templates/nested/b.tpl.md": "b",
+    "/templates/ignored.md": "x",
+  });
+  const expected = ["/templates/a.tpl.md", "/templates/nested/b.tpl.md"];
+  assert.deepEqual(await io.globAsync("templates", { cwd: "/" }), expected);
+  assert.deepEqual(await io.globAsync("templates/**/*.tpl.md", { cwd: "/" }), expected);
+});

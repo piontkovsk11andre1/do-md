@@ -149,7 +149,7 @@ test("npm pack + isolated global install exposes do-md and do-md-mcp", { timeout
 });
 
 test(
-  "installed do-md runs validate, export, create, set, and render from a clean temp project",
+  "installed do-md runs validate, export, create, set, render, and match from a clean temp project",
   { timeout: INSTALL_TIMEOUT_MS },
   async () => {
     const install = await getInstall();
@@ -182,6 +182,10 @@ Released on 2026-05-02.
       const validated = runInstalled(install.doMd, ["validate", "release.md", "release.tpl.md"], { cwd: dir });
       assert.equal(validated.status, 0, validated.stderr);
       assert.equal(validated.stderr, "");
+
+      const matched = runInstalled(install.doMd, ["match", "release.md", "*.tpl.md"], { cwd: dir });
+      assert.equal(matched.status, 0, matched.stderr);
+      assert.match(matched.stdout.replaceAll("\\", "/"), /\/release\.tpl\.md\s*$/);
 
       const exported = runInstalled(
         install.doMd,

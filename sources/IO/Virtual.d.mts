@@ -1,5 +1,6 @@
 import type { AtomicWriteOptions, FileStat, IOAdapter, ReadSnapshot, WriteSnapshot } from "../types.d.mts";
 export class Virtual implements IOAdapter {
+  globAsync(pattern: string, options?: { cwd?: string }): Promise<string[]>;
   constructor(entries?: Record<string, unknown>);
   entries: Map<string, string>;
   readFileAsync(path: string): Promise<string>;

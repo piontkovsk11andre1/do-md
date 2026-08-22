@@ -4,8 +4,7 @@ Markdown template runtime and editing utilities. One template describes a
 document's shape; the same template validates, extracts, generates, and
 mutates it.
 
-ESM only. Requires Node 20+. Core parsing, writing, templates, commands, and
-slots use Node's standard library only.
+ESM only. Requires Node 20+.
 
 ## Install
 
@@ -23,6 +22,7 @@ do-md create   <file> <template> --data <ctx.json> [--force]
 do-md export   <file> <template> --save <ctx.json>
 do-md set      <file> <template> [--key k --value v] [--patch <patch.json>] [--out <file>]
 do-md render   <file> <parse-template> <render-template> <out-file>
+do-md match    <file> <templates> [--all]
 ```
 
 ### Template
@@ -85,6 +85,18 @@ $ do-md render release.md release.tpl.md other.tpl.md out.txt
 Parses with the first template and writes through the second. Never modifies
 the input. Neither template nor output path is inferred.
 
+### Match
+
+```
+$ do-md match release.md "templates/**/*.tpl.md"
+```
+
+Finds templates that parse and fully consume the input. `<templates>` may be a
+single template, a directory, or a glob. Directories recursively search
+`*.tpl.md`. Candidates are sorted; the first matching path is printed by
+default and `--all` prints every match. Invalid candidates are skipped. No
+match exits `2`.
+
 ## Library
 
 ```js
@@ -94,6 +106,7 @@ import {
     exportDoc,
     set,
     render,
+    match,
     Template,
     Reader,
     Writer,
@@ -197,7 +210,7 @@ do-md mcp --root <dir> [--max-input-bytes <n>] [--timeout-ms <n>] [--no-snippets
 ```
 
 `--root` is required and must exist. Tools are `validate`, `export`,
-`create`, `set`, and `render`.
+`create`, `set`, `render`, and `match`.
 
 ## Exit codes
 

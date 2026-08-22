@@ -1,3 +1,5 @@
+import { dirname, join } from "node:path";
+
 import { NodeFilesystem } from "../../IO/NodeFilesystem.mjs";
 import { Virtual } from "../../IO/Virtual.mjs";
 import { resolveScopedPath, scopeError } from "../Scoping.mjs";
@@ -72,6 +74,25 @@ export async function resolveToolPath(context, value, name) {
     return context.io.resolvePath(context.root ?? "", value);
   }
   return resolveScopedPath(context.root, value);
+}
+
+export async function resolveToolPattern(context, value, name) {
+  if (value == null || value === "") {
+    missingArg(name);
+  }
+  if (context.io) {
+    return context.io.resolvePath(context.root ?? "", value);
+  }
+  const input = String(value).replace(/\\/g, "/");
+  const magic = input.search(/[?*[\]{}()!]/);
+  if (magic < 0) {
+    return resolveScopedPath(context.root, input);
+  }
+  const prefix = input.slice(0, magic);
+  const base = prefix.endsWith("/") ? prefix.slice(0, -1) || "." : dirname(prefix || ".");
+  const resolvedBase = await resolveScopedPath(context.root, base);
+  const tail = input.slice(base === "." ? 0 : base.length).replace(/^\//, "");
+  return join(resolvedBase, tail).replace(/\\/g, "/");
 }
 
 export function hasOwnPath(value) {

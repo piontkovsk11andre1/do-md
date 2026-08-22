@@ -5,6 +5,7 @@ export function createContentRevision(content: string | Uint8Array): string;
 export function normalizeIoPath(path: unknown): string;
 export function resolveIoPath(cwd: unknown, path: unknown): string;
 export class IO implements IOAdapter {
+  globAsync(pattern: string, options?: { cwd?: string }): Promise<string[]>;
   readFileAsync(path: string, options?: unknown): Promise<string>;
   writeFileAsync(path: string, content: string, options?: unknown): Promise<void>;
   readFileSnapshotAsync(path: string, options?: unknown): Promise<ReadSnapshot<string>>;

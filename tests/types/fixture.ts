@@ -11,6 +11,7 @@ import {
   Writer,
   create,
   exportDoc,
+  match,
   render,
   set,
   validate,
@@ -92,6 +93,7 @@ void create({ io, file: "new.md", template: "template.md", data: { title: "Hello
 void exportDoc<{ title: string }>({ io, file: "doc.md", template: "template.md", savePath: "data.json" });
 void set({ io, file: "doc.md", template: "template.md", key: "title", value: "New" });
 void render({ io, file: "doc.md", parseTemplate: "read.md", renderTemplate: "write.md", outFile: "out.md" });
+void match({ io, file: "doc.md", templates: "templates/**/*.tpl.md", all: true });
 void handleValidate({ file: "doc.md", template: "template.md" }, { io, root: "/" });
 void new Server({ root: "/", timeoutMs: 1000 }).callTool("validate", {});
 void diagnostic;

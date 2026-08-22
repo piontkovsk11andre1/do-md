@@ -11,6 +11,7 @@ export { createConflictError, createIoError } from "./SyntaxError.mjs";
  * @property {(path: string, options?: any) => Promise<{ content: string, revision: string }>} readFileSnapshotAsync
  * @property {(path: string, content: string, options?: any) => Promise<{ revision: string }>} writeFileAtomicAsync
  * @property {(path: string) => Promise<{ isFile: boolean, isDirectory: boolean, size: number }>} statAsync
+ * @property {(pattern: string, options?: { cwd?: string }) => Promise<string[]>} globAsync
  * @property {(cwd: string, path: string) => string} resolvePath
  */
 
@@ -58,6 +59,10 @@ export function resolveIoPath(cwd, path) {
 }
 
 export class IO {
+  async globAsync() {
+    throw makeNotImplementedError("IO.globAsync");
+  }
+
   async readFileAsync() {
     throw makeNotImplementedError("IO.readFileAsync");
   }

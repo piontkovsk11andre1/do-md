@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -13,6 +13,25 @@ test("NodeFilesystem module exists", () => {
   assert.equal(typeof io.writeFileAsync, "function");
   assert.equal(typeof io.statAsync, "function");
   assert.equal(typeof io.resolvePath, "function");
+  assert.equal(typeof io.globAsync, "function");
+});
+
+test("globAsync expands template directories and glob patterns", async () => {
+  const io = new NodeFilesystem();
+  const dir = await mkdtemp(join(tmpdir(), "do-md-glob-"));
+  try {
+    await mkdir(join(dir, "nested"));
+    await writeFile(join(dir, "a.tpl.md"), "a");
+    await writeFile(join(dir, "nested", "b.tpl.md"), "b");
+    await writeFile(join(dir, "ignored.md"), "x");
+    assert.deepEqual(await io.globAsync(dir), [join(dir, "a.tpl.md"), join(dir, "nested", "b.tpl.md")].sort());
+    assert.deepEqual(await io.globAsync("**/*.tpl.md", { cwd: dir }), [
+      join(dir, "a.tpl.md"),
+      join(dir, "nested", "b.tpl.md"),
+    ].sort());
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });
 
 test("resolvePath joins relative paths and keeps absolute ones", () => {

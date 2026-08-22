@@ -8,4 +8,5 @@ export function commandOptions(params?: { options?: CommandOptions }, context?: 
 export function commandIo(io: IOAdapter, options?: { suppressWrites?: boolean; hidePaths?: string[] }): IOAdapter;
 export function missingArg(name: string): never;
 export function resolveToolPath(context: McpToolContext, value: unknown, name: string): Promise<string>;
+export function resolveToolPattern(context: McpToolContext, value: unknown, name: string): Promise<string>;
 export function hasOwnPath(value: unknown): boolean;

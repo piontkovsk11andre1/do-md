@@ -24,7 +24,7 @@ import { ERROR_CODES, makeParseError, makeUserError } from "../../sources/Syntax
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const MCP_BIN = path.join(ROOT, "bin/do-md-mcp.mjs");
-const V1_TOOLS = ["validate", "export", "create", "set", "render"];
+const V1_TOOLS = ["validate", "export", "create", "set", "render", "match"];
 
 async function withRoot(fn) {
   const root = await fs.mkdtemp(path.join(tmpdir(), "do-md-sdk-"));
@@ -32,6 +32,7 @@ async function withRoot(fn) {
     await fs.writeFile(path.join(root, "ok.md"), "# Hello\n");
     await fs.writeFile(path.join(root, "bad.md"), "not a heading\n");
     await fs.writeFile(path.join(root, "tpl.md"), '# {% doc.line().as("title") %}\n');
+    await fs.writeFile(path.join(root, "match.tpl.md"), '# {% doc.line().as("title") %}\n');
     await fn(root);
   } finally {
     await fs.rm(root, { recursive: true, force: true });
@@ -61,7 +62,7 @@ function payload(result) {
   return JSON.parse(result.content[0].text);
 }
 
-test("MCP uses the official SDK and exposes exactly five tools", async () => {
+test("MCP uses the official SDK and exposes all supported tools", async () => {
   const source = await fs.readFile(path.join(ROOT, "sources/MCP/Server.mjs"), "utf8");
   assert.match(source, /@modelcontextprotocol\/sdk\/server\/mcp\.js/);
   assert.match(source, /@modelcontextprotocol\/sdk\/server\/stdio\.js/);
@@ -136,6 +137,17 @@ test("official SDK client negotiates, lists, and invokes tools", async () => {
       });
       assert.equal(valid.isError, false);
       assert.deepEqual(payload(valid), { ok: true, errors: [] });
+
+      const matched = await client.callTool({
+        name: "match",
+        arguments: { file: "ok.md", templates: "*.tpl.md" },
+      });
+      assert.equal(matched.isError, false);
+      const matchResult = payload(matched);
+      assert.equal(matchResult.ok, true);
+      assert.equal(matchResult.matches.length, 1);
+      assert.match(matchResult.matches[0], /match\.tpl\.md$/);
+      assert.deepEqual(matchResult.errors, []);
 
       const invalid = await client.callTool({
         name: "validate",

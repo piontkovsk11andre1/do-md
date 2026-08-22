@@ -5,6 +5,7 @@ import { handleExport } from "./tools/export.mjs";
 import { handleCreate } from "./tools/create.mjs";
 import { handleSet } from "./tools/set.mjs";
 import { handleRender } from "./tools/render.mjs";
+import { handleMatch } from "./tools/match.mjs";
 
 const handlers = {
   validate: handleValidate,
@@ -12,6 +13,7 @@ const handlers = {
   create: handleCreate,
   set: handleSet,
   render: handleRender,
+  match: handleMatch,
 };
 
 try {

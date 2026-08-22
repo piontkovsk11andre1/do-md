@@ -1,4 +1,4 @@
-export { validate, create, exportDoc, set, render } from "./commands/index.mjs";
+export { validate, create, exportDoc, set, render, match } from "./commands/index.mjs";
 export { Template } from "./Template.mjs";
 export { Reader } from "./Reader.mjs";
 export { Writer } from "./Writer.mjs";
@@ -14,6 +14,7 @@ export type {
   EditorOpenOptions, EditorOptions, EditorSaveOptions, EmphasisNode, ErrorCode, ExportOptions,
   FileStat, FrontmatterNode, FrontmatterValue, HeadingNode, HtmlBlockNode, HtmlInlineNode,
   ImageNode, ImageValue, IOAdapter, LeafType, LinkNode, LinkValue, ListItemNode, ListNode,
+  MatchContext, MatchOptions,
   ListTreeItem, ListTreeItemMetadata, ListTreeValue, MarkdownBlockNode, MarkdownInlineNode, MarkdownNode,
   OutputRegionElement, OutputRegionMetadata, ParagraphNode, PositionedNode, RawNode, RawValue,
   ReadSnapshot, ReaderOptions, RegionElement, RegionMetadata, RenderOptions, SafeParseResult,
