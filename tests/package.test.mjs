@@ -1,0 +1,239 @@
+import path from "node:path";
+import fs from "node:fs/promises";
+import test from "node:test";
+import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+
+import { fileURLToPath } from "node:url";
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const packagePath = path.join(root, "package.json");
+const binPath = path.join(root, "bin/do-md.mjs");
+const sourcesPath = path.join(root, "sources");
+
+async function collectMjs(dir) {
+  const entries = await fs.readdir(dir, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...(await collectMjs(full)));
+    } else if (entry.name.endsWith(".mjs")) {
+      files.push(full);
+    }
+  }
+  return files;
+}
+
+test("package manifest is CLI-compatible", async () => {
+  const packageText = await fs.readFile(packagePath, "utf8");
+  const pkg = JSON.parse(packageText);
+
+  assert.equal(pkg.name, "@p10i/do-md");
+  assert.equal(pkg.version, "1.0.0");
+  assert.equal(pkg.license, "MIT");
+  assert.equal(pkg.type, "module");
+  assert.equal(pkg.engines?.node, ">=20.0.0");
+  assert.deepEqual(pkg.bin, {
+    "do-md": "bin/do-md.mjs",
+    "do-md-mcp": "bin/do-md-mcp.mjs",
+  });
+  assert.equal(pkg.main, "sources/index.mjs");
+  assert.deepEqual(pkg.files, ["bin/", "sources/", "README.md", "LICENSE"]);
+  assert.deepEqual(pkg.dependencies, {
+    "@modelcontextprotocol/sdk": "1.30.0",
+    yargs: "^17.0.0",
+    chalk: "^5.0.0",
+    zod: "4.4.3",
+  });
+
+  assert.deepEqual(pkg.exports, {
+    ".": "./sources/index.mjs",
+    "./sources/*.mjs": "./sources/*.mjs",
+    "./package.json": "./package.json",
+  });
+  assert.equal(pkg.browser, undefined);
+  assert.equal(pkg.types, undefined);
+  assert.equal(pkg.typings, undefined);
+});
+
+test("shipped README documents only the five v1 commands", async () => {
+  const readme = await fs.readFile(path.join(root, "README.md"), "utf8");
+  assert.match(readme, /do-md validate <file> <template>/);
+  assert.match(readme, /do-md create\s+<file> <template>/);
+  assert.match(readme, /do-md export\s+<file> <template>/);
+  assert.match(readme, /do-md set\s+<file> <template>/);
+  assert.match(readme, /do-md render\s+<file> <parse-template>/);
+  const postV1 = [
+    "diff",
+    "schema",
+    "mock",
+    "query",
+    "format",
+    "lint",
+    "coverage",
+    "infer",
+    "migrate",
+    "index",
+    "bundle",
+    "split",
+    "sync",
+    "cross-reference",
+    "archive",
+    "graph",
+    "report",
+  ];
+  for (const name of postV1) {
+    assert.doesNotMatch(readme, new RegExp(`do-md(?:-mcp)?\\s+${name}\\b`), name);
+  }
+  assert.doesNotMatch(readme, /\b(SchemaDoc|MockDoc|DiffDoc|QueryDoc|LinterDoc|CoverageDoc|FormDoc|HtmlDoc|TextDoc|PhpDoc|SqlDoc|RstDoc)\b/);
+});
+
+test("package source has no accidental public entry files", async () => {
+  const forbidden = [
+    "sources/index.cjs",
+    "sources/Pipeline.mjs",
+    "sources/Compiler.mjs",
+    "sources/Doc.mjs",
+    "sources/SchemaDoc.mjs",
+    "sources/MockDoc.mjs",
+    "sources/DiffDoc.mjs",
+    "sources/QueryDoc.mjs",
+    "sources/LinterDoc.mjs",
+    "sources/CoverageDoc.mjs",
+    "sources/FormDoc.mjs",
+    "sources/HtmlDoc.mjs",
+    "sources/TextDoc.mjs",
+    "sources/PhpDoc.mjs",
+    "sources/SqlDoc.mjs",
+    "sources/RstDoc.mjs",
+    "sources/Configuration.mjs",
+    "sources/Program.mjs",
+  ];
+  for (const rel of forbidden) {
+    await assert.rejects(fs.access(path.join(root, rel)), rel);
+  }
+});
+
+test("CLI dependencies stay behind Shell.mjs", async () => {
+  const binText = await fs.readFile(binPath, "utf8");
+  assert.match(binText, /from ["']\.\.\/sources\/Shell\.mjs["']/);
+  assert.doesNotMatch(binText, /\byargs\b|\bchalk\b/);
+
+  const sourceFiles = await collectMjs(sourcesPath);
+  const cliImporters = [];
+  const shellImporters = [];
+  for (const file of sourceFiles) {
+    const text = await fs.readFile(file, "utf8");
+    if (/\bfrom\s+["']yargs["']|\bfrom\s+["']chalk["']/.test(text)) {
+      cliImporters.push(path.relative(root, file).replaceAll("\\", "/"));
+    }
+    if (file !== path.join(sourcesPath, "Shell.mjs") && /from\s+["'][^"']*Shell\.mjs["']/.test(text)) {
+      shellImporters.push(path.relative(root, file).replaceAll("\\", "/"));
+    }
+  }
+
+  assert.deepEqual(cliImporters, ["sources/Shell.mjs"]);
+  assert.deepEqual(shellImporters, []);
+});
+
+test("source modules use named exports and do not import the public barrel", async () => {
+  const sourceFiles = await collectMjs(sourcesPath);
+  const publicIndex = path.join(sourcesPath, "index.mjs");
+  const defaultExporters = [];
+  const barrelImporters = [];
+
+  for (const file of sourceFiles) {
+    const text = await fs.readFile(file, "utf8");
+    if (/^export\s+default\b/m.test(text) || /export\s*\{[^}]*\bas\s+default\b/.test(text)) {
+      defaultExporters.push(path.relative(root, file).replaceAll("\\", "/"));
+    }
+    if (file === publicIndex) {
+      continue;
+    }
+    const fromRe = /from\s+["']([^"']+)["']/g;
+    let match;
+    while ((match = fromRe.exec(text))) {
+      const spec = match[1];
+      if (spec === "@p10i/do-md") {
+        barrelImporters.push(path.relative(root, file).replaceAll("\\", "/"));
+        break;
+      }
+      if (!spec.startsWith(".")) {
+        continue;
+      }
+      const resolved = path.normalize(path.join(path.dirname(file), spec));
+      if (resolved === publicIndex) {
+        barrelImporters.push(path.relative(root, file).replaceAll("\\", "/"));
+        break;
+      }
+    }
+  }
+
+  assert.deepEqual(defaultExporters, []);
+  assert.deepEqual(barrelImporters, []);
+});
+
+test("CI runs node --test tests/ on Node 20+", async () => {
+  const workflows = [];
+  let dir = root;
+  for (let i = 0; i < 8; i++) {
+    const wfDir = path.join(dir, ".github", "workflows");
+    let names = [];
+    try {
+      names = await fs.readdir(wfDir);
+    } catch {
+      names = [];
+    }
+    for (const name of names) {
+      if (/\.ya?ml$/i.test(name)) {
+        workflows.push(path.join(wfDir, name));
+      }
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) {
+      break;
+    }
+    dir = parent;
+  }
+
+  assert.ok(workflows.length > 0, "expected a CI workflow under .github/workflows");
+
+  const texts = [];
+  for (const file of workflows) {
+    texts.push(await fs.readFile(file, "utf8"));
+  }
+  const combined = texts.join("\n");
+  assert.match(combined, /node --test tests\//);
+  assert.match(combined, /node-version[\s\S]*\b20\b/);
+});
+
+function runNpm(args) {
+  if (process.platform === "win32") {
+    return spawnSync("cmd.exe", ["/d", "/s", "/c", "npm.cmd", ...args], {
+      cwd: root,
+      encoding: "utf8",
+      windowsHide: true,
+    });
+  }
+  return spawnSync("npm", args, { cwd: root, encoding: "utf8" });
+}
+
+test("npm pack --dry-run includes bin, sources/MCP, README, and LICENSE", () => {
+  const packed = runNpm(["pack", "--dry-run"]);
+  assert.equal(packed.status, 0, packed.stderr || packed.stdout);
+  const text = `${packed.stdout}\n${packed.stderr}`;
+  for (const entry of [
+    "bin/do-md.mjs",
+    "bin/do-md-mcp.mjs",
+    "sources/index.mjs",
+    "sources/MCP/Server.mjs",
+    "sources/MCP/Scoping.mjs",
+    "README.md",
+    "LICENSE",
+  ]) {
+    assert.match(text, new RegExp(entry.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), entry);
+  }
+  assert.doesNotMatch(text, /(^|\s)tests\//);
+  assert.doesNotMatch(text, /\.rundown\//);
+});

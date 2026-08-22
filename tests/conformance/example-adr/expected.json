@@ -1,0 +1,45 @@
+{
+  "title": "Use do-md for ADRs",
+  "status": "accepted",
+  "author": "Ada Lovelace",
+  "date": "2026-08-22",
+  "summary": "Adopt a structured ADR format so decisions stay machine-readable.",
+  "context": "Teams were writing free-form ADRs that could not be queried.",
+  "decisions": [
+    {
+      "title": "Store ADRs as Markdown templates",
+      "rationale": "Templates capture title, status, and consequences without a separate schema.",
+      "alternatives": [
+        "YAML front matter",
+        "A custom database"
+      ],
+      "example": {
+        "language": "js",
+        "value": "const status = \"accepted\";"
+      },
+      "positives": [
+        true,
+        true
+      ],
+      "consequences": [
+        "ADRs stay in git",
+        "Authors must learn the template"
+      ]
+    }
+  ],
+  "done": [
+    true,
+    true
+  ],
+  "actions": [
+    "Publish the template",
+    "Migrate existing ADRs"
+  ],
+  "references": [
+    {
+      "url": "https://adr.github.io/",
+      "text": "Architecture decision records",
+      "title": null
+    }
+  ]
+}

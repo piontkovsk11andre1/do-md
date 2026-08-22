@@ -1,0 +1,20 @@
+{
+  "source": "chapters",
+  "byteStable": false,
+  "patch": {
+    "chapters": [
+      {
+        "name": "One",
+        "intro": "Intro one"
+      },
+      {
+        "name": "Two",
+        "intro": "Intro two"
+      },
+      {
+        "name": "Three",
+        "intro": "Intro three"
+      }
+    ]
+  }
+}

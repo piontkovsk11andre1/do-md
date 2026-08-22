@@ -1,0 +1,8 @@
+{
+    "version": "2.0.0-beta",
+    "date": "2026-1-1",
+    "changes": [
+        "Added Writer round-trip",
+        "Added conformance fixtures"
+    ]
+}

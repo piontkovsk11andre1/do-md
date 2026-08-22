@@ -1,0 +1,24 @@
+{
+    "table": {
+        "headers": [
+            "A",
+            "B",
+            "C",
+            "D"
+        ],
+        "rows": [
+            [
+                "1",
+                "2",
+                "3",
+                "4"
+            ]
+        ],
+        "align": [
+            "left",
+            "right",
+            "center",
+            null
+        ]
+    }
+}

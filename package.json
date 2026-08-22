@@ -1,0 +1,38 @@
+{
+  "name": "@p10i/do-md",
+  "version": "1.0.0",
+  "description": "Markdown template runtime and editing utilities",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": {
+    "do-md": "bin/do-md.mjs",
+    "do-md-mcp": "bin/do-md-mcp.mjs"
+  },
+  "main": "sources/index.mjs",
+  "exports": {
+    ".": "./sources/index.mjs",
+    "./sources/*.mjs": "./sources/*.mjs",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "bin/",
+    "sources/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "chalk": "^5.0.0",
+    "yargs": "^17.0.0",
+    "zod": "4.4.3"
+  }
+}

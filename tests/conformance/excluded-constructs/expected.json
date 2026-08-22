@@ -1,0 +1,34 @@
+{
+    "blocks": [
+        {
+            "type": "heading",
+            "level": 1,
+            "text": "Excluded"
+        },
+        {
+            "type": "paragraph",
+            "text": "See [ref][id] and ![img][id] and [^note]."
+        },
+        {
+            "type": "paragraph",
+            "text": "[id]: https://example.com \"title\"\n[^note]: footnote body"
+        },
+        {
+            "type": "paragraph",
+            "text": "Term\n: definition of the term"
+        },
+        {
+            "type": "paragraph",
+            "text": "Entities stay text: line&nbsp;break."
+        },
+        {
+            "type": "paragraph",
+            "text": "First"
+        },
+        {
+            "type": "heading",
+            "level": 1,
+            "text": "Second"
+        }
+    ]
+}

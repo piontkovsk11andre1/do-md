@@ -1,0 +1,1 @@
+{% doc.table().as("table") %}

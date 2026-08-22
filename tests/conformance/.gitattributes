@@ -1,0 +1,2 @@
+crlf-input/input.md text eol=crlf
+bom-input/input.md binary

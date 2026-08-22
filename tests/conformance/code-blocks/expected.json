@@ -1,0 +1,10 @@
+{
+    "fenced": {
+        "language": "js",
+        "value": "const x = 1;"
+    },
+    "indented": {
+        "language": null,
+        "value": "indented"
+    }
+}

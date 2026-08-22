@@ -1,0 +1,10 @@
+{
+  "source": "release-notes",
+  "key": "version",
+  "value": "2.0.0",
+  "byteStable": true,
+  "sets": [
+    { "key": "version", "value": "2.0.0-beta" },
+    { "key": "date", "value": "2026-1-1" }
+  ]
+}

@@ -1,0 +1,101 @@
+{
+    "title": "Kitchen Sink",
+    "subtitle": "Feature catalog",
+    "status": "draft",
+    "abstract": "Exercises every leaf and structural method.",
+    "callout": "Optional callout body",
+    "hasRule": true,
+    "author": "Ada Lovelace",
+    "authoredOn": "2026-08-22",
+    "version": "1.0.0",
+    "tags": [
+        "parser",
+        "writer"
+    ],
+    "compatibility": {
+        "headers": [
+            "Platform",
+            "Status",
+            "Notes"
+        ],
+        "rows": [
+            [
+                "linux",
+                "stable",
+                "primary"
+            ],
+            [
+                "macOS",
+                "beta",
+                "M1+ only"
+            ]
+        ],
+        "align": [
+            "left",
+            "center",
+            "right"
+        ]
+    },
+    "example": {
+        "language": "js",
+        "value": "const n = 1;"
+    },
+    "embed": "<div class=\"embed\">raw</div>",
+    "done": [
+        true,
+        false
+    ],
+    "actions": [
+        "ship it",
+        "write tests"
+    ],
+    "homepage": {
+        "url": "https://example.com",
+        "text": "docs",
+        "title": "Guide"
+    },
+    "logo": {
+        "url": "logo.png",
+        "alt": "logo",
+        "title": "Company"
+    },
+    "repo": "https://git.example.com",
+    "binary": "do-md",
+    "chapters": [
+        {
+            "name": "One",
+            "body": "Intro one",
+            "seeAlso": {
+                "url": "https://example.com/one",
+                "text": "one",
+                "title": null
+            }
+        },
+        {
+            "name": "Two",
+            "body": "Intro two",
+            "seeAlso": {
+                "url": "https://example.com/two",
+                "text": "two",
+                "title": null
+            }
+        }
+    ],
+    "referencesHeader": "References",
+    "references": [
+        {
+            "url": "https://example.com/a",
+            "text": "Alpha",
+            "title": null
+        },
+        {
+            "url": "https://example.com/b",
+            "text": "Beta",
+            "title": "More"
+        }
+    ],
+    "footerNotes": [
+        "Keep fixtures small.",
+        "Omit skipped interstitial content."
+    ]
+}
