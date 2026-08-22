@@ -75,17 +75,30 @@ test("Editor.open reads via io and stores source, slotMap, and snapshots", async
   assert.ok(editor.slotMap.some((slot) => slot.key === "changes" && slot.leafType === "list"));
 });
 
-test("Editor.open strips BOM, converts CRLF and CR to LF, and ensures a final LF", async () => {
+test("Editor.open prefers the revision snapshot API for the document", async () => {
+  const io = new Virtual({ "/doc.md": RELEASE_DOC, "/tpl.md": RELEASE_TPL });
+  const reads = [];
+  const readSnapshot = io.readFileSnapshotAsync.bind(io);
+  io.readFileSnapshotAsync = async (path, options) => {
+    reads.push(path);
+    return readSnapshot(path, options);
+  };
+  const editor = await Editor.open({ io, file: "/doc.md", template: "/tpl.md" });
+  assert.deepEqual(reads, ["/doc.md"]);
+  assert.match(editor.revision, /^sha256:/);
+});
+
+test("Editor.open parses while preserving BOM, line endings, and missing final newline", async () => {
   const crlf = `\uFEFF${RELEASE_DOC.replaceAll("\n", "\r\n").replace(/\r\n$/, "")}`;
   const crlfEditor = await openDoc({ "/doc.md": crlf, "/tpl.md": RELEASE_TPL });
-  assert.equal(crlfEditor.originalSource, RELEASE_DOC);
+  assert.equal(crlfEditor.originalSource, crlf);
   assert.equal(crlfEditor.get("version"), "1.2.0");
-  assert.equal(crlfEditor.render(), RELEASE_DOC);
+  assert.equal(crlfEditor.render(), crlf);
 
   const cr = RELEASE_DOC.replaceAll("\n", "\r").replace(/\r$/, "");
   const crEditor = await openDoc({ "/doc.md": cr, "/tpl.md": RELEASE_TPL });
-  assert.equal(crEditor.originalSource, RELEASE_DOC);
-  assert.equal(crEditor.render(), RELEASE_DOC);
+  assert.equal(crEditor.originalSource, cr);
+  assert.equal(crEditor.render(), cr);
 });
 
 test("Editor.open preserves NFC and intra-line whitespace", async () => {
@@ -105,7 +118,7 @@ test("Editor.open preserves NFC and intra-line whitespace", async () => {
     "/doc.md": spaced,
     "/tpl.md": '{% doc.line().as("a") %}\n{% doc.line().as("b") %}\n',
   });
-  assert.equal(spacedEditor.originalSource, "hello  \t  \nworld   \n");
+  assert.equal(spacedEditor.originalSource, spaced);
 });
 
 test("Editor.open missing io, file, or template throws DO_MD_USER_ERROR", async () => {
@@ -514,7 +527,7 @@ test("render returns composed text and does not write", async () => {
   assert.deepEqual(writes, []);
 });
 
-test("save overwrites the original file and adds a trailing newline", async () => {
+test("save overwrites the original file without changing final-newline state", async () => {
   const io = new Virtual({ "/doc.md": RELEASE_DOC, "/tpl.md": RELEASE_TPL });
   const editor = await Editor.open({ io, file: "/doc.md", template: "/tpl.md" });
   editor.set("version", "2.0.0");
@@ -574,12 +587,14 @@ test("structural mutations full-re-render on save and do not write on render fai
   assert.match(await io.readFileAsync("/doc.md"), /## Three/);
 });
 
-test("save uses the open-time context and overwrites concurrent disk edits", async () => {
+test("save rejects concurrent disk edits unless force is true", async () => {
   const io = new Virtual({ "/doc.md": RELEASE_DOC, "/tpl.md": RELEASE_TPL });
   const editor = await Editor.open({ io, file: "/doc.md", template: "/tpl.md" });
   editor.set("version", "2.0.0");
   await io.writeFileAsync("/doc.md", "externally changed\n");
-  await editor.save();
+  await assert.rejects(() => editor.save(), (err) => err.code === ERROR_CODES.DO_MD_CONFLICT);
+  assert.equal(await io.readFileAsync("/doc.md"), "externally changed\n");
+  await editor.save({ force: true });
   const written = await io.readFileAsync("/doc.md");
   assert.match(written, /# 2\.0\.0/);
   assert.doesNotMatch(written, /externally changed/);
@@ -657,18 +672,120 @@ test("heading and asArray exact slots splice their recorded ranges", async () =>
   assert.equal(notes.render(), "zed\nbeta\n");
 });
 
-test("structural mutations full-re-render instead of mixing splices", async () => {
+test("exact aggregate structural mutations splice only their owning range", async () => {
   const padded = RELEASE_DOC.replace("# 1.2.0\n\n", "# 1.2.0\n\n\n\n");
   const io = new Virtual({ "/doc.md": padded, "/tpl.md": RELEASE_TPL });
   const editor = await Editor.open({ io, file: "/doc.md", template: "/tpl.md" });
   editor.set("version", "2.0.0-beta");
   editor.append("changes", "Third");
   const rendered = editor.render();
+  const changes = editor.slotMap.find((slot) => slot.key === "changes");
+  let expected = `${padded.slice(0, changes.sourceOffsetStart)}- Added Writer round-trip\n- Added conformance fixtures\n- Third${padded.slice(changes.sourceOffsetEnd)}`;
+  expected = expected.replace("1.2.0", "2.0.0-beta");
   assert.match(rendered, /# 2\.0\.0-beta/);
   assert.match(rendered, /- Third/);
-  assert.doesNotMatch(rendered, /# 2\.0\.0-beta\n\n\n\nReleased/);
-  assert.match(rendered, /# 2\.0\.0-beta\n\nReleased/);
+  assert.match(rendered, /# 2\.0\.0-beta\n\n\n\nReleased/);
+  assert.equal(rendered, expected);
   assert.equal(await io.readFileAsync("/doc.md"), padded);
+});
+
+test("top-level scope append remove and move replace only the scope source range", async () => {
+  const template = `HEAD \n{% doc.scope("items", (item) => { item.literal("- "); item.line().as("name"); item.literal("\\n") }) %}TAIL \n`;
+  const source = "HEAD  \r\n- one\r\n- two\r\nTAIL\t\r\n";
+  const cases = [
+    [(editor) => editor.append("items", { name: "three" }), "- one\n- two\n- three\n"],
+    [(editor) => editor.prepend("items", { name: "zero" }), "- zero\n- one\n- two\n"],
+    [(editor) => editor.insert("items", 1, { name: "middle" }), "- one\n- middle\n- two\n"],
+    [(editor) => editor.delete("items[0]"), "- two\n"],
+    [(editor) => editor.move("items", 1, 0), "- two\n- one\n"],
+    [(editor) => editor.set("items", [{ name: "replacement" }]), "- replacement\n"],
+  ];
+  for (const [mutate, scoped] of cases) {
+    const editor = await openDoc({ "/doc.md": source, "/tpl.md": template });
+    const region = editor.regionMap.find((item) => item.path === "items");
+    mutate(editor);
+    const rendered = editor.render();
+    assert.equal(rendered, `HEAD  \r\n${scoped}TAIL\t\r\n`);
+    assert.equal(rendered.slice(0, region.sourceOffsetStart), source.slice(0, region.sourceOffsetStart));
+    assert.ok(rendered.endsWith(source.slice(region.sourceOffsetEnd)));
+  }
+});
+
+test("BOM-prefixed scope edits shift structural regions with slot offsets", async () => {
+  const template = `{% doc.scope("items", (item) => { item.literal("- "); item.line().as("name"); item.literal("\\n") }) %}tail\n`;
+  const source = "\uFEFF- one\r\ntail\r\n";
+  const editor = await openDoc({ "/doc.md": source, "/tpl.md": template });
+  editor.append("items", { name: "two" });
+  assert.equal(editor.render(), "\uFEFF- one\n- two\ntail\r\n");
+});
+
+test("empty scope append uses matching zero-width Reader and Writer anchors", async () => {
+  const template = `before\n{% doc.scope("items", (item) => { item.literal("- "); item.line().as("name"); item.literal("\\n") }) %}after\n`;
+  const source = "before\r\nafter\r\n";
+  const editor = await openDoc({ "/doc.md": source, "/tpl.md": template });
+  const region = editor.regionMap.find((item) => item.path === "items");
+  assert.equal(region.sourceOffsetStart, region.sourceOffsetEnd);
+  assert.equal(editor.has("items"), true);
+  assert.deepEqual(editor.keys(), ["items"]);
+  editor.append("items", { name: "inserted" });
+  assert.equal(editor.render(), "before\r\n- inserted\nafter\r\n");
+});
+
+test("nested scope structural edits preserve its parent and all outside bytes", async () => {
+  const template = `START \n{% doc.scope("chapters", (chapter) => {
+  chapter.heading(2).as("name")
+  chapter.literal("\\n")
+  chapter.scope("sections", (section) => { section.literal("* "); section.line().as("name"); section.literal("\\n") })
+}) %}END \n`;
+  const source = "START  \r\n## One\r\n* A\r\n* B\r\nEND\t\r\n";
+  const editor = await openDoc({ "/doc.md": source, "/tpl.md": template });
+  const nested = editor.regionMap.find((item) => item.path === "chapters[0].sections");
+  editor.append("chapters[0].sections", { name: "C" });
+  const rendered = editor.render();
+  assert.equal(rendered, "START  \r\n## One\r\n* A\n* B\n* C\nEND\t\r\n");
+  assert.equal(rendered.slice(0, nested.sourceOffsetStart), source.slice(0, nested.sourceOffsetStart));
+  assert.ok(rendered.endsWith(source.slice(nested.sourceOffsetEnd)));
+});
+
+test("save reparses and refreshes scoped regions", async () => {
+  const template = `before\n{% doc.scope("items", (item) => { item.literal("- "); item.line().as("name"); item.literal("\\n") }) %}after\n`;
+  const source = "before\r\n- one\r\nafter\r\n";
+  const io = new Virtual({ "/doc.md": source, "/tpl.md": template });
+  const editor = await Editor.open({ io, file: "/doc.md", template: "/tpl.md" });
+  const before = editor.regionMap.find((item) => item.path === "items");
+  editor.append("items", { name: "two" });
+  await editor.save();
+  const after = editor.regionMap.find((item) => item.path === "items");
+  assert.equal(after.elements.length, 2);
+  assert.ok(after.sourceOffsetEnd > before.sourceOffsetEnd);
+  editor.append("items", { name: "three" });
+  assert.equal(editor.render(), "before\r\n- one\n- two\n- three\nafter\r\n");
+});
+
+test("save rebasing retains context-only patch properties", async () => {
+  const io = new Virtual({ "/doc.md": RELEASE_DOC, "/tpl.md": RELEASE_TPL });
+  const editor = await Editor.open({ io, file: "/doc.md", template: "/tpl.md" });
+  editor.merge({ version: "2.0.0", extra: { retained: true } });
+  await editor.save();
+  assert.deepEqual(editor.get("extra"), { retained: true });
+  assert.deepEqual(editor.original.extra, { retained: true });
+});
+
+test("resized table replacement preserves all bytes outside the table span", async () => {
+  const source = "Before\r\n\r\n| A | B |\r\n| --- | --- |\r\n| 1 | 2 |\r\n\r\nAfter";
+  const template = 'Before\n\n{% doc.table().as("table") %}\n\nAfter\n';
+  const editor = await openDoc({ "/doc.md": source, "/tpl.md": template });
+  const slot = editor.slotMap.find((item) => item.key === "table");
+  editor.set("table", {
+    headers: ["A", "B"],
+    align: [null, null],
+    rows: [["x", "y"], ["z", "w"]],
+  });
+  const rendered = editor.render();
+  assert.equal(rendered.slice(0, slot.sourceOffsetStart), source.slice(0, slot.sourceOffsetStart));
+  assert.ok(rendered.endsWith(source.slice(slot.sourceOffsetEnd)));
+  assert.match(rendered, /\| x\s+\| y\s+\|/);
+  assert.match(rendered, /\| z\s+\| w\s+\|/);
 });
 
 test("save({ to }) after scalar splice leaves the original path untouched", async () => {
@@ -678,6 +795,19 @@ test("save({ to }) after scalar splice leaves the original path untouched", asyn
   await editor.save({ to: "/out.md" });
   assert.equal(await io.readFileAsync("/doc.md"), RELEASE_DOC);
   assert.equal(await io.readFileAsync("/out.md"), ensureSaved(RELEASE_DOC.replace("1.2.0", "2.0.0")));
+});
+
+test("save preserves a missing final newline and rebases editor state", async () => {
+  const io = new Virtual({ "/doc.md": "# Hello", "/tpl.md": '# {% doc.line().as("title") %}\n' });
+  const editor = await Editor.open({ io, file: "/doc.md", template: "/tpl.md" });
+  editor.set("title", "World");
+  await editor.save();
+  assert.equal(await io.readFileAsync("/doc.md"), "# World");
+  assert.equal(editor.isDirty, false);
+  assert.deepEqual(editor.dirtyKeys, []);
+  assert.equal(editor.original.title, "World");
+  editor.set("title", "Again");
+  assert.equal(editor.render(), "# Again");
 });
 
 test("mutation methods return this and do not write before save", async () => {
@@ -925,10 +1055,10 @@ test("Editor.open forwards options into the template and render honors serialize
 
   editor.merge({ items: ["x", "y"] });
   const output = editor.render();
-  assert.match(output, /^Hello\n=====/);
+  assert.match(output, /^# Hello/);
   assert.match(output, /\* x\n\n\* y/);
-  assert.match(output, /~~~js\nx\n~~~/);
-  assert.match(output, /\|A\|B\|/);
+  assert.match(output, /```js\nx\n```/);
+  assert.match(output, /\| A \| B \|/);
 });
 
 function ensureSaved(text) {

@@ -1,3 +1,7 @@
+import { parse as parseYaml } from "yaml";
+
+import { makeParseError } from "../SyntaxError.mjs";
+
 function newlineLength(text, index) {
   if (text[index] === "\r" && text[index + 1] === "\n") {
     return 2;
@@ -97,6 +101,55 @@ function makeNode(type, fields, start, end) {
   };
 }
 
+function yamlData(raw, start) {
+  let data;
+  try {
+    data = parseYaml(raw);
+  } catch (error) {
+    const point = error?.linePos?.[0];
+    throw makeParseError(`invalid YAML frontmatter: ${error.message}`, {
+      line: point ? start.line + point.line : start.line + 1,
+      column: point?.col ?? 1,
+    });
+  }
+  if (data == null && raw.trim() === "") {
+    return {};
+  }
+  if (data == null || typeof data !== "object" || Array.isArray(data)) {
+    throw makeParseError("YAML frontmatter must contain an object", {
+      line: start.line + 1,
+      column: 1,
+    });
+  }
+  return data;
+}
+
+export function parseFrontmatter(source = "") {
+  const text = String(source);
+  const lines = splitLines(text);
+  if (!lines.length || !/^\uFEFF?---[ \t]*$/.test(lines[0].text)) {
+    return null;
+  }
+  for (let index = 1; index < lines.length; index++) {
+    if (!/^(?:---|\.\.\.)[ \t]*$/.test(lines[index].text)) {
+      continue;
+    }
+    const raw = text.slice(lines[0].lineEnd.offset, lines[index].start.offset);
+    const node = makeNode(
+      "frontmatter",
+      { format: "yaml", raw, content: raw, data: yamlData(raw, lines[0].start) },
+      lines[0].start,
+      lines[index].end,
+    );
+    Object.defineProperty(node, "source", {
+      value: text.slice(lines[0].start.offset, lines[index].end.offset),
+      enumerable: false,
+    });
+    return node;
+  }
+  return null;
+}
+
 function virtualLine(line, text, prefixLen) {
   return {
     text,
@@ -177,6 +230,8 @@ export function flattenNode(node) {
       return node.value ?? "";
     case "thematic_break":
       return "";
+    case "frontmatter":
+      return node.raw ?? "";
     case "image":
       return node.alt ?? "";
     case "list":
@@ -1260,12 +1315,28 @@ function parseBlockSequence(source, lines, from, to) {
 export function parseMarkdown(source = "") {
   const text = String(source);
   const lines = splitLines(text);
-  const children = parseBlockSequence(text, lines, 0, lines.length);
+  const frontmatter = parseFrontmatter(text);
+  let from = 0;
+  if (frontmatter) {
+    while (from < lines.length && lines[from].start.offset <= frontmatter.position.end.offset) {
+      from += 1;
+    }
+  }
+  const children = parseBlockSequence(text, lines, from, lines.length);
+  if (frontmatter) {
+    children.unshift(frontmatter);
+  }
   return makeNode("document", { children }, { offset: 0, line: 1, column: 1 }, endPosition(text));
 }
 
 export function parseNextBlock(source, offset = 0) {
   const text = String(source);
+  if (offset === 0) {
+    const frontmatter = parseFrontmatter(text);
+    if (frontmatter) {
+      return frontmatter;
+    }
+  }
   const lines = splitLines(text);
   let i = 0;
   while (i < lines.length && lines[i].lineEnd.offset <= offset) {

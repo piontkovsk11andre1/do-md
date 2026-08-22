@@ -111,6 +111,65 @@ import {
 reachable as `@p10i/do-md/sources/Reader.mjs` (and the other top-level
 `sources/*.mjs` files) for tree-shaking.
 
+### Structured Markdown
+
+Templates can capture nested lists without flattening their block structure:
+
+```md
+{% doc.listTree().as("tasks") %}
+```
+
+The value contains `ordered`, `start`, `tight`, and `items`. Each item contains
+its `checked` state and Markdown AST `children`, including nested lists. The
+existing `doc.list()` remains available for flat `string[]` values.
+
+YAML frontmatter can be captured and validated with any schema exposing a
+`safeParse(value)` method, including Zod schemas:
+
+```md
+{% doc.frontmatter({ schema: options.frontmatterSchema }).as("metadata") %}
+```
+
+Frontmatter is recognized only at the start of a document. Unchanged raw YAML
+is retained; changed structured data is serialized as YAML.
+
+Opaque source regions are available when a template must preserve syntax that
+do-md should not parse:
+
+```md
+{% doc.rawUntil("## Generated").as("preamble") %}## Generated
+
+{% doc.rawBlock().as("customBlock") %}
+{% doc.rawRest().as("trailing") %}
+```
+
+Raw values are emitted without Markdown normalization. Successful command
+parses must consume the complete document; non-whitespace trailing content is
+reported as a parse error.
+
+### Safe Editing
+
+`Editor` retains BOMs, line endings, whitespace, and final-newline state.
+Scalar edits and structural edits to lists, tables, and template scopes replace
+only their recorded source spans. Opaque content outside those spans remains
+unchanged.
+
+Writes use atomic replacement when the I/O adapter supports it. `Editor.open()`
+captures a content revision and `save()` rejects concurrent changes with
+`DO_MD_CONFLICT`; use `save({ force: true })` only for an intentional overwrite.
+The built-in `NodeFilesystem` and `Virtual` adapters implement snapshot and
+atomic-write APIs:
+
+```js
+const { content, revision } = await io.readFileSnapshotAsync(path)
+await io.writeFileAtomicAsync(path, nextContent, {
+    expectedRevision: revision,
+})
+```
+
+The package includes strict ESM TypeScript declarations for the root API and
+all exported `sources/*.mjs` subpaths.
+
 ## MCP
 
 The bundled MCP server uses the official Model Context Protocol SDK over local
@@ -148,7 +207,7 @@ do-md mcp --root <dir> [--max-input-bytes <n>] [--timeout-ms <n>] [--no-snippets
 | `1`  | User error (bad arguments, missing file) | `DO_MD_USER_ERROR`     |
 | `2`  | Parse / validation error in the document | `DO_MD_PARSE_ERROR`    |
 | `3`  | Template error (wrap or runtime)         | `DO_MD_TEMPLATE_ERROR` |
-| `4`  | I/O error (permission denied, disk full) | `DO_MD_IO_ERROR`       |
+| `4`  | I/O error or concurrent-write conflict  | `DO_MD_IO_ERROR`, `DO_MD_CONFLICT` |
 
 ## License
 

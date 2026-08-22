@@ -28,11 +28,25 @@ export function commandIo(io, { suppressWrites = false, hidePaths = [] } = {}) {
     readFileAsync(path, options) {
       return io.readFileAsync(path, options);
     },
+    readFileSnapshotAsync(path, options) {
+      return typeof io.readFileSnapshotAsync === "function"
+        ? io.readFileSnapshotAsync(path, options)
+        : io.readFileAsync(path, options).then((content) => ({ content, revision: null }));
+    },
     writeFileAsync(path, content, options) {
       if (suppressWrites) {
         return sink.writeFileAsync(path, content, options);
       }
       return io.writeFileAsync(path, content, options);
+    },
+    writeFileAtomicAsync(path, content, options) {
+      if (suppressWrites) {
+        return sink.writeFileAtomicAsync(path, content, { force: true });
+      }
+      if (typeof io.writeFileAtomicAsync === "function") {
+        return io.writeFileAtomicAsync(path, content, options);
+      }
+      return io.writeFileAsync(path, content, options).then(() => ({ revision: null }));
     },
     statAsync(path) {
       if (hidden.has(path)) {

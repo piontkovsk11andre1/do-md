@@ -8,6 +8,7 @@ import {
   requireIo,
   resolvePath,
   success,
+  writeText,
   wrapTemplate,
 } from "./helpers.mjs";
 
@@ -36,6 +37,6 @@ export async function render({ io, file, parseTemplate, renderTemplate, outFile,
   const context = reader.context;
   const writer = renderSource(context, renderFn, { templatePath: renderPath, options, io });
   const output = writer.toString();
-  await io.writeFileAsync(dest, ensureTrailingNewline(output));
+  await writeText(io, dest, ensureTrailingNewline(output), { force: true });
   return success({ output, context });
 }

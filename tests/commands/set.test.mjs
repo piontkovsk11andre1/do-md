@@ -341,6 +341,6 @@ test("set honors Writer serializer settings on a structural list mutation", asyn
   });
 
   assert.equal(result.ok, true);
-  assert.match(result.output, /^Hello\n=====/);
+  assert.match(result.output, /^# Hello/);
   assert.match(result.output, /\* x\n\n\* y/);
 });

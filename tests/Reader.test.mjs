@@ -263,6 +263,75 @@ test("list returns one flattened string per item and binds with as", () => {
   assert.deepEqual(reader.context, { items: ["one", "two x"] });
 });
 
+test("listTree returns structured items with position-stripped block children", () => {
+  const reader = new Reader("3. [x] parent\n   - child *em*\n4. next\n");
+  const slot = reader.listTree().as("tree");
+  assert.equal(slot.leafType, "listTree");
+  assert.equal(slot.value.ordered, true);
+  assert.equal(slot.value.start, 3);
+  assert.equal(slot.value.tight, true);
+  assert.equal(slot.value.items[0].checked, true);
+  assert.equal(slot.value.items[0].children[0].type, "paragraph");
+  assert.equal(slot.value.items[0].children[0].position, undefined);
+  assert.equal(slot.value.items[0].children[1].type, "list");
+  assert.equal(slot.value.items[0].children[1].children[0].position, undefined);
+  assert.deepEqual(reader.context.tree, slot.value);
+  assert.equal(reader.list, Reader.prototype.list);
+});
+
+test("frontmatter returns raw YAML and structured data and accepts safeParse schemas", () => {
+  const source = "---\r\ntitle: Hello\r\ncount: 2\r\n---\r\nBody";
+  const schema = {
+    safeParse(data) {
+      return data.count === 2 ? { success: true, data: { ...data, valid: true } } : { success: false };
+    },
+  };
+  const reader = new Reader(source);
+  const slot = reader.frontmatter({ schema }).as("meta");
+  assert.equal(slot.leafType, "frontmatter");
+  assert.equal(slot.value.format, "yaml");
+  assert.equal(slot.value.raw, "title: Hello\r\ncount: 2\r\n");
+  assert.equal(slot.value.content, slot.value.raw);
+  assert.deepEqual(slot.value.data, { title: "Hello", count: 2, valid: true });
+  assert.equal(slot.sourceOffsetStart, 0);
+  assert.equal(reader.remaining(), "\r\nBody");
+
+  assert.throws(
+    () => new Reader("---\nx: 1\n---").frontmatter({ safeParse: () => ({ success: false }) }),
+    (error) => error.code === ERROR_CODES.DO_MD_PARSE_ERROR,
+  );
+  assert.throws(
+    () => new Reader("---\nx: 1\n---").frontmatter({ safeParse: () => ({ success: true }) }),
+    (error) => error.code === ERROR_CODES.DO_MD_PARSE_ERROR,
+  );
+  const late = new Reader("x\n---\ny: 1\n---");
+  late.literal("x\n");
+  assert.equal(late.frontmatter().value, null);
+});
+
+test("raw slots capture exact source ranges and assertConsumed reports the cursor", () => {
+  const reader = new Reader("a  \r\n--cut--\r\n# H\r\ntail", { file: "doc.md" });
+  const before = reader.rawUntil("--cut--");
+  assert.equal(before.value, "a  \r\n");
+  assert.deepEqual([before.sourceOffsetStart, before.sourceOffsetEnd], [0, 5]);
+  reader.literal("--cut--\r\n");
+  assert.equal(reader.rawBlock().value, "# H");
+  reader.literal("\r\n");
+  assert.equal(reader.rawRest().value, "tail");
+  assert.equal(reader.assertConsumed(), true);
+
+  const trailing = new Reader("ok\n  ");
+  trailing.literal("ok");
+  assert.equal(trailing.assertConsumed(), true);
+  assert.equal(trailing.offset, trailing.source.length);
+  const strict = new Reader("ok\n", { file: "strict.md" });
+  strict.literal("ok");
+  assert.equal(strict.assertConsumed({ trailingWhitespace: false }), false);
+  assert.equal(strict.errors[0].file, "strict.md");
+  assert.equal(strict.errors[0].line, 1);
+  assert.equal(strict.errors[0].column, 3);
+});
+
 test("table returns headers, rows, and align", () => {
   const reader = new Reader("| A | B | C | D |\n| :--- | ---: | :---: | --- |\n| 1 | 2 | 3 | 4 |\n");
   const slot = reader.table();
@@ -563,6 +632,47 @@ test("scope sets an empty array when zero iterations commit", () => {
   });
   assert.deepEqual(reader.context.chapters, []);
   assert.equal(reader.offset, 0);
+});
+
+test("scope regionMap records total, element, empty, and nested source spans", () => {
+  const reader = new Reader("## One\n### A\n### B\nEND");
+  reader.scope("chapters", (chapter) => {
+    chapter.heading(2).as("name");
+    chapter.literal("\n");
+    chapter.scope("sections", (section) => {
+      section.heading(3).as("name");
+      section.literal("\n");
+    });
+  });
+
+  const chapters = reader.regionMap.find((region) => region.path === "chapters");
+  const sections = reader.regionMap.find((region) => region.path === "chapters[0].sections");
+  assert.deepEqual(
+    { start: chapters.sourceOffsetStart, end: chapters.sourceOffsetEnd, elements: chapters.elements },
+    {
+      start: 0,
+      end: 19,
+      elements: [{ path: "chapters[0]", sourceOffsetStart: 0, sourceOffsetEnd: 19 }],
+    },
+  );
+  assert.deepEqual(sections.elements, [
+    { path: "chapters[0].sections[0]", sourceOffsetStart: 7, sourceOffsetEnd: 13 },
+    { path: "chapters[0].sections[1]", sourceOffsetStart: 13, sourceOffsetEnd: 19 },
+  ]);
+
+  const empty = new Reader("tail");
+  empty.scope("items", (item) => item.heading(2).as("name"));
+  assert.deepEqual(empty.regionMap, [{
+    key: "items",
+    path: "items",
+    sourceOffsetStart: 0,
+    sourceOffsetEnd: 0,
+    elements: [],
+  }]);
+  empty.optional(() => {
+    empty.scope("discarded", (item) => item.heading(2).as("name"));
+  });
+  assert.equal(empty.regionMap.some((region) => region.path === "discarded"), false);
 });
 
 test("scope collides with as at the same level", () => {

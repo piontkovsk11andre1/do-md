@@ -83,8 +83,8 @@ test("maxInputBytes counts UTF-8 bytes, not JS string length", async () => {
 
 test("maxInputBytes uses raw bytes, not post-normalize length", async () => {
   const raw = "Hello";
-  const normalized = "Hello\n";
-  assert.ok(utf8ByteLength(normalized) > utf8ByteLength(raw));
+  const previousNormalized = "Hello\n";
+  assert.ok(utf8ByteLength(previousNormalized) > utf8ByteLength(raw));
   const io = new Virtual(files(raw));
   const editor = await Editor.open({
     io,
@@ -92,7 +92,7 @@ test("maxInputBytes uses raw bytes, not post-normalize length", async () => {
     template: "/tpl.md",
     options: { maxInputBytes: underLimit(raw, TEMPLATE) },
   });
-  assert.equal(editor.originalSource, normalized);
+  assert.equal(editor.originalSource, raw);
   await assert.rejects(
     () =>
       readText(new Virtual({ "/doc.md": "\uFEFFHello\n" }), "/doc.md", {
@@ -219,7 +219,7 @@ test("Markdown documents are data and are never executed", async () => {
     '{% doc.line().as("script") %}',
     '{% doc.line().as("block") %}',
   ].join("\n");
-  const htmlTpl = "{% doc.htmlBlock().as(\"html\") %}\n{% doc.optional() %}\n";
+  const htmlTpl = "{% doc.htmlBlock().as(\"html\") %}\n{% doc.rawRest().as(\"remainder\") %}";
   const htmlDoc = "<div>\n<script>alert(1)</script>\n\nAfter\n";
   const io = new Virtual({
     "/doc.md": `${payload}\n`,

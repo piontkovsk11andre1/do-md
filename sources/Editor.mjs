@@ -1,8 +1,7 @@
-import { Reader } from "./Reader.mjs";
 import { Template } from "./Template.mjs";
 import { Writer } from "./Writer.mjs";
 import { ERROR_CODES, fromNativeError, makeUserError } from "./SyntaxError.mjs";
-import { readText } from "./commands/helpers.mjs";
+import { parseSource, readText, readTextSnapshot, wrapTemplate, writeText } from "./commands/helpers.mjs";
 
 const SAFE_KEY = /^[A-Za-z_][A-Za-z0-9_-]*$/;
 
@@ -229,6 +228,19 @@ const STRING_LEAF_TYPES = new Set([
   "htmlBlock",
   "codeSpan",
   "autolink",
+  "rawUntil",
+  "rawBlock",
+  "rawRest",
+]);
+
+const AGGREGATE_LEAF_TYPES = new Set([
+  "list",
+  "listTree",
+  "table",
+  "frontmatter",
+  "rawUntil",
+  "rawBlock",
+  "rawRest",
 ]);
 
 function matchesTableShape(value) {
@@ -255,6 +267,45 @@ function matchesTableShape(value) {
   return true;
 }
 
+function matchesListTreeShape(value) {
+  if (!isPlainObject(value) || !Array.isArray(value.items)) {
+    return false;
+  }
+  if (value.ordered === true && value.start != null && (!Number.isInteger(value.start) || value.start < 0)) {
+    return false;
+  }
+  return value.items.every((item) =>
+    isPlainObject(item) &&
+    Array.isArray(item.children) &&
+    (item.checked == null || typeof item.checked === "boolean"));
+}
+
+function matchesFrontmatterShape(value) {
+  if (!isPlainObject(value)) {
+    return false;
+  }
+  const structured =
+    value.format === "yaml" &&
+    Object.hasOwn(value, "data") &&
+    Object.hasOwn(value, "raw") &&
+    Object.hasOwn(value, "content");
+  return !structured || isPlainObject(value.data);
+}
+
+function overlayParsedContext(current, parsed) {
+  if (Array.isArray(parsed)) {
+    return parsed.map((value, index) => overlayParsedContext(current?.[index], value));
+  }
+  if (isPlainObject(parsed)) {
+    const out = isPlainObject(current) ? cloneValue(current) : {};
+    for (const [key, value] of Object.entries(parsed)) {
+      out[key] = overlayParsedContext(current?.[key], value);
+    }
+    return out;
+  }
+  return cloneValue(parsed);
+}
+
 function matchesLeafShape(leafType, value) {
   if (STRING_LEAF_TYPES.has(leafType)) {
     return typeof value === "string";
@@ -262,6 +313,10 @@ function matchesLeafShape(leafType, value) {
   switch (leafType) {
     case "list":
       return isStringArray(value);
+    case "listTree":
+      return matchesListTreeShape(value);
+    case "frontmatter":
+      return matchesFrontmatterShape(value);
     case "checkbox":
       return typeof value === "boolean";
     case "thematicBreak":
@@ -279,16 +334,21 @@ function matchesLeafShape(leafType, value) {
   }
 }
 
-function requireKnownPath(slotMap, path) {
+function requireKnownPath(slotMap, path, regionMap = []) {
   const lookup = lookupSlot(slotMap, path);
   if (lookup.kind === "unknown") {
+    const normalized = formatPath(tokenizePath(path));
+    const region = regionMap.find((item) => item.path === normalized);
+    if (region) {
+      return { kind: "region", slot: null, region };
+    }
     throw makeUserError(`unknown slot: ${path}`);
   }
   return lookup;
 }
 
-function requireArrayAtPath(slotMap, ctx, path) {
-  const lookup = requireKnownPath(slotMap, path);
+function requireArrayAtPath(slotMap, regionMap, ctx, path) {
+  const lookup = requireKnownPath(slotMap, path, regionMap);
   if (lookup.kind === "exact" && lookup.slot.leafType !== "list") {
     throw makeUserError(`type mismatch: ${path}`);
   }
@@ -307,6 +367,9 @@ function requireIndex(index, path) {
 }
 
 function isStructuralSet(lookup, path, value, ctx) {
+  if (lookup.kind === "region") {
+    return true;
+  }
   if (lookup.kind === "descendant") {
     return true;
   }
@@ -352,11 +415,6 @@ function deepMerge(target, source, prefix = "") {
   return base;
 }
 
-function ensureTrailingNewline(text) {
-  const value = String(text ?? "");
-  return value.endsWith("\n") ? value : `${value}\n`;
-}
-
 function headingLevelForSlot(slot, source) {
   if (Number.isInteger(slot.headingLevel) && slot.headingLevel >= 1) {
     return Math.min(6, slot.headingLevel);
@@ -394,7 +452,9 @@ export class Editor {
     this.options = options ?? {};
     this.writer = new Writer(context, this.options);
     this.slotMap = [];
+    this.regionMap = [];
     this.originalSource = "";
+    this.revision = null;
     this._journal = [];
     this._structuralDirty = false;
   }
@@ -471,11 +531,11 @@ export class Editor {
       throw makeUserError("missing template");
     }
 
-    const source = await readText(io, file, options);
+    const snapshot = await readTextSnapshot(io, file, options);
+    const source = snapshot.content;
     const templateSource = await readText(io, template, options);
-    const fn = Template.wrap(templateSource, template);
-    const reader = new Reader(source, { ...(options ?? {}), file });
-    runTemplate(fn, reader, reader.context, null, options, io, template);
+    const fn = wrapTemplate(templateSource, template);
+    const reader = parseSource(source, fn, { file, templatePath: template, options, io });
 
     if (reader.errors.length > 0) {
       const first = reader.errors[0];
@@ -486,7 +546,12 @@ export class Editor {
     const editor = new Editor({ io, file, template, context: reader.context, options });
     editor.templateSource = templateSource;
     editor.slotMap = reader.slotMap.map((slot) => ({ ...slot }));
+    editor.regionMap = reader.regionMap.map((region) => ({
+      ...region,
+      elements: region.elements.map((element) => ({ ...element })),
+    }));
     editor.originalSource = source;
+    editor.revision = snapshot.revision;
     return editor;
   }
 
@@ -498,7 +563,9 @@ export class Editor {
     if (getAtPath(this._context, path) !== undefined) {
       return true;
     }
-    return lookupSlot(this.slotMap, path).kind !== "unknown";
+    const normalized = formatPath(tokenizePath(path));
+    return lookupSlot(this.slotMap, normalized).kind !== "unknown" ||
+      this.regionMap.some((region) => region.path === normalized);
   }
 
   keys() {
@@ -517,11 +584,21 @@ export class Editor {
       seen.add(top);
       out.push(top);
     }
+    for (const region of this.regionMap) {
+      const top = tokenizePath(region.path)[0];
+      if (typeof top === "string" && !seen.has(top)) {
+        seen.add(top);
+        out.push(top);
+      }
+    }
     return out;
   }
 
   set(path, value) {
-    const lookup = requireKnownPath(this.slotMap, path);
+    const lookup = requireKnownPath(this.slotMap, path, this.regionMap);
+    if (lookup.kind === "region" && !Array.isArray(value)) {
+      throw makeUserError(`type mismatch: ${path}`);
+    }
     if (lookup.kind === "exact" && !matchesLeafShape(lookup.slot.leafType, value)) {
       throw makeUserError(`type mismatch: ${path}`);
     }
@@ -567,7 +644,7 @@ export class Editor {
   }
 
   delete(path) {
-    requireKnownPath(this.slotMap, path);
+    requireKnownPath(this.slotMap, path, this.regionMap);
     const before = getAtPath(this._context, path);
     this._structuralDirty = true;
     deleteAtPath(this._context, path);
@@ -576,7 +653,7 @@ export class Editor {
   }
 
   append(path, value) {
-    const target = requireArrayAtPath(this.slotMap, this._context, path);
+    const target = requireArrayAtPath(this.slotMap, this.regionMap, this._context, path);
     const before = cloneValue(target);
     this._structuralDirty = true;
     target.push(cloneValue(value));
@@ -585,7 +662,7 @@ export class Editor {
   }
 
   prepend(path, value) {
-    const target = requireArrayAtPath(this.slotMap, this._context, path);
+    const target = requireArrayAtPath(this.slotMap, this.regionMap, this._context, path);
     const before = cloneValue(target);
     this._structuralDirty = true;
     target.unshift(cloneValue(value));
@@ -594,7 +671,7 @@ export class Editor {
   }
 
   insert(path, index, value) {
-    const target = requireArrayAtPath(this.slotMap, this._context, path);
+    const target = requireArrayAtPath(this.slotMap, this.regionMap, this._context, path);
     const at = requireIndex(index, path);
     const before = cloneValue(target);
     this._structuralDirty = true;
@@ -604,7 +681,7 @@ export class Editor {
   }
 
   move(path, fromIndex, toIndex) {
-    const target = requireArrayAtPath(this.slotMap, this._context, path);
+    const target = requireArrayAtPath(this.slotMap, this.regionMap, this._context, path);
     const from = requireIndex(fromIndex, path);
     const to = requireIndex(toIndex, path);
     if (from >= target.length) {
@@ -641,43 +718,67 @@ export class Editor {
     return this._compose();
   }
 
-  async save({ to = null } = {}) {
-    if (!this.io?.writeFileAsync) {
+  async save({ to = null, force = false } = {}) {
+    if (!this.io?.writeFileAsync && !this.io?.writeFileAtomicAsync) {
       throw makeUserError("Editor.save requires io");
     }
 
     const outputPath = to ?? this.file;
     const text = this.render();
-    await this.io.writeFileAsync(outputPath, ensureTrailingNewline(text));
+    const samePath = outputPath === this.file;
+    const writeOptions = samePath
+      ? force === true ? { force: true } : { expectedRevision: this.revision }
+      : { force: true };
+    const committed = await writeText(this.io, outputPath, text, writeOptions);
+    this._rebase(outputPath, text, committed?.revision ?? null);
   }
 
   _compose() {
-    if (this._structuralDirty) {
-      return this._renderFull();
-    }
-    const splices = this._scalarSplices();
+    const splices = this._splices();
     if (splices == null) {
       return this._renderFull();
     }
     return applySplices(this.originalSource, splices);
   }
 
-  _scalarSplices() {
+  _splices() {
     const latest = new Map();
+    const regions = new Map();
     for (const entry of this._journal) {
-      if (entry.structural || entry.deleted) {
+      const lookup = lookupSlot(this.slotMap, entry.path);
+      if (lookup.kind === "unknown") {
+        const region = this._enclosingRegion(entry.path);
+        if (!region) {
+          return null;
+        }
+        regions.set(region.path, region);
+        continue;
+      }
+      if (!entry.structural && !entry.deleted && lookup.kind === "exact") {
+        latest.set(entry.path, { path: entry.path, slot: lookup.slot });
+        continue;
+      }
+      if (lookup.slot && AGGREGATE_LEAF_TYPES.has(lookup.slot.leafType)) {
+        latest.set(lookup.slot.key, { path: lookup.slot.key, slot: lookup.slot });
+        continue;
+      }
+      const region = this._enclosingRegion(entry.path);
+      if (!region) {
         return null;
       }
-      latest.set(entry.path, entry);
+      regions.set(region.path, region);
+    }
+
+    const selectedRegions = [...regions.values()].filter((region, _index, all) =>
+      !all.some((parent) => parent !== region && isPathPrefix(parent.path, region.path)));
+    for (const { path } of latest.values()) {
+      if (selectedRegions.some((region) => region.path === path || isPathPrefix(region.path, path))) {
+        latest.delete(path);
+      }
     }
 
     const splices = [];
-    for (const path of latest.keys()) {
-      const lookup = lookupSlot(this.slotMap, path);
-      if (lookup.kind !== "exact") {
-        return null;
-      }
-      const slot = lookup.slot;
+    for (const { path, slot } of latest.values()) {
       const start = Number(slot.sourceOffsetStart);
       const end = Number(slot.sourceOffsetEnd);
       if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) {
@@ -694,13 +795,45 @@ export class Editor {
       });
     }
 
+    if (selectedRegions.length > 0) {
+      const rendered = this._renderFull();
+      for (const region of selectedRegions) {
+        const outputRegion = this.writer.regionMap.find((candidate) => candidate.path === region.path);
+        if (!outputRegion) {
+          return null;
+        }
+        const start = Number(region.sourceOffsetStart);
+        const end = Number(region.sourceOffsetEnd);
+        const outputStart = Number(outputRegion.outputOffsetStart);
+        const outputEnd = Number(outputRegion.outputOffsetEnd);
+        if (![start, end, outputStart, outputEnd].every(Number.isFinite) || end < start || outputEnd < outputStart) {
+          return null;
+        }
+        splices.push({ start, end, replacement: rendered.slice(outputStart, outputEnd) });
+      }
+    }
+
     splices.sort((a, b) => b.start - a.start || b.end - a.end);
     for (let i = 1; i < splices.length; i++) {
-      if (splices[i].end > splices[i - 1].start) {
+      if (splices[i].end > splices[i - 1].start ||
+          (splices[i].start === splices[i].end && splices[i].start === splices[i - 1].start)) {
         return null;
       }
     }
     return splices;
+  }
+
+  _enclosingRegion(path) {
+    let match = null;
+    for (const region of this.regionMap) {
+      if (region.path !== path && !isPathPrefix(region.path, path)) {
+        continue;
+      }
+      if (!match || region.path.length > match.path.length) {
+        match = region;
+      }
+    }
+    return match;
   }
 
   _renderSlot(slot, value) {
@@ -712,11 +845,39 @@ export class Editor {
   }
 
   _renderFull() {
-    const fn = Template.wrap(this.templateSource, this.template);
+    const fn = wrapTemplate(this.templateSource, this.template);
     const writer = new Writer(this._context, { ...(this.options ?? {}), file: this.template });
     runTemplate(fn, writer, this._context, this._context, this.options, this.io, this.template);
     this.writer = writer;
     return writer.toMarkdown();
+  }
+
+  _rebase(file, source, revision) {
+    const fn = wrapTemplate(this.templateSource, this.template);
+    const reader = parseSource(source, fn, {
+      file,
+      templatePath: this.template,
+      options: this.options,
+      io: this.io,
+    });
+    if (reader.errors.length > 0) {
+      const first = reader.errors[0];
+      first.errors = reader.errors;
+      throw first;
+    }
+    this.file = file;
+    this.revision = revision;
+    this.originalSource = source;
+    this.slotMap = reader.slotMap.map((slot) => ({ ...slot }));
+    this.regionMap = reader.regionMap.map((region) => ({
+      ...region,
+      elements: region.elements.map((element) => ({ ...element })),
+    }));
+    this._context = overlayParsedContext(this._context, reader.context);
+    this._original = cloneValue(this._context);
+    this._journal = [];
+    this._structuralDirty = false;
+    this.writer = new Writer(reader.context, this.options);
   }
 }
 

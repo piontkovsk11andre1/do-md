@@ -79,6 +79,20 @@ test("create overwrites when force is true", async () => {
   assert.ok(!String(await io.readFileAsync("/out.md")).includes("old"));
 });
 
+test("create uses an atomic ifAbsent write to reject a creation race", async () => {
+  const io = new Virtual({ "/tpl.md": TEMPLATE });
+  const atomic = io.writeFileAtomicAsync.bind(io);
+  io.writeFileAtomicAsync = async (path, content, options) => {
+    await io.writeFileAsync(path, "# raced\n");
+    return atomic(path, content, options);
+  };
+  await assert.rejects(
+    () => create({ io, file: "/out.md", template: "/tpl.md", data: { title: "Hello" } }),
+    (err) => err.code === ERROR_CODES.DO_MD_CONFLICT,
+  );
+  assert.equal(await io.readFileAsync("/out.md"), "# raced\n");
+});
+
 test("create rejects missing arguments with DO_MD_USER_ERROR", async () => {
   await assert.rejects(() => create({}), (err) => err.code === ERROR_CODES.DO_MD_USER_ERROR);
   await assert.rejects(

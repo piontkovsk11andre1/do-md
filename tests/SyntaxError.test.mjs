@@ -16,6 +16,7 @@ import { Virtual } from "../sources/IO/Virtual.mjs";
 import { Reader } from "../sources/Reader.mjs";
 import {
   createIoError,
+  createConflictError,
   ERROR_CODES,
   fromNativeError,
   locationFromStack,
@@ -149,10 +150,12 @@ test("library error codes are the only exported codes", () => {
     DO_MD_PARSE_ERROR: "DO_MD_PARSE_ERROR",
     DO_MD_TEMPLATE_ERROR: "DO_MD_TEMPLATE_ERROR",
     DO_MD_IO_ERROR: "DO_MD_IO_ERROR",
+    DO_MD_CONFLICT: "DO_MD_CONFLICT",
   });
   assert.equal(makeParseError("no match", { file: "a.md", line: 2, column: 1 }).code, ERROR_CODES.DO_MD_PARSE_ERROR);
   assert.equal(makeTemplateError("double bind", { file: "a.tpl.md", line: 5, column: 3 }).code, ERROR_CODES.DO_MD_TEMPLATE_ERROR);
   assert.equal(createIoError("ENOENT").code, ERROR_CODES.DO_MD_IO_ERROR);
+  assert.equal(createConflictError("stale", { file: "a.md" }).code, ERROR_CODES.DO_MD_CONFLICT);
 });
 
 test("locationFromStack prefers the sourceURL template frame", () => {
@@ -200,6 +203,7 @@ test("fromNativeError reports template path and line", () => {
 
 test("MCP-only codes are remapped and absent from ERROR_CODES", () => {
   assert.deepEqual(Object.keys(ERROR_CODES).sort(), [
+    "DO_MD_CONFLICT",
     "DO_MD_IO_ERROR",
     "DO_MD_PARSE_ERROR",
     "DO_MD_TEMPLATE_ERROR",

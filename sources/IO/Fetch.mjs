@@ -1,4 +1,4 @@
-import { resolveIoPath } from "../IO.mjs";
+import { createContentRevision, resolveIoPath } from "../IO.mjs";
 import { createIoError, ERROR_CODES } from "../SyntaxError.mjs";
 
 function isAbsoluteUrl(value) {
@@ -27,6 +27,15 @@ export class Fetch {
   }
 
   async writeFileAsync(path) {
+    throw createIoError("Fetch IO is read-only", ERROR_CODES.DO_MD_IO_ERROR, { file: path });
+  }
+
+  async readFileSnapshotAsync(path, options = {}) {
+    const content = await this.readFileAsync(path, options);
+    return { content, revision: createContentRevision(content) };
+  }
+
+  async writeFileAtomicAsync(path) {
     throw createIoError("Fetch IO is read-only", ERROR_CODES.DO_MD_IO_ERROR, { file: path });
   }
 

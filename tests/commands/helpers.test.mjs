@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { create } from "../../sources/commands/create.mjs";
 import { exportDoc } from "../../sources/commands/exportDoc.mjs";
-import { normalizeDocument, readText, utf8ByteLength } from "../../sources/commands/helpers.mjs";
+import { normalizeDocument, parseSource, readText, utf8ByteLength, wrapTemplate, writeText } from "../../sources/commands/helpers.mjs";
 import { Editor } from "../../sources/Editor.mjs";
 import { Virtual } from "../../sources/IO/Virtual.mjs";
 import { ERROR_CODES } from "../../sources/SyntaxError.mjs";
@@ -43,26 +43,25 @@ async function roundtrip2(raw, template = LINE_TPL) {
   return { parsed, rendered };
 }
 
-test("normalizeDocument strips a leading BOM", () => {
-  assert.equal(normalizeDocument("\uFEFFhello\n"), "hello\n");
+test("normalizeDocument preserves a leading BOM", () => {
+  assert.equal(normalizeDocument("\uFEFFhello\n"), "\uFEFFhello\n");
   assert.equal(normalizeDocument("a\uFEFFb\n"), "a\uFEFFb\n");
 });
 
-test("normalizeDocument converts CRLF and CR to LF", () => {
-  assert.equal(normalizeDocument("a\r\nb\rc\n"), "a\nb\nc\n");
+test("normalizeDocument preserves mixed line endings", () => {
+  assert.equal(normalizeDocument("a\r\nb\rc\n"), "a\r\nb\rc\n");
 });
 
-test("normalizeDocument converts CR-only input to LF", () => {
-  assert.equal(normalizeDocument("alpha\rbeta\r"), "alpha\nbeta\n");
-  assert.equal(normalizeDocument("alpha\rbeta"), "alpha\nbeta\n");
-  assert.ok(!normalizeDocument("alpha\rbeta\r").includes("\r"));
+test("normalizeDocument preserves CR-only input", () => {
+  assert.equal(normalizeDocument("alpha\rbeta\r"), "alpha\rbeta\r");
+  assert.equal(normalizeDocument("alpha\rbeta"), "alpha\rbeta");
 });
 
-test("normalizeDocument ensures a final LF", () => {
-  assert.equal(normalizeDocument("hello"), "hello\n");
+test("normalizeDocument preserves final-newline state", () => {
+  assert.equal(normalizeDocument("hello"), "hello");
   assert.equal(normalizeDocument("hello\n"), "hello\n");
-  assert.equal(normalizeDocument(""), "\n");
-  assert.equal(normalizeDocument("\uFEFF"), "\n");
+  assert.equal(normalizeDocument(""), "");
+  assert.equal(normalizeDocument("\uFEFF"), "\uFEFF");
 });
 
 test("normalizeDocument does not NFC-normalize", () => {
@@ -74,25 +73,25 @@ test("normalizeDocument does not NFC-normalize", () => {
 
 test("normalizeDocument preserves trailing spaces and intra-line whitespace", () => {
   assert.equal(normalizeDocument("caf\u00e9  \n"), "caf\u00e9  \n");
-  assert.equal(normalizeDocument("hello  \t  \nworld   "), "hello  \t  \nworld   \n");
+  assert.equal(normalizeDocument("hello  \t  \nworld   "), "hello  \t  \nworld   ");
 });
 
-test("readText returns stripped LF source with a final LF", async () => {
+test("readText returns exact source bytes", async () => {
   const io = new Virtual({ "/doc.md": "\uFEFFa\r\nb\rc" });
-  assert.equal(await readText(io, "/doc.md"), "a\nb\nc\n");
+  assert.equal(await readText(io, "/doc.md"), "\uFEFFa\r\nb\rc");
 });
 
-test("readText converts CR-only input to LF", async () => {
+test("readText preserves CR-only input", async () => {
   const raw = "alpha\rbeta\r";
-  assert.equal(await readDoc(raw), "alpha\nbeta\n");
+  assert.equal(await readDoc(raw), raw);
   assert.ok(!raw.includes("\n"));
-  assert.ok(!(await readDoc(raw)).includes("\r"));
+  assert.ok((await readDoc(raw)).includes("\r"));
 });
 
-test("readText inserts a final LF when the input has none", async () => {
-  assert.equal(await readDoc("hello"), "hello\n");
+test("readText preserves a missing final LF", async () => {
+  assert.equal(await readDoc("hello"), "hello");
   assert.equal(await readDoc("hello\n"), "hello\n");
-  assert.equal(await readDoc(""), "\n");
+  assert.equal(await readDoc(""), "");
 });
 
 test("readText preserves precomposed and decomposed Unicode separately", async () => {
@@ -104,19 +103,19 @@ test("readText preserves precomposed and decomposed Unicode separately", async (
 });
 
 test("readText preserves trailing spaces", async () => {
-  assert.equal(await readDoc("Hello  \nworld   "), "Hello  \nworld   \n");
+  assert.equal(await readDoc("Hello  \nworld   "), "Hello  \nworld   ");
 });
 
 test("readText preserves intra-line tabs and multiple spaces", async () => {
-  assert.equal(await readDoc("hello  \t  world\nfoo \t\t bar"), "hello  \t  world\nfoo \t\t bar\n");
+  assert.equal(await readDoc("hello  \t  world\nfoo \t\t bar"), "hello  \t  world\nfoo \t\t bar");
 });
 
-test("library reads convert CR-only input and round-trip to LF", async () => {
+test("library reads preserve CR-only input while generated output remains LF", async () => {
   const raw = "alpha\rbeta\r";
   const lf = "alpha\nbeta\n";
   const editor = await openDoc(raw, TWO_LINE_TPL);
-  assert.equal(editor.originalSource, lf);
-  assert.equal(editor.render(), lf);
+  assert.equal(editor.originalSource, raw);
+  assert.equal(editor.render(), raw);
   assert.equal(editor.get("a"), "alpha");
   assert.equal(editor.get("b"), "beta");
 
@@ -126,10 +125,10 @@ test("library reads convert CR-only input and round-trip to LF", async () => {
   assert.ok(!rendered.output.includes("\r"));
 });
 
-test("library reads insert a final LF and do not double an existing one", async () => {
+test("library reads preserve missing and existing final LF", async () => {
   const editor = await openDoc("Hello");
-  assert.equal(editor.originalSource, "Hello\n");
-  assert.equal(editor.render(), "Hello\n");
+  assert.equal(editor.originalSource, "Hello");
+  assert.equal(editor.render(), "Hello");
   assert.equal(editor.get("title"), "Hello");
 
   const already = await openDoc("Hello\n");
@@ -165,7 +164,7 @@ test("library reads do not NFC-normalize precomposed vs decomposed text", async 
 
 test("library reads preserve trailing spaces through parse and render", async () => {
   const raw = "Hello  \nworld   ";
-  const normalized = "Hello  \nworld   \n";
+  const normalized = raw;
   const editor = await openDoc(raw, TWO_LINE_TPL);
   assert.equal(editor.originalSource, normalized);
   assert.equal(editor.get("a"), "Hello  ");
@@ -173,12 +172,12 @@ test("library reads preserve trailing spaces through parse and render", async ()
 
   const { parsed, rendered } = await roundtrip2(raw, TWO_LINE_TPL);
   assert.deepEqual(parsed.context, { a: "Hello  ", b: "world   " });
-  assert.equal(rendered.output, normalized);
+  assert.equal(rendered.output, `${normalized}\n`);
 });
 
 test("library reads preserve intra-line whitespace in text, code, and HTML", async () => {
   const raw = "hello  \t  world\nfoo \t\t bar";
-  const normalized = "hello  \t  world\nfoo \t\t bar\n";
+  const normalized = raw;
   const editor = await openDoc(raw, TWO_LINE_TPL);
   assert.equal(editor.originalSource, normalized);
   assert.equal(editor.get("a"), "hello  \t  world");
@@ -186,7 +185,7 @@ test("library reads preserve intra-line whitespace in text, code, and HTML", asy
 
   const { parsed, rendered } = await roundtrip2(raw, TWO_LINE_TPL);
   assert.deepEqual(parsed.context, { a: "hello  \t  world", b: "foo \t\t bar" });
-  assert.equal(rendered.output, normalized);
+  assert.equal(rendered.output, `${normalized}\n`);
 
   const code = "```\n  foo\t  bar  \n    baz  \n```\n";
   const codeEditor = await openDoc(code, CODE_TPL);
@@ -211,7 +210,7 @@ test("readText rejects raw UTF-8 bytes over options.maxInputBytes", async () => 
   const raw = "hello";
   const io = new Virtual({ "/doc.md": raw });
   const size = utf8ByteLength(raw);
-  assert.equal(await readText(io, "/doc.md", { maxInputBytes: size }), "hello\n");
+  assert.equal(await readText(io, "/doc.md", { maxInputBytes: size }), "hello");
   await assert.rejects(
     () => readText(io, "/doc.md", { maxInputBytes: size - 1 }),
     (err) => {
@@ -222,10 +221,30 @@ test("readText rejects raw UTF-8 bytes over options.maxInputBytes", async () => 
   );
 });
 
+test("conditional writes reject adapters without atomic-write support", async () => {
+  const io = {
+    async writeFileAsync() {},
+  };
+  await assert.rejects(
+    () => writeText(io, "/doc.md", "next", { expectedRevision: "sha256:old" }),
+    (error) => error.code === ERROR_CODES.DO_MD_USER_ERROR && /atomic writes/.test(error.message),
+  );
+});
+
 test("readText measures raw bytes, not post-normalize length", async () => {
   const raw = "hello";
   const io = new Virtual({ "/doc.md": raw });
   const size = utf8ByteLength(raw);
-  assert.ok(utf8ByteLength(normalizeDocument(raw)) > size);
-  assert.equal(await readText(io, "/doc.md", { maxInputBytes: size }), "hello\n");
+  assert.equal(utf8ByteLength(normalizeDocument(raw)), size);
+  assert.equal(await readText(io, "/doc.md", { maxInputBytes: size }), "hello");
+});
+
+test("parseSource reports trailing content after template execution", () => {
+  const source = "first\nsecond\n";
+  const fn = wrapTemplate(LINE_TPL, "/tpl.md");
+  const reader = parseSource(source, fn, { file: "/doc.md", templatePath: "/tpl.md" });
+  assert.equal(reader.context.title, "first");
+  assert.equal(reader.errors.length, 1);
+  assert.equal(reader.errors[0].code, ERROR_CODES.DO_MD_PARSE_ERROR);
+  assert.match(reader.errors[0].message, /unexpected trailing content/);
 });

@@ -46,15 +46,7 @@ export function ensureTrailingNewline(text) {
 }
 
 export function normalizeDocument(text) {
-  let value = String(text ?? "");
-  if (value.startsWith("\uFEFF")) {
-    value = value.slice(1);
-  }
-  value = value.replace(/\r\n|\r/g, "\n");
-  if (!value.endsWith("\n")) {
-    value += "\n";
-  }
-  return value;
+  return String(text ?? "");
 }
 
 export function runTemplate(fn, doc, ctx, data, options, io, templatePath) {
@@ -69,7 +61,8 @@ export function runTemplate(fn, doc, ctx, data, options, io, templatePath) {
 }
 
 export function wrapTemplate(source, path) {
-  return Template.wrap(source, path);
+  const text = String(source ?? "");
+  return Template.wrap(text.startsWith("\uFEFF") ? text.slice(1) : text, path);
 }
 
 function maxInputBytesLimit(options) {
@@ -87,12 +80,42 @@ export function utf8ByteLength(text) {
 
 export async function readText(io, path, options) {
   const raw = await io.readFileAsync(path);
+  return checkedText(raw, path, options);
+}
+
+export async function readTextSnapshot(io, path, options) {
+  if (typeof io.readFileSnapshotAsync !== "function") {
+    return { content: await readText(io, path, options), revision: null };
+  }
+  const snapshot = await io.readFileSnapshotAsync(path, "utf8");
+  return {
+    content: checkedText(snapshot.content, path, options),
+    revision: snapshot.revision ?? null,
+  };
+}
+
+function checkedText(raw, path, options) {
+  const text = String(raw ?? "");
   const max = maxInputBytesLimit(options);
-  const size = utf8ByteLength(raw);
+  const size = utf8ByteLength(text);
   if (max != null && size > max) {
     throw makeUserError(`input exceeds maxInputBytes (${size} > ${max})`, { file: path });
   }
-  return normalizeDocument(raw);
+  return normalizeDocument(text);
+}
+
+export async function writeText(io, path, content, options = {}) {
+  if (typeof io?.writeFileAtomicAsync === "function") {
+    return io.writeFileAtomicAsync(path, content, options);
+  }
+  if (typeof io?.writeFileAsync !== "function") {
+    throw makeUserError("missing io");
+  }
+  if (options.expectedRevision !== undefined || options.ifAbsent) {
+    throw makeUserError("io does not support atomic writes");
+  }
+  await io.writeFileAsync(path, content);
+  return { revision: null };
 }
 
 export async function fileExists(io, path) {
@@ -108,7 +131,28 @@ export async function fileExists(io, path) {
 }
 
 export function parseSource(source, fn, { file, templatePath, options, io }) {
-  const reader = new Reader(source, { ...(options ?? {}), file });
+  const text = String(source ?? "");
+  const bomOffset = text.startsWith("\uFEFF") ? 1 : 0;
+  const reader = new Reader(bomOffset ? text.slice(bomOffset) : text, { ...(options ?? {}), file });
+  const literal = reader.literal;
+  reader.literal = function parseLiteral(value) {
+    const expected = String(value ?? "");
+    const finalNewline = expected.endsWith("\r\n") ? 2 : /[\r\n]$/.test(expected) ? 1 : 0;
+    if (finalNewline && !/[\r\n]$/.test(this.remaining())) {
+      const withoutFinalNewline = expected.slice(0, -finalNewline);
+      if (withoutFinalNewline === "" && this.remaining() === "") {
+        return this;
+      }
+      if (withoutFinalNewline !== "") {
+        const probe = new Reader(this.remaining());
+        literal.call(probe, withoutFinalNewline);
+        if (probe.errors.length === 0 && probe.remaining() === "") {
+          return literal.call(this, withoutFinalNewline);
+        }
+      }
+    }
+    return literal.call(this, value);
+  };
   try {
     runTemplate(fn, reader, reader.context, null, options, io, templatePath);
   } catch (error) {
@@ -117,6 +161,23 @@ export function parseSource(source, fn, { file, templatePath, options, io }) {
     }
     if (!reader.errors.includes(error)) {
       reader.errors.push(error);
+    }
+  }
+  if (reader.errors.length === 0) {
+    reader.assertConsumed();
+  }
+  if (bomOffset) {
+    for (const slot of reader.slotMap) {
+      slot.sourceOffsetStart += bomOffset;
+      slot.sourceOffsetEnd += bomOffset;
+    }
+    for (const region of reader.regionMap) {
+      region.sourceOffsetStart += bomOffset;
+      region.sourceOffsetEnd += bomOffset;
+      for (const element of region.elements) {
+        element.sourceOffsetStart += bomOffset;
+        element.sourceOffsetEnd += bomOffset;
+      }
     }
   }
   return reader;

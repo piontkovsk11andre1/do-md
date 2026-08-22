@@ -1,14 +1,22 @@
+import { createHash } from "node:crypto";
+
 import { makeNotImplementedError } from "./SyntaxError.mjs";
 
-export { createIoError } from "./SyntaxError.mjs";
+export { createConflictError, createIoError } from "./SyntaxError.mjs";
 
 /**
  * @typedef {Object} IO
  * @property {(path: string, options?: any) => Promise<string>} readFileAsync
  * @property {(path: string, content: string, options?: any) => Promise<void>} writeFileAsync
+ * @property {(path: string, options?: any) => Promise<{ content: string, revision: string }>} readFileSnapshotAsync
+ * @property {(path: string, content: string, options?: any) => Promise<{ revision: string }>} writeFileAtomicAsync
  * @property {(path: string) => Promise<{ isFile: boolean, isDirectory: boolean, size: number }>} statAsync
  * @property {(cwd: string, path: string) => string} resolvePath
  */
+
+export function createContentRevision(content) {
+  return `sha256:${createHash("sha256").update(content).digest("hex")}`;
+}
 
 export function normalizeIoPath(path) {
   const raw = String(path ?? "").replace(/\\/g, "/");
@@ -56,6 +64,15 @@ export class IO {
 
   async writeFileAsync() {
     throw makeNotImplementedError("IO.writeFileAsync");
+  }
+
+  async readFileSnapshotAsync(path, options) {
+    const content = await this.readFileAsync(path, options);
+    return { content, revision: createContentRevision(content) };
+  }
+
+  async writeFileAtomicAsync() {
+    throw makeNotImplementedError("IO.writeFileAtomicAsync");
   }
 
   async statAsync() {

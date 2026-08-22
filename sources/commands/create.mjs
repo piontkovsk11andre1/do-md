@@ -9,6 +9,7 @@ import {
   requireIo,
   resolvePath,
   success,
+  writeText,
   wrapTemplate,
 } from "./helpers.mjs";
 
@@ -28,6 +29,6 @@ export async function create({ io, file, template, data, force, cwd, options } =
   const fn = wrapTemplate(templateSource, templatePath);
   const writer = renderSource(data, fn, { templatePath, options, io });
   const output = writer.toMarkdown();
-  await io.writeFileAsync(filePath, ensureTrailingNewline(output));
+  await writeText(io, filePath, ensureTrailingNewline(output), force === true ? { force: true } : { ifAbsent: true });
   return success({ output });
 }

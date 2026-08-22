@@ -174,6 +174,47 @@ test("scope emits nothing when data[k] is undefined, null, or []", () => {
   }
 });
 
+test("scope regionMap records matching output spans and nested prefixes", () => {
+  const writer = new Writer({
+    chapters: [{ name: "One", sections: [{ name: "A" }, { name: "B" }] }],
+  });
+  writer.scope("chapters", (chapter) => {
+    chapter.literal("## ");
+    chapter.line().as("name");
+    chapter.literal("\n");
+    chapter.scope("sections", (section) => {
+      section.literal("### ");
+      section.line().as("name");
+      section.literal("\n");
+    });
+  });
+  const chapters = writer.regionMap.find((region) => region.path === "chapters");
+  const sections = writer.regionMap.find((region) => region.path === "chapters[0].sections");
+  assert.equal(writer.toMarkdown(), "## One\n### A\n### B\n");
+  assert.deepEqual(chapters.elements, [
+    { path: "chapters[0]", outputOffsetStart: 0, outputOffsetEnd: 19 },
+  ]);
+  assert.deepEqual(
+    { start: sections.outputOffsetStart, end: sections.outputOffsetEnd },
+    { start: 7, end: 19 },
+  );
+
+  const empty = new Writer({ items: [] });
+  empty.literal("prefix");
+  empty.scope("items", () => {});
+  assert.deepEqual(empty.regionMap, [{
+    key: "items",
+    path: "items",
+    outputOffsetStart: 6,
+    outputOffsetEnd: 6,
+    elements: [],
+  }]);
+  empty.optional(() => {
+    empty.scope("discarded", () => {});
+  });
+  assert.equal(empty.regionMap.some((region) => region.path === "discarded"), false);
+});
+
 test("scope throws DO_MD_TEMPLATE_ERROR when data[k] is a non-array", () => {
   const writer = new Writer({ chapters: "nope" });
   assert.throws(() => writer.scope("chapters", () => {}), isTemplateError);
@@ -760,6 +801,50 @@ test("block-level leaves emit complete Markdown from Reader value shapes", () =>
       "<div>raw</div>",
     ].join("\n"),
   );
+});
+
+test("listTree serializes nested structured lists and records the list AST", () => {
+  const tree = new Reader("3. [x] parent\n   - child *em*\n4. next\n").listTree().value;
+  const writer = new Writer({ tree });
+  writer.listTree().as("tree");
+  assert.equal(writer.toMarkdown(), "3. [x] parent\n   - child *em*\n4. next");
+  const ast = writer.toAst();
+  assert.equal(ast.children[0].type, "list");
+  assert.equal(ast.children[0].start, 3);
+  assert.equal(ast.children[0].children[0].checked, true);
+  assert.equal(ast.children[0].children[0].children[1].type, "list");
+});
+
+test("frontmatter preserves retained raw source or canonicalizes structured data", () => {
+  const reader = new Reader("\uFEFF---\r\ntitle: Hello\r\n---");
+  reader.frontmatter().as("meta");
+  const preserved = new Writer(reader.context);
+  preserved.frontmatter().as("meta");
+  assert.equal(preserved.toMarkdown(), "\uFEFF---\r\ntitle: Hello\r\n---");
+  assert.equal(preserved.toAst().children[0].type, "frontmatter");
+
+  const canonical = new Writer({ meta: { title: "Hello", count: 2 } });
+  canonical.frontmatter().as("meta");
+  assert.equal(canonical.toMarkdown(), "---\ntitle: Hello\ncount: 2\n---");
+  assert.deepEqual(canonical.toAst().children[0].data, { title: "Hello", count: 2 });
+
+  const reservedKeys = new Writer({ meta: { data: { nested: true }, raw: "literal", title: "kept" } });
+  reservedKeys.frontmatter().as("meta");
+  assert.match(reservedKeys.toMarkdown(), /title: kept/);
+  assert.deepEqual(reservedKeys.toAst().children[0].data, {
+    data: { nested: true },
+    raw: "literal",
+    title: "kept",
+  });
+});
+
+test("raw slots emit exact strings and record raw AST nodes", () => {
+  const writer = new Writer({ a: "x  \r\n", b: "# raw", c: "\nend" });
+  writer.rawUntil("cut").as("a");
+  writer.rawBlock().as("b");
+  writer.rawRest().as("c");
+  assert.equal(writer.toMarkdown(), "x  \r\n# raw\nend");
+  assert.deepEqual(writer.toAst().children.map((node) => node.type), ["raw", "raw", "raw"]);
 });
 
 test("# plus line and heading(1) emit byte-equivalent Markdown", () => {

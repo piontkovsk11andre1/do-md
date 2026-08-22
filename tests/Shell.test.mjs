@@ -14,6 +14,7 @@ const EXIT_BY_CODE = {
   [ERROR_CODES.DO_MD_PARSE_ERROR]: 2,
   [ERROR_CODES.DO_MD_TEMPLATE_ERROR]: 3,
   [ERROR_CODES.DO_MD_IO_ERROR]: 4,
+  [ERROR_CODES.DO_MD_CONFLICT]: 4,
 };
 
 const V1_USAGE = "Usage: do-md <validate|create|export|set|render> ...\n";
@@ -166,11 +167,12 @@ test("coerceValue parses JSON and falls back to the raw string", () => {
   assert.equal(coerceValue("hello world"), "hello world");
 });
 
-test("toExitCode maps all four library error codes to documented process exits", () => {
+test("toExitCode maps all library error codes to documented process exits", () => {
   assert.equal(toExitCode(ERROR_CODES.DO_MD_USER_ERROR), 1);
   assert.equal(toExitCode(ERROR_CODES.DO_MD_PARSE_ERROR), 2);
   assert.equal(toExitCode(ERROR_CODES.DO_MD_TEMPLATE_ERROR), 3);
   assert.equal(toExitCode(ERROR_CODES.DO_MD_IO_ERROR), 4);
+  assert.equal(toExitCode(ERROR_CODES.DO_MD_CONFLICT), 4);
 });
 
 test("exitFromResult maps the first resolved Result error code", () => {

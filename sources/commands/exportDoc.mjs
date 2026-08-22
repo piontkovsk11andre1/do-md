@@ -6,6 +6,7 @@ import {
   requireIo,
   resolvePath,
   success,
+  writeText,
   wrapTemplate,
 } from "./helpers.mjs";
 
@@ -27,6 +28,6 @@ export async function exportDoc({ io, file, template, savePath, cwd, options } =
     return failure(2, reader.errors);
   }
 
-  await io.writeFileAsync(dest, `${JSON.stringify(reader.context, null, 2)}\n`);
+  await writeText(io, dest, `${JSON.stringify(reader.context, null, 2)}\n`, { force: true });
   return success({ context: reader.context });
 }

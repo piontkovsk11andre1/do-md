@@ -13,6 +13,7 @@ export const ERROR_CODES = Object.freeze({
   DO_MD_PARSE_ERROR: "DO_MD_PARSE_ERROR",
   DO_MD_TEMPLATE_ERROR: "DO_MD_TEMPLATE_ERROR",
   DO_MD_IO_ERROR: "DO_MD_IO_ERROR",
+  DO_MD_CONFLICT: "DO_MD_CONFLICT",
 });
 
 const INTERNAL_FRAME = /(?:^|[\\/])sources[\\/]|node:|^native$|^<anonymous>$/i;
@@ -166,6 +167,10 @@ export function makeNotImplementedError(feature = "operation") {
 export function createIoError(message = "I/O error", code = ERROR_CODES.DO_MD_IO_ERROR, location = {}) {
   const loc = code && typeof code === "object" ? code : location;
   return makeDiagnostic(message, ERROR_CODES.DO_MD_IO_ERROR, loc);
+}
+
+export function createConflictError(message = "File revision conflict", location = {}) {
+  return makeDiagnostic(message, ERROR_CODES.DO_MD_CONFLICT, location);
 }
 
 export function fromNativeError(error, options = {}) {

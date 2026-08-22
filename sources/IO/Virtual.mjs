@@ -1,5 +1,5 @@
-import { createIoError, ERROR_CODES } from "../SyntaxError.mjs";
-import { normalizeIoPath, resolveIoPath } from "../IO.mjs";
+import { createConflictError, createIoError, ERROR_CODES } from "../SyntaxError.mjs";
+import { createContentRevision, normalizeIoPath, resolveIoPath } from "../IO.mjs";
 
 function byteLength(content) {
   return new TextEncoder().encode(String(content ?? "")).length;
@@ -29,6 +29,32 @@ export class Virtual {
 
   async writeFileAsync(path, content) {
     this.entries.set(normalizeIoPath(path), String(content ?? ""));
+  }
+
+  async readFileSnapshotAsync(path) {
+    const key = normalizeIoPath(path);
+    if (!this.entries.has(key)) {
+      throw missingFile(key);
+    }
+    const content = this.entries.get(key);
+    return { content, revision: createContentRevision(content) };
+  }
+
+  async writeFileAtomicAsync(path, content, options = {}) {
+    const key = normalizeIoPath(path);
+    const { expectedRevision, ifAbsent = false, force = false } = options ?? {};
+    const exists = this.entries.has(key);
+    const currentRevision = exists ? createContentRevision(this.entries.get(key)) : null;
+
+    if (!force && (ifAbsent ? exists : expectedRevision !== undefined && expectedRevision !== currentRevision)) {
+      throw createConflictError(`File changed before it could be written: ${key}`, { file: key });
+    }
+
+    const nextContent = String(content ?? "");
+    const revision = createContentRevision(nextContent);
+    // There are no awaits before this update, so revision validation and mutation are one synchronous CAS step.
+    this.entries.set(key, nextContent);
+    return { revision };
   }
 
   async statAsync(path) {

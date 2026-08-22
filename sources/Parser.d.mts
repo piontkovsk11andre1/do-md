@@ -1,0 +1,33 @@
+import { Slot } from "./Slot.mjs";
+import { SyntaxError } from "./SyntaxError.mjs";
+import type { CursorSnapshot, ReaderOptions } from "./types.d.mts";
+export class Parser<TContext extends Record<string, unknown> = Record<string, unknown>> {
+  constructor(source?: unknown, options?: ReaderOptions);
+  inputSourceText: string;
+  source: string;
+  options: ReaderOptions;
+  file: string | null;
+  offset: number;
+  position: number;
+  line: number;
+  char: number;
+  optionalMode: boolean;
+  context: TContext;
+  errors: SyntaxError[];
+  reset(): void;
+  remaining(): string;
+  snapshotCursor(): CursorSnapshot;
+  restoreCursor(cursor: CursorSnapshot): this;
+  advanceTo(end: number): this;
+  optional(): this;
+  required(): this;
+  error(message: unknown): SyntaxError;
+  parse(literal: unknown): this;
+  parseRegExp(re: RegExp | string): Slot<string>;
+  parseUntil(limiter: unknown): Slot<string>;
+  allowWhitespaces(): this;
+  allowNewlines(): this;
+  allowNewlinesAndWhitespaces(): this;
+  parseOneOf(...fns: Array<(parser: this) => unknown>): Slot<string>;
+  repeat(fn: (parser: this) => unknown): Slot<unknown>[];
+}

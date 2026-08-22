@@ -29,6 +29,38 @@ function cloneData(value) {
   return value;
 }
 
+function stripPositions(value) {
+  if (Array.isArray(value)) {
+    return value.map(stripPositions);
+  }
+  if (value && typeof value === "object") {
+    const out = {};
+    for (const [key, item] of Object.entries(value)) {
+      if (key !== "position") {
+        out[key] = stripPositions(item);
+      }
+    }
+    return out;
+  }
+  return value;
+}
+
+function listTreeValue(node) {
+  return {
+    ordered: node.ordered,
+    start: node.start,
+    tight: node.tight,
+    items: (node.children ?? []).map((item) => ({
+      checked: item.checked,
+      children: stripPositions(item.children ?? []),
+    })),
+  };
+}
+
+function schemaFromOptions(options) {
+  return options?.schema?.safeParse ? options.schema : options?.safeParse ? options : null;
+}
+
 function paragraphEnd(text) {
   const match = /\r?\n[ \t]*\r?\n/.exec(text);
   if (match) {
@@ -50,6 +82,7 @@ export class Reader extends Parser {
     this.context = {};
     this.data = null;
     this.slotMap = [];
+    this.regionMap = [];
     this.bindings = new Map();
     this.slotPathPrefix = "";
     this._matchedBinds = 0;
@@ -60,11 +93,25 @@ export class Reader extends Parser {
   }
 
   static fromMarkdown(source, options = {}) {
-    return MarkdownParser.parseMarkdown(source, options);
+    try {
+      return MarkdownParser.parseMarkdown(source, options);
+    } catch (error) {
+      if (error && error.code && options.file && !error.file) {
+        error.file = options.file;
+      }
+      throw error;
+    }
   }
 
   parseDocument() {
-    return MarkdownParser.parseMarkdown(this.inputSourceText);
+    try {
+      return MarkdownParser.parseMarkdown(this.inputSourceText);
+    } catch (error) {
+      if (error && error.code && this.file && !error.file) {
+        error.file = this.file;
+      }
+      throw error;
+    }
   }
 
   literal(text) {
@@ -107,6 +154,45 @@ export class Reader extends Parser {
 
   until(limiter) {
     return this.parseUntil(limiter);
+  }
+
+  rawUntil(limiter) {
+    return this._rawRange("rawUntil", String(limiter ?? ""));
+  }
+
+  rawBlock() {
+    const start = this.offset;
+    if (!this._atBlockBoundary()) {
+      return this._failSlot("rawBlock", "expected raw block", start);
+    }
+    const block = MarkdownParser.parseNextBlock(this.inputSourceText, start);
+    if (!block || block.position.start.offset !== start) {
+      return this._failSlot("rawBlock", "expected raw block", start);
+    }
+    this.advanceTo(block.position.end.offset);
+    this._noteMatch();
+    return new Slot(this, {
+      leafType: "rawBlock",
+      value: this.inputSourceText.slice(start, this.offset),
+      matched: true,
+      sourceOffsetStart: start,
+      sourceOffsetEnd: this.offset,
+      node: block,
+    });
+  }
+
+  rawRest() {
+    const start = this.offset;
+    const value = this.remaining();
+    this.advanceTo(this.inputSourceText.length);
+    this._noteMatch();
+    return new Slot(this, {
+      leafType: "rawRest",
+      value,
+      matched: true,
+      sourceOffsetStart: start,
+      sourceOffsetEnd: this.offset,
+    });
   }
 
   regexp(re) {
@@ -162,6 +248,57 @@ export class Reader extends Parser {
 
   list() {
     return this._blockLeaf("list", "list", (node) => (node.children ?? []).map((item) => MarkdownParser.flattenNode(item)));
+  }
+
+  listTree() {
+    return this._blockLeaf("list", "listTree", listTreeValue, "expected list");
+  }
+
+  frontmatter(options = {}) {
+    const start = this.offset;
+    if (start !== 0) {
+      return this._failSlot("frontmatter", "expected frontmatter at document start", start);
+    }
+    let node;
+    try {
+      node = MarkdownParser.parseFrontmatter(this.inputSourceText);
+    } catch (error) {
+      if (error && error.code && this.file && !error.file) {
+        error.file = this.file;
+      }
+      throw error;
+    }
+    if (!node) {
+      return this._failSlot("frontmatter", "expected YAML frontmatter", start);
+    }
+    const schema = schemaFromOptions(options);
+    let data = node.data;
+    if (schema) {
+      const result = schema.safeParse(data);
+      if (!result?.success) {
+        const error = this.error(
+          `frontmatter validation failed${result?.error?.message ? `: ${result.error.message}` : ""}`,
+        );
+        throw error;
+      }
+      if (!Object.hasOwn(result, "data")) {
+        const error = this.error("frontmatter validation succeeded without data");
+        throw error;
+      }
+      data = result.data;
+    }
+    const value = { format: "yaml", raw: node.raw, content: node.content, data };
+    Object.defineProperty(value, "source", { value: node.source, enumerable: false });
+    this.advanceTo(node.position.end.offset);
+    this._noteMatch();
+    return new Slot(this, {
+      leafType: "frontmatter",
+      value,
+      matched: true,
+      sourceOffsetStart: node.position.start.offset,
+      sourceOffsetEnd: node.position.end.offset,
+      node,
+    });
   }
 
   table() {
@@ -313,17 +450,26 @@ export class Reader extends Parser {
   scope(key, fn) {
     registerBinding(this, key, "as");
     this.context[key] = [];
+    const path = this.slotPathPrefix ? `${this.slotPathPrefix}.${key}` : String(key);
+    const start = this.offset;
+    const elements = [];
     for (let index = 0; index < MAX_ITERATIONS; index++) {
       const child = this.fork();
-      child.slotPathPrefix = this.slotPathPrefix ? `${this.slotPathPrefix}.${key}[${index}]` : `${key}[${index}]`;
+      child.slotPathPrefix = `${path}[${index}]`;
       child._beginIteration();
       fn(child, index);
       if (!child._shouldCommit()) {
         break;
       }
       this.context[key].push(child.context);
+      elements.push({
+        path: child.slotPathPrefix,
+        sourceOffsetStart: this.offset,
+        sourceOffsetEnd: child.offset,
+      });
       this._adoptCursor(child);
       this.slotMap.push(...child.slotMap);
+      this.regionMap.push(...child.regionMap);
     }
     if (this.context[key].length >= MAX_ITERATIONS) {
       throw makeTemplateError("max scope iterations exceeded");
@@ -332,6 +478,13 @@ export class Reader extends Parser {
       this._matchedBinds = (this._matchedBinds ?? 0) + 1;
       this._noteMatch();
     }
+    this.regionMap.push({
+      key: path,
+      path,
+      sourceOffsetStart: start,
+      sourceOffsetEnd: this.offset,
+      elements,
+    });
   }
 
   repeat(fn) {
@@ -391,6 +544,18 @@ export class Reader extends Parser {
     }
     this.advanceTo(this.inputSourceText.length);
     this.error("expected heading");
+    return false;
+  }
+
+  assertConsumed({ trailingWhitespace = true } = {}) {
+    const remaining = this.remaining();
+    if (remaining === "" || (trailingWhitespace && /^\s*$/.test(remaining))) {
+      if (remaining) {
+        this.advanceTo(this.inputSourceText.length);
+      }
+      return true;
+    }
+    this.error("unexpected trailing content");
     return false;
   }
 
@@ -496,6 +661,23 @@ export class Reader extends Parser {
     });
   }
 
+  _rawRange(leafType, limiter) {
+    const start = this.offset;
+    const index = this.remaining().indexOf(limiter);
+    if (index < 0) {
+      return this._failSlot(leafType, `expected ${JSON.stringify(limiter)}`, start);
+    }
+    this.advanceTo(start + index);
+    this._noteMatch();
+    return new Slot(this, {
+      leafType,
+      value: this.inputSourceText.slice(start, this.offset),
+      matched: true,
+      sourceOffsetStart: start,
+      sourceOffsetEnd: this.offset,
+    });
+  }
+
   _blockLeaf(nodeType, leafType, unwrap, message = `expected ${leafType}`) {
     const start = this.offset;
     if (!this._atBlockBoundary()) {
@@ -553,6 +735,7 @@ export class Reader extends Parser {
       context: cloneData(this.context),
       bindings: new Map(this.bindings),
       slotMap: this.slotMap.slice(),
+      regionMap: this.regionMap.slice(),
       matchedBinds: this._matchedBinds,
       usedAsArray: this._usedAsArray,
       switchToRequiredOnMatch: this._switchToRequiredOnMatch,
@@ -568,6 +751,7 @@ export class Reader extends Parser {
     this.context = snap.context;
     this.bindings = snap.bindings;
     this.slotMap = snap.slotMap;
+    this.regionMap = snap.regionMap;
     this._matchedBinds = snap.matchedBinds;
     this._usedAsArray = snap.usedAsArray;
     this._switchToRequiredOnMatch = snap.switchToRequiredOnMatch;

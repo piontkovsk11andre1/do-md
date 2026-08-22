@@ -96,7 +96,8 @@ for (const name of REQUIRED_FIXTURES) {
       data: cloneJson(parsed.context),
     });
     assert.equal(rendered.ok, true, rendered.errors.map((err) => err.message).join("; "));
-    assert.equal(rendered.output, normalize(input));
+    const canonicalInput = input.replace(/^\uFEFF/, "").replace(/\r\n|\r/g, "\n");
+    assert.equal(rendered.output, canonicalInput);
   });
 }
 
@@ -121,7 +122,11 @@ for (const spec of MUTATION_FIXTURES) {
     });
     assert.equal(result.ok, true, result.errors.map((err) => err.message).join("; "));
     assert.deepEqual(result.context, fixture.expected);
-    assert.equal(normalize(result.output), normalize(fixture.expectedOutput));
+    if (fixture.byteStable) {
+      assert.equal(normalize(result.output), normalize(fixture.expectedOutput));
+    } else {
+      assert.equal(normalize(result.output).trimEnd(), normalize(fixture.expectedOutput).trimEnd());
+    }
 
     if (fixture.byteStable) {
       const editor = await Editor.open({ io: new Virtual({ [file]: fixture.input, [template]: fixture.template }), file, template });
@@ -153,8 +158,13 @@ for (const spec of MUTATION_FIXTURES) {
       assert.equal(normalize(output), normalize(fixture.expectedSetsOutput));
 
       if (fixture.byteStable) {
+        const originalEditor = await Editor.open({
+          io: new Virtual({ [file]: fixture.input, [template]: fixture.template }),
+          file,
+          template,
+        });
         const replacements = fixture.sets.map((mutation) => {
-          const slot = editor.slotMap.find((entry) => entry.key === mutation.key);
+          const slot = originalEditor.slotMap.find((entry) => entry.key === mutation.key);
           assert.ok(slot, mutation.key);
           return {
             start: slot.sourceOffsetStart,

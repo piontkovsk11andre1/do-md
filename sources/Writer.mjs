@@ -1,3 +1,7 @@
+import { isDeepStrictEqual } from "node:util";
+
+import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
+
 import { Slot, registerBinding } from "./Slot.mjs";
 import { makeTemplateError, makeUserError } from "./SyntaxError.mjs";
 
@@ -13,6 +17,8 @@ const BLOCK_TYPES = new Set([
   "list_item",
   "table",
   "html_block",
+  "frontmatter",
+  "raw",
 ]);
 
 const DEFAULT_OPTIONS = {
@@ -57,6 +63,83 @@ function stripNode(node) {
   return out;
 }
 
+function schemaFromOptions(options) {
+  return options?.schema?.safeParse ? options.schema : options?.safeParse ? options : null;
+}
+
+function listNodeFromTree(value) {
+  if (value == null || typeof value !== "object" || Array.isArray(value) || !Array.isArray(value.items)) {
+    throw makeUserError("listTree value must be an object with an items array");
+  }
+  const ordered = value.ordered === true;
+  const start = ordered ? Number(value.start ?? 1) : null;
+  if (ordered && (!Number.isInteger(start) || start < 0)) {
+    throw makeUserError("listTree start must be a non-negative integer");
+  }
+  return {
+    type: "list",
+    ordered,
+    start,
+    tight: value.tight !== false,
+    children: value.items.map((item) => {
+      if (item == null || typeof item !== "object" || !Array.isArray(item.children)) {
+        throw makeUserError("listTree items must contain a children array");
+      }
+      if (item.checked != null && typeof item.checked !== "boolean") {
+        throw makeUserError("listTree item checked must be a boolean or null");
+      }
+      return {
+        type: "list_item",
+        checked: item.checked ?? null,
+        children: stripNode(item.children),
+      };
+    }),
+  };
+}
+
+function frontmatterValue(value, options) {
+  if (value == null || typeof value !== "object" || Array.isArray(value)) {
+    throw makeUserError("frontmatter value must be an object");
+  }
+  const structured =
+    value.format === "yaml" &&
+    Object.hasOwn(value, "data") &&
+    Object.hasOwn(value, "raw") &&
+    Object.hasOwn(value, "content");
+  let data = structured ? value.data : value;
+  if (data == null || typeof data !== "object" || Array.isArray(data)) {
+    throw makeUserError("frontmatter data must be an object");
+  }
+  const schema = schemaFromOptions(options);
+  if (schema) {
+    const result = schema.safeParse(data);
+    if (!result?.success) {
+      throw makeUserError(`frontmatter validation failed${result?.error?.message ? `: ${result.error.message}` : ""}`);
+    }
+    if (!Object.hasOwn(result, "data")) {
+      throw makeUserError("frontmatter validation succeeded without data");
+    }
+    data = result.data;
+  }
+  const raw = structured ? (value.raw ?? value.content) : null;
+  let retainedRaw = false;
+  if (typeof raw === "string") {
+    try {
+      const parsed = parseYaml(raw);
+      retainedRaw = isDeepStrictEqual(parsed == null && raw.trim() === "" ? {} : parsed, data);
+    } catch {
+      // Invalid retained raw is replaced by canonical YAML below.
+    }
+  }
+  const source = retainedRaw && typeof value.source === "string" ? value.source : null;
+  const body = retainedRaw ? raw : stringifyYaml(data);
+  const separator = body.endsWith("\n") || body.endsWith("\r") ? "" : "\n";
+  return {
+    node: { type: "frontmatter", format: "yaml", raw: body, content: body, data: stripNode(data) },
+    markdown: source ?? `---\n${body}${separator}---`,
+  };
+}
+
 function bufferEndsWith(buffer, suffix) {
   if (!suffix) {
     return true;
@@ -66,6 +149,26 @@ function bufferEndsWith(buffer, suffix) {
     tail = String(buffer[i]) + tail;
   }
   return tail.endsWith(suffix);
+}
+
+function bufferLength(buffer) {
+  let length = 0;
+  for (const chunk of buffer) {
+    length += String(chunk).length;
+  }
+  return length;
+}
+
+function shiftRegions(regions, start, offset) {
+  for (let i = start; i < regions.length; i++) {
+    const region = regions[i];
+    region.outputOffsetStart += offset;
+    region.outputOffsetEnd += offset;
+    for (const element of region.elements) {
+      element.outputOffsetStart += offset;
+      element.outputOffsetEnd += offset;
+    }
+  }
 }
 
 function serializeInlines(nodes) {
@@ -399,6 +502,13 @@ function serializeBlock(node, options, ctx = {}) {
       return serializeTable(node, options);
     case "html_block":
       return node.value ?? "";
+    case "frontmatter": {
+      const body = node.raw ?? node.content ?? stringifyYaml(node.data ?? {});
+      const separator = body.endsWith("\n") || body.endsWith("\r") ? "" : "\n";
+      return `---\n${body}${separator}---`;
+    }
+    case "raw":
+      return node.value ?? "";
     case "document":
       return serializeBlocks(node.children ?? [], options);
     default:
@@ -508,6 +618,8 @@ export class Writer {
     this.nodes = [];
     this.current = null;
     this.bindings = new Map();
+    this.regionMap = [];
+    this.regionPathPrefix = "";
     this.optionalMode = false;
     this.repeatIndex = undefined;
     this.file = options.file ?? options.path ?? null;
@@ -554,6 +666,28 @@ export class Writer {
 
   list() {
     return new Slot(this, { leafType: "list" });
+  }
+
+  listTree() {
+    return new Slot(this, { leafType: "listTree" });
+  }
+
+  frontmatter(options = {}) {
+    const slot = new Slot(this, { leafType: "frontmatter" });
+    slot.frontmatterOptions = options;
+    return slot;
+  }
+
+  rawUntil(_limiter) {
+    return new Slot(this, { leafType: "rawUntil" });
+  }
+
+  rawBlock() {
+    return new Slot(this, { leafType: "rawBlock" });
+  }
+
+  rawRest() {
+    return new Slot(this, { leafType: "rawRest" });
   }
 
   table() {
@@ -616,10 +750,12 @@ export class Writer {
     }
   }
 
-  _forkChild(element) {
+  _forkChild(element, path) {
     const child = new Writer(element, this.options);
     child.buffer = this.buffer;
     child.nodes = this.nodes;
+    child.regionMap = this.regionMap;
+    child.regionPathPrefix = path;
     child.optionalMode = this.optionalMode;
     child._optionalFrame = this._optionalFrame;
     child._parent = this;
@@ -638,6 +774,8 @@ export class Writer {
     const savedCurrent = this.current;
     const savedOptional = this.optionalMode;
     const savedFrame = this._optionalFrame;
+    const regionStart = this.regionMap.length;
+    const outputStart = bufferLength(savedBuffer);
 
     this.buffer = [];
     this.nodes = [];
@@ -649,10 +787,16 @@ export class Writer {
       fn(this);
       const ok = !this._optionalFrame.missed && this._optionalFrame.bound > 0;
       if (ok) {
+        shiftRegions(this.regionMap, regionStart, outputStart);
         savedBuffer.push(...this.buffer);
         savedNodes.push(...this.nodes);
+      } else {
+        this.regionMap.length = regionStart;
       }
       return ok;
+    } catch (error) {
+      this.regionMap.length = regionStart;
+      throw error;
     } finally {
       this.buffer = savedBuffer;
       this.nodes = savedNodes;
@@ -665,7 +809,11 @@ export class Writer {
   scope(key, fn) {
     registerBinding(this, key, "as");
     const items = this.data != null && typeof this.data === "object" ? this.data[key] : undefined;
+    const path = this.regionPathPrefix ? `${this.regionPathPrefix}.${key}` : String(key);
+    const start = bufferLength(this.buffer);
+    const elements = [];
     if (items === undefined || items === null || (Array.isArray(items) && items.length === 0)) {
+      this.regionMap.push({ key: path, path, outputOffsetStart: start, outputOffsetEnd: start, elements });
       return;
     }
     if (!Array.isArray(items)) {
@@ -676,8 +824,22 @@ export class Writer {
       throw makeTemplateError("max scope iterations exceeded");
     }
     for (let index = 0; index < count; index++) {
-      fn(this._forkChild(items[index]), index);
+      const elementStart = bufferLength(this.buffer);
+      const elementPath = `${path}[${index}]`;
+      fn(this._forkChild(items[index], elementPath), index);
+      elements.push({
+        path: elementPath,
+        outputOffsetStart: elementStart,
+        outputOffsetEnd: bufferLength(this.buffer),
+      });
     }
+    this.regionMap.push({
+      key: path,
+      path,
+      outputOffsetStart: start,
+      outputOffsetEnd: bufferLength(this.buffer),
+      elements,
+    });
   }
 
   repeat(fn) {
@@ -688,6 +850,8 @@ export class Writer {
         const savedBuffer = this.buffer;
         const savedNodes = this.nodes;
         const savedCurrent = this.current;
+        const regionStart = this.regionMap.length;
+        const outputStart = bufferLength(savedBuffer);
         this.buffer = [];
         this.nodes = [];
         this.current = null;
@@ -698,6 +862,7 @@ export class Writer {
         try {
           result = fn(this, index);
         } catch (error) {
+          this.regionMap.length = regionStart;
           this.buffer = savedBuffer;
           this.nodes = savedNodes;
           this.current = savedCurrent;
@@ -712,9 +877,11 @@ export class Writer {
         this.current = savedCurrent;
 
         if (result === false || missed) {
+          this.regionMap.length = regionStart;
           stopped = true;
           break;
         }
+        shiftRegions(this.regionMap, regionStart, outputStart);
         this.buffer.push(...chunks);
         this.nodes.push(...newNodes);
       }
@@ -743,12 +910,19 @@ export class Writer {
       case "htmlBlock":
       case "line":
       case "text":
+      case "rawUntil":
+      case "rawBlock":
+      case "rawRest":
         return value == null ? "" : String(value);
       case "list":
         if (!Array.isArray(value)) {
           throw makeUserError("list value must be an array");
         }
         return serializeList(listNodeFromItems(value.map((item) => String(item ?? "")), this.options), this.options);
+      case "listTree":
+        return serializeList(listNodeFromTree(value), this.options);
+      case "frontmatter":
+        return frontmatterValue(value, slot.frontmatterOptions).markdown;
       case "table":
         return this.serializeTableValue(value);
       case "codeBlock":
@@ -814,6 +988,20 @@ export class Writer {
       case "list":
         this.closeCurrent();
         this.nodes.push(listNodeFromItems(value.map((item) => String(item ?? "")), this.options));
+        return;
+      case "listTree":
+        this.closeCurrent();
+        this.nodes.push(listNodeFromTree(value));
+        return;
+      case "frontmatter":
+        this.closeCurrent();
+        this.nodes.push(frontmatterValue(value, slot.frontmatterOptions).node);
+        return;
+      case "rawUntil":
+      case "rawBlock":
+      case "rawRest":
+        this.closeCurrent();
+        this.nodes.push({ type: "raw", value: String(value ?? "") });
         return;
       case "table":
         this.closeCurrent();

@@ -25,12 +25,26 @@ async function collectMjs(dir) {
   return files;
 }
 
+async function collectDeclarations(dir) {
+  const entries = await fs.readdir(dir, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...(await collectDeclarations(full)));
+    } else if (entry.name.endsWith(".d.mts")) {
+      files.push(full);
+    }
+  }
+  return files;
+}
+
 test("package manifest is CLI-compatible", async () => {
   const packageText = await fs.readFile(packagePath, "utf8");
   const pkg = JSON.parse(packageText);
 
   assert.equal(pkg.name, "@p10i/do-md");
-  assert.equal(pkg.version, "1.0.0");
+  assert.equal(pkg.version, "1.0.1");
   assert.equal(pkg.license, "MIT");
   assert.equal(pkg.type, "module");
   assert.equal(pkg.engines?.node, ">=20.0.0");
@@ -39,22 +53,41 @@ test("package manifest is CLI-compatible", async () => {
     "do-md-mcp": "bin/do-md-mcp.mjs",
   });
   assert.equal(pkg.main, "sources/index.mjs");
+  assert.equal(pkg.types, "sources/index.d.mts");
   assert.deepEqual(pkg.files, ["bin/", "sources/", "README.md", "LICENSE"]);
   assert.deepEqual(pkg.dependencies, {
     "@modelcontextprotocol/sdk": "1.30.0",
     yargs: "^17.0.0",
     chalk: "^5.0.0",
+    yaml: "^2.9.0",
     zod: "4.4.3",
   });
 
   assert.deepEqual(pkg.exports, {
-    ".": "./sources/index.mjs",
-    "./sources/*.mjs": "./sources/*.mjs",
+    ".": {
+      types: "./sources/index.d.mts",
+      import: "./sources/index.mjs",
+    },
+    "./sources/*.mjs": {
+      types: "./sources/*.d.mts",
+      import: "./sources/*.mjs",
+    },
     "./package.json": "./package.json",
   });
   assert.equal(pkg.browser, undefined);
-  assert.equal(pkg.types, undefined);
   assert.equal(pkg.typings, undefined);
+  assert.match(pkg.devDependencies?.typescript, /^\^/);
+});
+
+test("every exported runtime source has a declaration", async () => {
+  const runtimeFiles = (await collectMjs(sourcesPath)).map((file) =>
+    path.relative(sourcesPath, file).replace(/\.mjs$/, "").replaceAll("\\", "/"));
+  const declarationFiles = (await collectDeclarations(sourcesPath)).map((file) =>
+    path.relative(sourcesPath, file).replace(/\.d\.mts$/, "").replaceAll("\\", "/"));
+
+  for (const runtime of runtimeFiles) {
+    assert.ok(declarationFiles.includes(runtime), `missing declaration for sources/${runtime}.mjs`);
+  }
 });
 
 test("shipped README documents only the five v1 commands", async () => {
@@ -219,7 +252,7 @@ function runNpm(args) {
   return spawnSync("npm", args, { cwd: root, encoding: "utf8" });
 }
 
-test("npm pack --dry-run includes bin, sources/MCP, README, and LICENSE", () => {
+test("npm pack --dry-run includes runtime, declarations, README, and LICENSE", () => {
   const packed = runNpm(["pack", "--dry-run"]);
   assert.equal(packed.status, 0, packed.stderr || packed.stdout);
   const text = `${packed.stdout}\n${packed.stderr}`;
@@ -227,7 +260,12 @@ test("npm pack --dry-run includes bin, sources/MCP, README, and LICENSE", () => 
     "bin/do-md.mjs",
     "bin/do-md-mcp.mjs",
     "sources/index.mjs",
+    "sources/index.d.mts",
+    "sources/types.d.mts",
+    "sources/Reader.d.mts",
+    "sources/Reader/Markdown.d.mts",
     "sources/MCP/Server.mjs",
+    "sources/MCP/Server.d.mts",
     "sources/MCP/Scoping.mjs",
     "README.md",
     "LICENSE",

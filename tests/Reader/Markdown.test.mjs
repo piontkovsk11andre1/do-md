@@ -40,6 +40,23 @@ test("parseMarkdown returns a document AST", () => {
   assert.equal(parsed.children[1].type, "paragraph");
 });
 
+test("YAML frontmatter is parsed only at the document start with positions", () => {
+  const source = "\uFEFF---\r\ntitle: Hello\r\ntags:\r\n  - one\r\n---\r\n\r\nBody\r\n";
+  const parsed = parseMarkdown(source);
+  const node = parsed.children[0];
+  assert.equal(node.type, "frontmatter");
+  assert.equal(node.format, "yaml");
+  assert.equal(node.raw, "title: Hello\r\ntags:\r\n  - one\r\n");
+  assert.equal(node.content, node.raw);
+  assert.deepEqual(node.data, { title: "Hello", tags: ["one"] });
+  assert.deepEqual(node.position.start, { offset: 0, line: 1, column: 1 });
+  assert.equal(node.position.end.offset, source.indexOf("\r\n\r\nBody"));
+  assert.equal(parsed.children[1].type, "paragraph");
+
+  const later = parseMarkdown("Body\n\n---\ntitle: no\n---\n");
+  assert.equal(later.children.some((child) => child.type === "frontmatter"), false);
+});
+
 test("Reader.parseDocument returns the same document AST", () => {
   const source = "# Heading\n\nBody\n";
   const fromReader = new Reader(source).parseDocument();

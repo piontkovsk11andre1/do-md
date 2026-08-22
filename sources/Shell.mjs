@@ -38,6 +38,7 @@ export function toExitCode(errorCode) {
     case ERROR_CODES.DO_MD_TEMPLATE_ERROR:
       return 3;
     case ERROR_CODES.DO_MD_IO_ERROR:
+    case ERROR_CODES.DO_MD_CONFLICT:
       return 4;
     case ERROR_CODES.DO_MD_USER_ERROR:
     default:
