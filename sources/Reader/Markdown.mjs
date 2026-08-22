@@ -1133,10 +1133,21 @@ function parseList(source, lines, start, end) {
     let firstText = lines[i].text.slice(contentIndent);
     let checked = null;
     let checkboxLen = 0;
+    let checkboxPosition;
     const checkbox = firstText.match(/^\[([ xX])\](?:[ \t]+|(?=$))/);
     if (checkbox) {
       checked = checkbox[1] !== " ";
       checkboxLen = checkbox[0].length;
+      const checkboxStart = {
+        offset: lines[i].start.offset + contentIndent,
+        line: lines[i].start.line,
+        column: lines[i].start.column + contentIndent,
+      };
+      checkboxPosition = makePos(checkboxStart, {
+        offset: checkboxStart.offset + 3,
+        line: checkboxStart.line,
+        column: checkboxStart.column + 3,
+      });
       firstText = firstText.slice(checkboxLen);
     }
     const itemLines = [virtualLine(lines[i], firstText, contentIndent + checkboxLen)];
@@ -1188,7 +1199,11 @@ function parseList(source, lines, start, end) {
       break;
     }
     const children = parseBlockSequence(source, itemLines, 0, itemLines.length);
-    items.push(makeNode("list_item", { checked, children }, itemStart, lines[i - 1].end));
+    const item = makeNode("list_item", { checked, children }, itemStart, lines[i - 1].end);
+    if (checkboxPosition) {
+      item.checkboxPosition = checkboxPosition;
+    }
+    items.push(item);
     if (i < end && isBlank(lines[i])) {
       let j = i;
       while (j < end && isBlank(lines[j])) {

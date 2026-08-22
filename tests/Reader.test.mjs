@@ -276,6 +276,26 @@ test("listTree returns structured items with position-stripped block children", 
   assert.equal(slot.value.items[0].children[1].type, "list");
   assert.equal(slot.value.items[0].children[1].children[0].position, undefined);
   assert.deepEqual(reader.context.tree, slot.value);
+  const metadata = reader.slotMap.find((entry) => entry.key === "tree");
+  assert.deepEqual(metadata.items.map((item) => item.key), [
+    "tree.items[0]",
+    "tree.items[0].children[1].children[0]",
+    "tree.items[1]",
+  ]);
+  assert.equal(metadata.items[0].sourceOffsetStart, 0);
+  assert.equal(metadata.items[0].checked.sourceOffsetStart, 3);
+  assert.equal(metadata.items[0].checked.sourceOffsetEnd, 6);
+  assert.equal(metadata.items[1].checked, null);
+  assert.deepEqual(
+    reader.slotMap.find((entry) => entry.key === "tree.items[0].checked"),
+    {
+      key: "tree.items[0].checked",
+      sourceOffsetStart: 3,
+      sourceOffsetEnd: 6,
+      leafType: "checkbox",
+      isArrayElement: false,
+    },
+  );
   assert.equal(reader.list, Reader.prototype.list);
 });
 

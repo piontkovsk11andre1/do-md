@@ -847,6 +847,13 @@ test("raw slots emit exact strings and record raw AST nodes", () => {
   assert.deepEqual(writer.toAst().children.map((node) => node.type), ["raw", "raw", "raw"]);
 });
 
+test("generated output uses the configured EOL while raw slots remain exact", () => {
+  const writer = new Writer({ raw: "opaque\nbytes" }, { eol: "\r\n" });
+  writer.literal("generated\n");
+  writer.rawRest().as("raw");
+  assert.equal(writer.toMarkdown(), "generated\r\nopaque\nbytes");
+});
+
 test("# plus line and heading(1) emit byte-equivalent Markdown", () => {
   const composed = new Writer({ title: "Hello" });
   composed.literal("# ");

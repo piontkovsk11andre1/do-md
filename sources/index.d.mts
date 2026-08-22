@@ -14,7 +14,7 @@ export type {
   EditorOpenOptions, EditorOptions, EditorSaveOptions, EmphasisNode, ErrorCode, ExportOptions,
   FileStat, FrontmatterNode, FrontmatterValue, HeadingNode, HtmlBlockNode, HtmlInlineNode,
   ImageNode, ImageValue, IOAdapter, LeafType, LinkNode, LinkValue, ListItemNode, ListNode,
-  ListTreeItem, ListTreeValue, MarkdownBlockNode, MarkdownInlineNode, MarkdownNode,
+  ListTreeItem, ListTreeItemMetadata, ListTreeValue, MarkdownBlockNode, MarkdownInlineNode, MarkdownNode,
   OutputRegionElement, OutputRegionMetadata, ParagraphNode, PositionedNode, RawNode, RawValue,
   ReadSnapshot, ReaderOptions, RegionElement, RegionMetadata, RenderOptions, SafeParseResult,
   SafeParseSchema, SetOptions, SlotMetadata, SourcePoint, SourcePosition, TableAlignment,

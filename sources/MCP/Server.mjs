@@ -247,7 +247,7 @@ export class Server {
 
   async start() {
     this.root = await resolveRoot(this.root);
-    this._protocol = new McpServer({ name: "do-md", version: "1.0.1" });
+    this._protocol = new McpServer({ name: "do-md", version: "1.0.2" });
     for (const name of TOOL_NAMES) {
       const definition = TOOL_DEFINITIONS[name];
       this._protocol.registerTool(name, definition, async (params, extra) => {

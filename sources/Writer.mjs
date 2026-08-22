@@ -28,7 +28,13 @@ const DEFAULT_OPTIONS = {
   headingStyle: "atx",
   tightLists: true,
   tablePadding: true,
+  eol: "\n",
 };
+
+function normalizeEol(text, eol) {
+  const replacement = eol === "\r\n" || eol === "\r" ? eol : "\n";
+  return String(text).replace(/\r\n|\r|\n/g, replacement);
+}
 
 function isDataObject(value) {
   return value != null && typeof value === "object";
@@ -629,6 +635,11 @@ export class Writer {
   }
 
   write(text = "") {
+    this.buffer.push(normalizeEol(text, this.options.eol));
+    return this;
+  }
+
+  writeRaw(text = "") {
     this.buffer.push(String(text));
     return this;
   }
@@ -896,7 +907,12 @@ export class Writer {
   emitBoundValue(slot, value) {
     const text = this.serializeSlotValue(slot, value);
     if (text !== "") {
-      this.write(text);
+      const retainedFrontmatter = slot.leafType === "frontmatter" && value?.source === text;
+      if (["rawUntil", "rawBlock", "rawRest"].includes(slot.leafType) || retainedFrontmatter) {
+        this.writeRaw(text);
+      } else {
+        this.write(text);
+      }
     }
     this.recordSlotNode(slot, value);
   }

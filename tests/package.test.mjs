@@ -44,7 +44,7 @@ test("package manifest is CLI-compatible", async () => {
   const pkg = JSON.parse(packageText);
 
   assert.equal(pkg.name, "@p10i/do-md");
-  assert.equal(pkg.version, "1.0.1");
+  assert.equal(pkg.version, "1.0.2");
   assert.equal(pkg.license, "MIT");
   assert.equal(pkg.type, "module");
   assert.equal(pkg.engines?.node, ">=20.0.0");

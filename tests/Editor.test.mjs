@@ -689,16 +689,31 @@ test("exact aggregate structural mutations splice only their owning range", asyn
   assert.equal(await io.readFileAsync("/doc.md"), padded);
 });
 
+test("listTree checkbox descendants splice only their three-byte markers", async () => {
+  const template = '{% doc.listTree().as("tasks") %}\n';
+  const source = "- [ ] parent\r\n  - [x] nested\r\n- [x] sibling\r\n";
+  const editor = await openDoc({ "/doc.md": source, "/tpl.md": template });
+  const tasks = editor.slotMap.find((slot) => slot.key === "tasks");
+  assert.deepEqual(tasks.items.map((item) => item.key), [
+    "tasks.items[0]",
+    "tasks.items[0].children[1].children[0]",
+    "tasks.items[1]",
+  ]);
+
+  editor.set("tasks.items[0].children[1].children[0].checked", false);
+  assert.equal(editor.render(), "- [ ] parent\r\n  - [ ] nested\r\n- [x] sibling\r\n");
+});
+
 test("top-level scope append remove and move replace only the scope source range", async () => {
   const template = `HEAD \n{% doc.scope("items", (item) => { item.literal("- "); item.line().as("name"); item.literal("\\n") }) %}TAIL \n`;
   const source = "HEAD  \r\n- one\r\n- two\r\nTAIL\t\r\n";
   const cases = [
-    [(editor) => editor.append("items", { name: "three" }), "- one\n- two\n- three\n"],
-    [(editor) => editor.prepend("items", { name: "zero" }), "- zero\n- one\n- two\n"],
-    [(editor) => editor.insert("items", 1, { name: "middle" }), "- one\n- middle\n- two\n"],
-    [(editor) => editor.delete("items[0]"), "- two\n"],
-    [(editor) => editor.move("items", 1, 0), "- two\n- one\n"],
-    [(editor) => editor.set("items", [{ name: "replacement" }]), "- replacement\n"],
+    [(editor) => editor.append("items", { name: "three" }), "- one\r\n- two\r\n- three\r\n"],
+    [(editor) => editor.prepend("items", { name: "zero" }), "- zero\r\n- one\r\n- two\r\n"],
+    [(editor) => editor.insert("items", 1, { name: "middle" }), "- one\r\n- middle\r\n- two\r\n"],
+    [(editor) => editor.delete("items[0]"), "- two\r\n"],
+    [(editor) => editor.move("items", 1, 0), "- two\r\n- one\r\n"],
+    [(editor) => editor.set("items", [{ name: "replacement" }]), "- replacement\r\n"],
   ];
   for (const [mutate, scoped] of cases) {
     const editor = await openDoc({ "/doc.md": source, "/tpl.md": template });
@@ -716,7 +731,7 @@ test("BOM-prefixed scope edits shift structural regions with slot offsets", asyn
   const source = "\uFEFF- one\r\ntail\r\n";
   const editor = await openDoc({ "/doc.md": source, "/tpl.md": template });
   editor.append("items", { name: "two" });
-  assert.equal(editor.render(), "\uFEFF- one\n- two\ntail\r\n");
+  assert.equal(editor.render(), "\uFEFF- one\r\n- two\r\ntail\r\n");
 });
 
 test("empty scope append uses matching zero-width Reader and Writer anchors", async () => {
@@ -728,7 +743,7 @@ test("empty scope append uses matching zero-width Reader and Writer anchors", as
   assert.equal(editor.has("items"), true);
   assert.deepEqual(editor.keys(), ["items"]);
   editor.append("items", { name: "inserted" });
-  assert.equal(editor.render(), "before\r\n- inserted\nafter\r\n");
+  assert.equal(editor.render(), "before\r\n- inserted\r\nafter\r\n");
 });
 
 test("nested scope structural edits preserve its parent and all outside bytes", async () => {
@@ -742,7 +757,7 @@ test("nested scope structural edits preserve its parent and all outside bytes", 
   const nested = editor.regionMap.find((item) => item.path === "chapters[0].sections");
   editor.append("chapters[0].sections", { name: "C" });
   const rendered = editor.render();
-  assert.equal(rendered, "START  \r\n## One\r\n* A\n* B\n* C\nEND\t\r\n");
+  assert.equal(rendered, "START  \r\n## One\r\n* A\r\n* B\r\n* C\r\nEND\t\r\n");
   assert.equal(rendered.slice(0, nested.sourceOffsetStart), source.slice(0, nested.sourceOffsetStart));
   assert.ok(rendered.endsWith(source.slice(nested.sourceOffsetEnd)));
 });
@@ -759,7 +774,7 @@ test("save reparses and refreshes scoped regions", async () => {
   assert.equal(after.elements.length, 2);
   assert.ok(after.sourceOffsetEnd > before.sourceOffsetEnd);
   editor.append("items", { name: "three" });
-  assert.equal(editor.render(), "before\r\n- one\n- two\n- three\nafter\r\n");
+  assert.equal(editor.render(), "before\r\n- one\r\n- two\r\n- three\r\nafter\r\n");
 });
 
 test("save rebasing retains context-only patch properties", async () => {

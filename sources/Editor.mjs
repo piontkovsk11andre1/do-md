@@ -441,6 +441,23 @@ function applySplices(source, splices) {
   return out;
 }
 
+function sourceEol(source, start = 0, end = source.length) {
+  const within = String(source).slice(start, end).match(/\r\n|\r|\n/);
+  if (within) {
+    return within[0];
+  }
+  const after = String(source).slice(start).match(/\r\n|\r|\n/);
+  if (after) {
+    return after[0];
+  }
+  const before = String(source).slice(0, start).match(/\r\n|\r|\n/g);
+  return before?.at(-1) ?? "\n";
+}
+
+function normalizeEol(text, eol) {
+  return String(text).replace(/\r\n|\r|\n/g, eol);
+}
+
 export class Editor {
   constructor({ io, file = "", template = "", context = {}, options = {} } = {}) {
     this.io = io;
@@ -736,7 +753,7 @@ export class Editor {
   _compose() {
     const splices = this._splices();
     if (splices == null) {
-      return this._renderFull();
+      return this._renderFull({ eol: sourceEol(this.originalSource) });
     }
     return applySplices(this.originalSource, splices);
   }
@@ -796,8 +813,10 @@ export class Editor {
     }
 
     if (selectedRegions.length > 0) {
-      const rendered = this._renderFull();
       for (const region of selectedRegions) {
+        const rendered = this._renderFull({
+          eol: sourceEol(this.originalSource, region.sourceOffsetStart, region.sourceOffsetEnd),
+        });
         const outputRegion = this.writer.regionMap.find((candidate) => candidate.path === region.path);
         if (!outputRegion) {
           return null;
@@ -837,16 +856,20 @@ export class Editor {
   }
 
   _renderSlot(slot, value) {
-    const writer = new Writer(this._context, { ...(this.options ?? {}), file: this.template });
+    const eol = sourceEol(this.originalSource, slot.sourceOffsetStart, slot.sourceOffsetEnd);
+    const writer = new Writer(this._context, { ...(this.options ?? {}), file: this.template, eol });
     const prepared = slot.leafType === "heading"
       ? { ...slot, headingLevel: headingLevelForSlot(slot, this.originalSource) }
       : slot;
-    return writer.serializeSlotValue(prepared, value);
+    const rendered = writer.serializeSlotValue(prepared, value);
+    return ["rawUntil", "rawBlock", "rawRest"].includes(slot.leafType)
+      ? rendered
+      : normalizeEol(rendered, eol);
   }
 
-  _renderFull() {
+  _renderFull(options = {}) {
     const fn = wrapTemplate(this.templateSource, this.template);
-    const writer = new Writer(this._context, { ...(this.options ?? {}), file: this.template });
+    const writer = new Writer(this._context, { ...(this.options ?? {}), ...options, file: this.template });
     runTemplate(fn, writer, this._context, this._context, this.options, this.io, this.template);
     this.writer = writer;
     return writer.toMarkdown();

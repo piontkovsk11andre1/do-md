@@ -583,7 +583,45 @@ export class Reader extends Parser {
         entry.headingLevel = Number(level);
       }
     }
-    this.slotMap.push(entry);
+    if (slot.leafType === "listTree" && slot.node?.type === "list") {
+      const checkboxSlots = [];
+      entry.items = [];
+      const visitItem = (item, itemKey) => {
+        const metadata = {
+          key: itemKey,
+          sourceOffsetStart: Number(item.position?.start?.offset ?? slot.sourceOffsetStart ?? 0),
+          sourceOffsetEnd: Number(item.position?.end?.offset ?? slot.sourceOffsetEnd ?? 0),
+          checked: null,
+        };
+        if (item.checkboxPosition) {
+          metadata.checked = {
+            key: `${itemKey}.checked`,
+            sourceOffsetStart: Number(item.checkboxPosition.start.offset),
+            sourceOffsetEnd: Number(item.checkboxPosition.end.offset),
+          };
+          checkboxSlots.push({
+            ...metadata.checked,
+            leafType: "checkbox",
+            isArrayElement: false,
+          });
+        }
+        entry.items.push(metadata);
+        for (const [childIndex, child] of (item.children ?? []).entries()) {
+          if (child.type !== "list") {
+            continue;
+          }
+          for (const [nestedIndex, nestedItem] of (child.children ?? []).entries()) {
+            visitItem(nestedItem, `${itemKey}.children[${childIndex}].children[${nestedIndex}]`);
+          }
+        }
+      };
+      for (const [index, item] of (slot.node.children ?? []).entries()) {
+        visitItem(item, `${key}.items[${index}]`);
+      }
+      this.slotMap.push(entry, ...checkboxSlots);
+    } else {
+      this.slotMap.push(entry);
+    }
     if (slot.exists) {
       this._matchedBinds = (this._matchedBinds ?? 0) + 1;
     }

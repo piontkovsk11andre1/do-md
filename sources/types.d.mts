@@ -119,6 +119,7 @@ export interface BlockQuoteNode extends PositionedNode {
 export interface ListItemNode extends PositionedNode {
   type: "list_item";
   checked: boolean | null;
+  checkboxPosition?: SourcePosition;
   children: MarkdownBlockNode[];
 }
 
@@ -276,6 +277,7 @@ export interface WriterOptions extends ReaderOptions {
   headingStyle?: "atx" | "setext";
   tightLists?: boolean;
   tablePadding?: boolean;
+  eol?: "\n" | "\r\n" | "\r";
 }
 
 export type LeafType =
@@ -291,6 +293,18 @@ export interface SlotMetadata {
   sourceOffsetEnd: number;
   isArrayElement: boolean;
   headingLevel?: number;
+  items?: ListTreeItemMetadata[];
+}
+
+export interface ListTreeItemMetadata {
+  key: string;
+  sourceOffsetStart: number;
+  sourceOffsetEnd: number;
+  checked: null | {
+    key: string;
+    sourceOffsetStart: number;
+    sourceOffsetEnd: number;
+  };
 }
 
 export interface RegionElement {
