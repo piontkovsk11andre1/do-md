@@ -119,7 +119,7 @@ test("missing command prints usage and exits with code 1", () => {
 test("CLI help lists the supported commands", () => {
   assert.equal(USAGE, "Usage: do-md <validate|create|export|set|render|match|query> ...");
   assert.equal(formatUsage(), V1_USAGE);
-  for (const args of [[], ["--help"], ["-h"], ["not-a-command"]]) {
+  for (const args of [[], ["not-a-command"]]) {
     const result = runCli(args);
     assert.equal(result.status, 1, args.join(" ") || "(empty)");
     assert.equal(result.stdout, V1_USAGE, args.join(" ") || "(empty)");
@@ -129,6 +129,30 @@ test("CLI help lists the supported commands", () => {
       assert.doesNotMatch(output, new RegExp(`\\b${name}\\b`), name);
     }
   }
+  for (const args of [["--help"], ["-h"]]) {
+    const result = runCli(args);
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /do-md help template/);
+    assert.match(result.stdout, /\bmcp\b/);
+  }
+});
+
+test("CLI exposes command and template-language reference help", () => {
+  const command = runCli(["query", "--help"]);
+  assert.equal(command.status, 0);
+  assert.match(command.stdout, /do-md query <file> <template>/);
+
+  const focused = runCli(["help", "template", "query", "--format", "json"]);
+  assert.equal(focused.status, 0);
+  assert.equal(JSON.parse(focused.stdout).entry.name, "query");
+
+  const markdown = runCli(["help", "template", "--format=markdown"]);
+  assert.equal(markdown.status, 0);
+  assert.match(markdown.stdout, /^# do-md Template Language/);
+
+  const unknown = runCli(["help", "template", "unknown"]);
+  assert.equal(unknown.status, 1);
+  assert.match(unknown.stderr, /unknown template function/);
 });
 
 test("post-v1 extension commands are not accepted", () => {

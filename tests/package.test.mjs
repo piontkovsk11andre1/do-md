@@ -44,7 +44,7 @@ test("package manifest is CLI-compatible", async () => {
   const pkg = JSON.parse(packageText);
 
   assert.equal(pkg.name, "@p10i/do-md");
-  assert.equal(pkg.version, "1.1.0");
+  assert.equal(pkg.version, "1.2.0");
   assert.equal(pkg.license, "MIT");
   assert.equal(pkg.type, "module");
   assert.equal(pkg.engines?.node, ">=20.0.0");
@@ -54,7 +54,7 @@ test("package manifest is CLI-compatible", async () => {
   });
   assert.equal(pkg.main, "sources/index.mjs");
   assert.equal(pkg.types, "sources/index.d.mts");
-  assert.deepEqual(pkg.files, ["bin/", "sources/", "README.md", "LICENSE"]);
+  assert.deepEqual(pkg.files, ["bin/", "sources/", "docs/", "examples/", "README.md", "LICENSE"]);
   assert.deepEqual(pkg.dependencies, {
     "@modelcontextprotocol/sdk": "1.30.0",
     yargs: "^17.0.0",
@@ -254,7 +254,7 @@ function runNpm(args) {
   return spawnSync("npm", args, { cwd: root, encoding: "utf8" });
 }
 
-test("npm pack --dry-run includes runtime, declarations, README, and LICENSE", () => {
+test("npm pack --dry-run includes runtime, reference docs, examples, README, and LICENSE", () => {
   const packed = runNpm(["pack", "--dry-run"]);
   assert.equal(packed.status, 0, packed.stderr || packed.stdout);
   const text = `${packed.stdout}\n${packed.stderr}`;
@@ -269,6 +269,12 @@ test("npm pack --dry-run includes runtime, declarations, README, and LICENSE", (
     "sources/MCP/Server.mjs",
     "sources/MCP/Server.d.mts",
     "sources/MCP/Scoping.mjs",
+    "sources/TemplateLanguage.mjs",
+    "sources/TemplateLanguage.d.mts",
+    "docs/template-language.md",
+    "examples/release-notes/template.tpl.md",
+    "examples/release-notes/document.md",
+    "examples/query-sections/query.tpl.md",
     "README.md",
     "LICENSE",
   ]) {

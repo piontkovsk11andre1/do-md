@@ -13,19 +13,23 @@ const indexPath = path.join(root, "sources/index.mjs");
 
 const EXPECTED_PUBLIC_EXPORTS = [
   "create",
+  "describeTemplateFunction",
   "Editor",
   "exportDoc",
   "Fetch",
   "match",
+  "listTemplateFunctions",
   "NodeFilesystem",
   "Parser",
   "query",
   "Reader",
   "render",
+  "renderTemplateReference",
   "set",
   "Slot",
   "SyntaxError",
   "Template",
+  "templateLanguage",
   "validate",
   "Virtual",
   "Writer",
@@ -99,7 +103,7 @@ test("public API re-exports IO adapters from IO/index.mjs", () => {
 });
 
 test("documented public exports have the expected kinds", () => {
-  for (const name of ["validate", "create", "exportDoc", "set", "render", "match", "query"]) {
+  for (const name of ["validate", "create", "exportDoc", "set", "render", "match", "query", "describeTemplateFunction", "listTemplateFunctions", "renderTemplateReference"]) {
     assert.equal(typeof api[name], "function", name);
   }
   for (const name of [
@@ -116,6 +120,7 @@ test("documented public exports have the expected kinds", () => {
   ]) {
     assert.equal(typeof api[name], "function", name);
   }
+  assert.equal(typeof api.templateLanguage, "object");
 });
 
 test("index.mjs re-exports named bindings only", async () => {

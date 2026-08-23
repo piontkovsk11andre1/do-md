@@ -26,6 +26,21 @@ do-md match    <file> <templates> [--all]
 do-md query    <file> <template> [--all]
 ```
 
+Use `do-md <command> --help` for command details. The complete template
+reference is shipped in [`docs/template-language.md`](docs/template-language.md)
+and is also available without filesystem access:
+
+```
+do-md help template
+do-md help template query
+do-md help template --format markdown
+do-md help template --format json
+```
+
+MCP clients can read `do-md://reference/template-language` or
+`do-md://reference/template-language.json`, or call the `reference` tool.
+Maintained templates and documents are in [`examples/`](examples/).
+
 ### Template
 
 Create `release.tpl.md`:
@@ -211,6 +226,16 @@ await io.writeFileAtomicAsync(path, nextContent, {
 The package includes strict ESM TypeScript declarations for the root API and
 all exported `sources/*.mjs` subpaths.
 
+Agents and applications can inspect the same reference programmatically:
+
+```js
+import {
+  templateLanguage,
+  describeTemplateFunction,
+  renderTemplateReference,
+} from "@p10i/do-md"
+```
+
 ## MCP
 
 The bundled MCP server uses the official Model Context Protocol SDK over local
@@ -238,7 +263,8 @@ do-md mcp --root <dir> [--max-input-bytes <n>] [--timeout-ms <n>] [--no-snippets
 ```
 
 `--root` is required and must exist. Tools are `validate`, `export`,
-`create`, `set`, `render`, `match`, and `query`.
+`create`, `set`, `render`, `match`, `query`, and `reference`. The server also
+publishes Markdown and JSON template-language resources at the URIs above.
 
 ## Exit codes
 

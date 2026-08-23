@@ -7,6 +7,7 @@ import { handleSet } from "./tools/set.mjs";
 import { handleRender } from "./tools/render.mjs";
 import { handleMatch } from "./tools/match.mjs";
 import { handleQuery } from "./tools/query.mjs";
+import { handleReference } from "./tools/reference.mjs";
 
 const handlers = {
   validate: handleValidate,
@@ -16,6 +17,7 @@ const handlers = {
   render: handleRender,
   match: handleMatch,
   query: handleQuery,
+  reference: handleReference,
 };
 
 try {

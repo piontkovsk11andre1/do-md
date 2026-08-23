@@ -14,10 +14,12 @@ import { handleSet } from "./tools/set.mjs";
 import { handleRender } from "./tools/render.mjs";
 import { handleMatch } from "./tools/match.mjs";
 import { handleQuery } from "./tools/query.mjs";
+import { handleReference } from "./tools/reference.mjs";
+import { renderTemplateReference } from "../TemplateLanguage.mjs";
 
 export const DEFAULT_MAX_INPUT_BYTES = 1_048_576;
 export const DEFAULT_TIMEOUT_MS = 30_000;
-export const TOOL_NAMES = Object.freeze(["validate", "export", "create", "set", "render", "match", "query"]);
+export const TOOL_NAMES = Object.freeze(["validate", "export", "create", "set", "render", "match", "query", "reference"]);
 export const MCP_CODES = Object.freeze({
   DO_MD_USER_ERROR: "DO_MD_USER_ERROR",
   DO_MD_TIMEOUT: "DO_MD_TIMEOUT",
@@ -33,6 +35,7 @@ const HANDLERS = Object.freeze({
   render: handleRender,
   match: handleMatch,
   query: handleQuery,
+  reference: handleReference,
 });
 const jsonObject = z.record(z.string(), z.json());
 
@@ -100,6 +103,12 @@ const TOOL_DEFINITIONS = Object.freeze({
       template: z.string().min(1),
       all: z.boolean().default(false),
       options: jsonObject.optional(),
+    }),
+  },
+  reference: {
+    description: "Return the complete template-language reference or one function entry",
+    inputSchema: z.strictObject({
+      topic: z.string().min(1).optional(),
     }),
   },
 });
@@ -213,6 +222,7 @@ function emptyResult(name) {
     case "render": return { ok: false, output: null, wrote: null, errors: [] };
     case "match":
     case "query": return { ok: false, matches: [], errors: [] };
+    case "reference": return { ok: false, reference: null, errors: [] };
     default: return { ok: false, errors: [] };
   }
 }
@@ -271,7 +281,7 @@ export class Server {
 
   async start() {
     this.root = await resolveRoot(this.root);
-    this._protocol = new McpServer({ name: "do-md", version: "1.1.0" });
+    this._protocol = new McpServer({ name: "do-md", version: "1.2.0" });
     for (const name of TOOL_NAMES) {
       const definition = TOOL_DEFINITIONS[name];
       this._protocol.registerTool(name, definition, async (params, extra) => {
@@ -284,6 +294,28 @@ export class Server {
         };
       });
     }
+    this._protocol.registerResource("template-language", "do-md://reference/template-language", {
+      title: "do-md Template Language",
+      description: "Complete Markdown reference for authoring do-md templates",
+      mimeType: "text/markdown",
+    }, async () => ({
+      contents: [{
+        uri: "do-md://reference/template-language",
+        mimeType: "text/markdown",
+        text: renderTemplateReference({ format: "markdown" }),
+      }],
+    }));
+    this._protocol.registerResource("template-language-json", "do-md://reference/template-language.json", {
+      title: "do-md Template Language JSON",
+      description: "Machine-readable do-md template-language registry",
+      mimeType: "application/json",
+    }, async () => ({
+      contents: [{
+        uri: "do-md://reference/template-language.json",
+        mimeType: "application/json",
+        text: renderTemplateReference({ format: "json" }),
+      }],
+    }));
     await this._protocol.connect(new StdioServerTransport());
     return new Promise((resolveDone) => {
       let done = false;
@@ -342,7 +374,7 @@ export class Server {
     const shaped = emptyResult(name);
     shaped.ok = result.ok === true;
     shaped.errors = this._normalizeErrors(result.errors);
-    for (const key of ["output", "context", "wrote", "matches"]) {
+    for (const key of ["output", "context", "wrote", "matches", "reference"]) {
       if (Object.hasOwn(shaped, key)) shaped[key] = result[key] ?? null;
     }
     return this._finalizeResult(shaped);

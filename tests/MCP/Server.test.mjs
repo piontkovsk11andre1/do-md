@@ -24,7 +24,7 @@ import { ERROR_CODES, makeParseError, makeUserError } from "../../sources/Syntax
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const MCP_BIN = path.join(ROOT, "bin/do-md-mcp.mjs");
-const V1_TOOLS = ["validate", "export", "create", "set", "render", "match", "query"];
+const SUPPORTED_TOOLS = ["validate", "export", "create", "set", "render", "match", "query", "reference"];
 
 async function withRoot(fn) {
   const root = await fs.mkdtemp(path.join(tmpdir(), "do-md-sdk-"));
@@ -70,8 +70,8 @@ test("MCP uses the official SDK and exposes all supported tools", async () => {
   const source = await fs.readFile(path.join(ROOT, "sources/MCP/Server.mjs"), "utf8");
   assert.match(source, /@modelcontextprotocol\/sdk\/server\/mcp\.js/);
   assert.match(source, /@modelcontextprotocol\/sdk\/server\/stdio\.js/);
-  assert.deepEqual(TOOL_NAMES, V1_TOOLS);
-  assert.deepEqual(new Server().toolNames(), V1_TOOLS);
+  assert.deepEqual(TOOL_NAMES, SUPPORTED_TOOLS);
+  assert.deepEqual(new Server().toolNames(), SUPPORTED_TOOLS);
 });
 
 test("MCP startup options are strict and resource limits cannot be disabled accidentally", () => {
@@ -129,7 +129,7 @@ test("official SDK client negotiates, lists, and invokes tools", async () => {
   await withRoot(async (root) => {
     await withClient(root, async (client, stderr) => {
       const listed = await client.listTools();
-      assert.deepEqual(listed.tools.map((tool) => tool.name), V1_TOOLS);
+      assert.deepEqual(listed.tools.map((tool) => tool.name), SUPPORTED_TOOLS);
       for (const tool of listed.tools) {
         assert.equal(tool.inputSchema.type, "object");
         assert.equal(tool.inputSchema.additionalProperties, false);
@@ -164,6 +164,18 @@ test("official SDK client negotiates, lists, and invokes tools", async () => {
         errors: [],
       });
 
+      const referenced = await client.callTool({ name: "reference", arguments: { topic: "query" } });
+      assert.equal(referenced.isError, false);
+      assert.equal(payload(referenced).reference.name, "query");
+
+      const resources = await client.listResources();
+      assert.deepEqual(resources.resources.map((resource) => resource.uri), [
+        "do-md://reference/template-language",
+        "do-md://reference/template-language.json",
+      ]);
+      const reference = await client.readResource({ uri: "do-md://reference/template-language" });
+      assert.match(reference.contents[0].text, /^# do-md Template Language/);
+
       const invalid = await client.callTool({
         name: "validate",
         arguments: { file: "ok.md", template: "tpl.md", extra: true },
@@ -196,7 +208,7 @@ test("worker isolation keeps template stdout and process.exit out of the MCP tra
       });
       assert.equal(exited.isError, true);
       assert.equal(payload(exited).errors[0].code, MCP_CODES.DO_MD_INTERNAL_ERROR);
-      assert.deepEqual((await client.listTools()).tools.map((tool) => tool.name), V1_TOOLS);
+      assert.deepEqual((await client.listTools()).tools.map((tool) => tool.name), SUPPORTED_TOOLS);
     });
   });
 });

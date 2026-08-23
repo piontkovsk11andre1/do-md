@@ -13,13 +13,57 @@ import {
 import { NodeFilesystem } from "./IO/NodeFilesystem.mjs";
 import { run as runMcpServer } from "./McpServer.mjs";
 import { ERROR_CODES, makeUserError } from "./SyntaxError.mjs";
+import { renderTemplateReference } from "./TemplateLanguage.mjs";
 
 export const USAGE = "Usage: do-md <validate|create|export|set|render|match|query> ...";
 
 const COMMANDS = new Set(["validate", "create", "export", "set", "render", "match", "query"]);
+const COMMAND_HELP = Object.freeze({
+  validate: "do-md validate <file> <template>\nValidate a complete document against one template.",
+  create: "do-md create <file> <template> --data <json> [--force]\nCreate a document from template data.",
+  export: "do-md export <file> <template> --save <json>\nExport a parsed template context.",
+  set: "do-md set <file> <template> [--key k --value v] [--patch json] [--out file]\nEdit a parsed document.",
+  render: "do-md render <file> <parse-template> <render-template> <out-file>\nParse with one template and render with another.",
+  match: "do-md match <file> <templates> [--all]\nFind templates that fully match a document.",
+  query: "do-md query <file> <template> [--all]\nFind non-overlapping content regions marked by doc.query().",
+});
 
 export function formatUsage() {
   return `${USAGE}\n`;
+}
+
+function formatHelp() {
+  return `${formatUsage()}\nCommands:\n  validate  Validate a document\n  create    Create a document\n  export    Export parsed context\n  set       Edit a document\n  render    Parse and render\n  match     Find matching templates\n  query     Find content regions\n  mcp       Start the MCP server\n\nReference:\n  do-md help template [function] [--format text|markdown|json]\n  do-md <command> --help\n`;
+}
+
+function formatCommandHelp(command) {
+  return `${COMMAND_HELP[command]}\n\nGlobal options:\n  --cwd <dir>  Resolve relative paths against a directory\n  --json       Print structured command results\n  --quiet      Suppress successful informational output\n`;
+}
+
+function optionValue(argv, name, fallback) {
+  const prefix = `--${name}=`;
+  const joined = argv.find((arg) => String(arg).startsWith(prefix));
+  if (joined) return String(joined).slice(prefix.length);
+  const index = argv.indexOf(`--${name}`);
+  return index >= 0 && argv[index + 1] != null ? String(argv[index + 1]) : fallback;
+}
+
+function templateHelp(argv) {
+  const format = optionValue(argv, "format", "text");
+  if (!["text", "markdown", "json"].includes(format)) {
+    throw makeUserError("--format must be text, markdown, or json");
+  }
+  const positionals = argv.filter((arg, index) =>
+    index > 0 && !String(arg).startsWith("-") && argv[index - 1] !== "--format");
+  if (positionals[0] !== "template") {
+    return formatHelp();
+  }
+  const topic = positionals[1] ?? null;
+  const rendered = renderTemplateReference({ topic, format });
+  if (rendered == null) {
+    throw makeUserError(`unknown template function: ${topic}`);
+  }
+  return `${rendered}\n`;
 }
 
 export function coerceValue(value) {
@@ -243,12 +287,24 @@ export async function execute(argv = process.argv.slice(2)) {
     quiet: hasFlag(argv, "quiet"),
   };
 
-  if (!argv.length || argv[0] === "--help" || argv[0] === "-h") {
+  if (!argv.length) {
     process.stdout.write(formatUsage());
     return 1;
   }
 
   const token = firstCommandToken(argv);
+  if (token === "help") {
+    try {
+      process.stdout.write(templateHelp(argv));
+      return 0;
+    } catch (error) {
+      return reportRejected(error, flags);
+    }
+  }
+  if (argv.includes("--help") || argv.includes("-h")) {
+    process.stdout.write(COMMANDS.has(token) ? formatCommandHelp(token) : formatHelp());
+    return 0;
+  }
   if (token === "mcp") {
     const index = argv.findIndex((arg) => arg !== "--" && !String(arg).startsWith("-"));
     return runMcpServer([...argv.slice(0, index), ...argv.slice(index + 1)]);

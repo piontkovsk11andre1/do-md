@@ -1,0 +1,1 @@
+{% doc.rawUntil("## Target"); doc.query((match) => { match.literal("## Target\n\n"); match.paragraph().as("content") }); doc.rawRest() %}
