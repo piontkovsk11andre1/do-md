@@ -296,6 +296,15 @@ function fenceChar(options) {
   return options.fence === "~" || options.fence === "~~~" ? "~" : "`";
 }
 
+function codeBlockInfo(node) {
+  if (node.language == null || node.language === "") {
+    return "";
+  }
+  const language = String(node.language);
+  const meta = typeof node.meta === "string" ? node.meta : "";
+  return meta === "" ? language : `${language} ${meta}`;
+}
+
 function serializeCodeBlock(node, options) {
   const value = node.value ?? "";
   if (node.fenced === false) {
@@ -314,7 +323,7 @@ function serializeCodeBlock(node, options) {
     length += 1;
   }
   const fence = ch.repeat(length);
-  const info = node.language ? String(node.language) : "";
+  const info = codeBlockInfo(node);
   return `${fence}${info}\n${value}\n${fence}`;
 }
 
@@ -693,6 +702,13 @@ export class Writer {
     return new Slot(this, { leafType: "rawUntil" });
   }
 
+  rawUntilElement(type) {
+    if (type !== "list") {
+      throw makeTemplateError('rawUntilElement type must be "list"');
+    }
+    return new Slot(this, { leafType: "rawUntilElement" });
+  }
+
   rawBlock() {
     return new Slot(this, { leafType: "rawBlock" });
   }
@@ -916,7 +932,7 @@ export class Writer {
     const text = this.serializeSlotValue(slot, value);
     if (text !== "") {
       const retainedFrontmatter = slot.leafType === "frontmatter" && value?.source === text;
-      if (["rawUntil", "rawBlock", "rawRest"].includes(slot.leafType) || retainedFrontmatter) {
+      if (["rawUntil", "rawUntilElement", "rawBlock", "rawRest"].includes(slot.leafType) || retainedFrontmatter) {
         this.writeRaw(text);
       } else {
         this.write(text);
@@ -935,6 +951,7 @@ export class Writer {
       case "line":
       case "text":
       case "rawUntil":
+      case "rawUntilElement":
       case "rawBlock":
       case "rawRest":
         return value == null ? "" : String(value);
@@ -980,7 +997,13 @@ export class Writer {
       throw makeUserError("codeBlock value must be an object");
     }
     return serializeCodeBlock(
-      { type: "code_block", language: value.language ?? null, value: value.value ?? "", fenced: true },
+      {
+        type: "code_block",
+        language: value.language ?? null,
+        meta: typeof value.meta === "string" ? value.meta : "",
+        value: value.value ?? "",
+        fenced: true,
+      },
       this.options,
     );
   }
@@ -1022,6 +1045,7 @@ export class Writer {
         this.nodes.push(frontmatterValue(value, slot.frontmatterOptions).node);
         return;
       case "rawUntil":
+      case "rawUntilElement":
       case "rawBlock":
       case "rawRest":
         this.closeCurrent();
@@ -1048,6 +1072,7 @@ export class Writer {
         this.nodes.push({
           type: "code_block",
           language: value.language ?? null,
+          meta: typeof value.meta === "string" ? value.meta : "",
           value: value.value ?? "",
           fenced: true,
         });
@@ -1171,6 +1196,7 @@ export class Writer {
     const node = {
       type: "code_block",
       language: language == null || language === "" ? null : String(language),
+      meta: "",
       value: String(value ?? ""),
       fenced: true,
     };

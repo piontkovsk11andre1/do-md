@@ -8,6 +8,7 @@ import { handleRender } from "./tools/render.mjs";
 import { handleMatch } from "./tools/match.mjs";
 import { handleQuery } from "./tools/query.mjs";
 import { handleReference } from "./tools/reference.mjs";
+import { ScopedFilesystem } from "../Service/ScopedFilesystem.mjs";
 
 const handlers = {
   validate: handleValidate,
@@ -23,7 +24,9 @@ const handlers = {
 try {
   const handler = handlers[workerData.name];
   if (!handler) throw new Error(`unknown tool: ${workerData.name}`);
-  parentPort.postMessage(await handler(workerData.params, workerData.context));
+  const context = workerData.context;
+  if (context.scoped) context.io = new ScopedFilesystem(context.root, context.maxInputBytes);
+  parentPort.postMessage(await handler(workerData.params, context));
 } catch (error) {
   parentPort.postMessage({
     ok: false,

@@ -92,6 +92,18 @@ Example:
 doc.rawUntil("## Generated").as("preamble")
 ```
 
+### `doc.rawUntilElement(type)`
+
+Captures byte-exact source up to the next top-level list.
+
+Value: `string`.
+
+Example:
+
+```js
+doc.rawUntilElement("list")
+```
+
 ### `doc.rawBlock()`
 
 Captures one byte-exact Markdown block.
@@ -433,7 +445,7 @@ const found = doc.optional().line().exists
 - `ListTreeValue`: `{ ordered: boolean, start: number | null, tight: boolean, items: Array<{ checked: boolean | null, children: MarkdownBlockNode[] }> }`
 - `FrontmatterValue`: `{ format: 'yaml', raw: string, content: string, data: object, source?: string }`
 - `TableValue`: `{ headers: string[], rows: string[][], align: Array<'left' | 'right' | 'center' | null> }`
-- `CodeBlockValue`: `{ language: string | null, value: string }`
+- `CodeBlockValue`: `{ language: string | null, meta: string, value: string }`
 - `LinkValue`: `{ url: string, text: string, title: string | null }`
 - `ImageValue`: `{ url: string, alt: string, title: string | null }`
 

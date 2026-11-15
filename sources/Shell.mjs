@@ -12,6 +12,7 @@ import {
 } from "./commands/index.mjs";
 import { NodeFilesystem } from "./IO/NodeFilesystem.mjs";
 import { run as runMcpServer } from "./McpServer.mjs";
+import { run as runHttpServer } from "./HttpServer.mjs";
 import { ERROR_CODES, makeUserError } from "./SyntaxError.mjs";
 import { renderTemplateReference } from "./TemplateLanguage.mjs";
 
@@ -33,7 +34,7 @@ export function formatUsage() {
 }
 
 function formatHelp() {
-  return `${formatUsage()}\nCommands:\n  validate  Validate a document\n  create    Create a document\n  export    Export parsed context\n  set       Edit a document\n  render    Parse and render\n  match     Find matching templates\n  query     Find content regions\n  mcp       Start the MCP server\n\nReference:\n  do-md help template [function] [--format text|markdown|json]\n  do-md <command> --help\n`;
+  return `${formatUsage()}\nCommands:\n  validate  Validate a document\n  create    Create a document\n  export    Export parsed context\n  set       Edit a document\n  render    Parse and render\n  match     Find matching templates\n  query     Find content regions\n  mcp       Start the local or remote-dispatch MCP server\n  serve     Start the HTTP execution server\n\nReference:\n  do-md help template [function] [--format text|markdown|json]\n  do-md <command> --help\n`;
 }
 
 function formatCommandHelp(command) {
@@ -293,6 +294,14 @@ export async function execute(argv = process.argv.slice(2)) {
   }
 
   const token = firstCommandToken(argv);
+  if (token === "serve" && (argv.includes("--help") || argv.includes("-h"))) {
+    process.stdout.write("do-md serve --root <dir> [--host 127.0.0.1] [--port 8080]\nOptions: --max-input-bytes --timeout-ms --max-body-bytes --max-response-bytes --max-concurrency --no-snippets\n");
+    return 0;
+  }
+  if (token === "mcp" && (argv.includes("--help") || argv.includes("-h"))) {
+    process.stdout.write("do-md mcp --root <dir> [--host <host> --port 8080 | --url <http(s)://host/prefix>]\nOptions: --max-input-bytes --timeout-ms --max-response-bytes --no-snippets\nWithout host/port/URL, commands execute locally. In remote mode --root is a server-side directory.\n");
+    return 0;
+  }
   if (token === "help") {
     try {
       process.stdout.write(templateHelp(argv));
@@ -308,6 +317,10 @@ export async function execute(argv = process.argv.slice(2)) {
   if (token === "mcp") {
     const index = argv.findIndex((arg) => arg !== "--" && !String(arg).startsWith("-"));
     return runMcpServer([...argv.slice(0, index), ...argv.slice(index + 1)]);
+  }
+  if (token === "serve") {
+    const index = argv.indexOf("serve");
+    return runHttpServer([...argv.slice(0, index), ...argv.slice(index + 1)]);
   }
 
   if (!COMMANDS.has(token)) {

@@ -24,6 +24,7 @@ do-md set      <file> <template> [--key k --value v] [--patch <patch.json>] [--o
 do-md render   <file> <parse-template> <render-template> <out-file>
 do-md match    <file> <templates> [--all]
 do-md query    <file> <template> [--all]
+do-md serve    --root <dir> [--host 127.0.0.1] [--port 8080]
 ```
 
 Use `do-md <command> --help` for command details. The complete template
@@ -203,6 +204,37 @@ Raw values are emitted without Markdown normalization. Successful command
 parses must consume the complete document; non-whitespace trailing content is
 reported as a parse error.
 
+To skip arbitrary content before each top-level list, use
+`doc.rawUntilElement("list")` followed by `doc.listTree()`:
+
+```md
+{%
+doc.repeat((item) => {
+  item.rawUntilElement("list")
+  item.listTree().asArray("lists")
+})
+doc.rawRest()
+%}
+```
+
+Only `"list"` is supported. Lists inside fences, quotes, frontmatter, or other
+lists are not treated as top-level matches. The capture can be an empty string
+when the cursor is already at a list. A miss lets `repeat()` stop cleanly; an
+unbound writer call emits nothing, while a bound raw capture is emitted exactly.
+
+### Code Fence Metadata
+
+`doc.codeBlock()` returns `{ language, meta, value }`. For a fence opened with
+`js module id=example`, `language` is `"js"` and `meta` is the opaque string
+`"module id=example"`; do-md does not interpret its tokens. Language-only,
+unlabelled, and indented blocks have `meta: ""`.
+
+Writers and edits accept values without `meta` for compatibility. When present,
+`meta` must be a string, and it is emitted after the language with a separating
+space. If the language is empty or null, metadata is not emitted. Parsed values
+and code-block AST nodes now include the additional `meta` property, so update
+strict object comparisons, schemas, and TypeScript object literals accordingly.
+
 ### Safe Editing
 
 `Editor` retains BOMs, line endings, whitespace, and final-newline state.
@@ -238,9 +270,9 @@ import {
 
 ## MCP
 
-The bundled MCP server uses the official Model Context Protocol SDK over local
-stdio. Your agent launches it as a child process; it does not open a network
-port or run as a background daemon.
+The bundled MCP server uses the official Model Context Protocol SDK over
+stdio. Your agent launches it as a child process. By default it executes
+commands locally; it can also dispatch them to a running HTTP execution service.
 
 Configure an MCP-capable agent with the equivalent of:
 
@@ -262,9 +294,56 @@ do-md-mcp --root <dir> [--max-input-bytes <n>] [--timeout-ms <n>] [--no-snippets
 do-md mcp --root <dir> [--max-input-bytes <n>] [--timeout-ms <n>] [--no-snippets]
 ```
 
-`--root` is required and must exist. Tools are `validate`, `export`,
+For remote execution, add host/port or a full HTTP(S) URL:
+
+```sh
+do-md-mcp --host do-md --port 8080 --root /workspace/project
+do-md mcp --url https://tools.example.com/do-md/ --root /workspace/project
+```
+
+The agent still speaks MCP over stdio; the proxy sends JSON command requests
+over HTTP. In remote mode, `--root` is a directory on the **server**, and no
+client-side copy of the files is required. Use relative paths in tool arguments.
+Remote failures never fall back to local execution. Template-language resources
+are fetched from the remote service so they describe the executing version.
+
+`--root` is required and must exist locally in local mode or on the server in
+remote mode. Tools are `validate`, `export`,
 `create`, `set`, `render`, `match`, `query`, and `reference`. The server also
 publishes Markdown and JSON template-language resources at the URIs above.
+
+### HTTP Execution Service
+
+```sh
+do-md serve --root /workspace --host 0.0.0.0 --port 8080
+```
+
+The listener defaults to `127.0.0.1:8080`. The web API supports the same seven
+document commands as the CLI, plus `reference`. All document, template, and
+output paths refer to the service's filesystem and stay inside the selected
+directory under its configured root.
+
+```sh
+curl http://127.0.0.1:8080/v1/commands/export \
+  -H 'Content-Type: application/json' \
+  -d '{"directory":"project","params":{"file":"notes.md","template":"notes.tpl.md"}}'
+```
+
+For shared host/container files, bind-mount the project into the service and
+configure MCP's remote root using that container path. The package includes a
+`Dockerfile` and `compose.example.yaml`; see [HTTP API and Docker usage](docs/http-api.md)
+for routes, options, limits, lifecycle, and the shared-filesystem contract.
+
+The import-safe server facade is also available to applications:
+
+```js
+import { createServer } from "@p10i/do-md/sources/HttpServer.mjs"
+
+const server = createServer({ root: "/workspace", port: 8080 })
+await server.start()
+// On application shutdown:
+await server.close()
+```
 
 ## Exit codes
 

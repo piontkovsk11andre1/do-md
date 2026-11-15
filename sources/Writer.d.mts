@@ -21,6 +21,7 @@ export class Writer<TData extends Record<string, unknown> = Record<string, unkno
   listTree(): Slot<ListTreeValue>;
   frontmatter<T extends Record<string, unknown> = Record<string, unknown>>(options?: SafeParseSchema<T> | { schema?: SafeParseSchema<T> }): Slot<FrontmatterValue<T> | T>;
   rawUntil(limiter?: unknown): Slot<string>;
+  rawUntilElement(type: unknown): Slot<string>;
   rawBlock(): Slot<string>;
   rawRest(): Slot<string>;
   table(): Slot<TableValue>;

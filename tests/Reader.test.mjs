@@ -397,10 +397,10 @@ test("a table with zero headers records a SyntaxError", () => {
 test("codeBlock returns language and value for fenced and indented blocks", () => {
   const fenced = new Reader("```js\nconst x = 1;\n```\n").codeBlock();
   assert.equal(fenced.leafType, "codeBlock");
-  assert.deepEqual(fenced.value, { language: "js", value: "const x = 1;" });
+  assert.deepEqual(fenced.value, { language: "js", meta: "", value: "const x = 1;" });
   assert.equal(fenced.node.type, "code_block");
   const indented = new Reader("    indented\n").codeBlock();
-  assert.deepEqual(indented.value, { language: null, value: "indented" });
+  assert.deepEqual(indented.value, { language: null, meta: "", value: "indented" });
 });
 
 test("blockQuote returns flattened string content", () => {
@@ -469,7 +469,7 @@ test("block-level leaves cannot be used inside a single line", () => {
     title: "Hello",
     body: "Body text",
     items: ["a", "b"],
-    sample: { language: "js", value: "code" },
+    sample: { language: "js", meta: "", value: "code" },
   });
   assert.equal(reader.errors.length, 0);
 });
@@ -1071,9 +1071,9 @@ test("every documented block leaf value shape records leafType, offsets, and nod
   assert.equal(table.value.align[1], null);
 
   const fenced = new Reader("```js\nconst x = 1;\n```\n").codeBlock();
-  assertLeaf(fenced, "codeBlock", { language: "js", value: "const x = 1;" }, "code_block");
+  assertLeaf(fenced, "codeBlock", { language: "js", meta: "", value: "const x = 1;" }, "code_block");
   const indented = new Reader("    indented\n").codeBlock();
-  assertLeaf(indented, "codeBlock", { language: null, value: "indented" }, "code_block");
+  assertLeaf(indented, "codeBlock", { language: null, meta: "", value: "indented" }, "code_block");
 
   const quote = new Reader("> # Title\n>\n> quoted\n").blockQuote();
   assertLeaf(quote, "blockQuote", "Title\nquoted", "block_quote");

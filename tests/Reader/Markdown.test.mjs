@@ -213,6 +213,7 @@ test("fenced code blocks capture language, value, and fenced flag", () => {
   const node = parsed.children[0];
   assert.equal(node.type, "code_block");
   assert.equal(node.language, "js");
+  assert.equal(node.meta, "");
   assert.equal(node.value, "const x = 1;");
   assert.equal(node.fenced, true);
   assert.ok(!node.value.endsWith("\n"));
@@ -226,6 +227,7 @@ test("tilde fences and missing language are supported", () => {
   const node = parsed.children[0];
   assert.equal(node.type, "code_block");
   assert.equal(node.language, null);
+  assert.equal(node.meta, "");
   assert.equal(node.value, "plain");
   assert.equal(node.fenced, true);
 });
@@ -236,6 +238,7 @@ test("indented code blocks have fenced false and language null", () => {
   assert.equal(node.type, "code_block");
   assert.equal(node.fenced, false);
   assert.equal(node.language, null);
+  assert.equal(node.meta, "");
   assert.equal(node.value, "indented\nstill");
   assert.ok(!node.value.endsWith("\n"));
   assertPosition(node);
@@ -738,10 +741,12 @@ test("every documented AST node type is produced with documented fields", () => 
 
   const fenced = byType.get("code_block").find((node) => node.fenced);
   assert.equal(fenced.language, "js");
+  assert.equal(fenced.meta, "");
   assert.equal(fenced.value, "code");
   assert.equal(fenced.fenced, true);
   const indented = byType.get("code_block").find((node) => !node.fenced);
   assert.equal(indented.language, null);
+  assert.equal(indented.meta, "");
   assert.equal(indented.fenced, false);
   assert.equal(indented.value, "indented");
 

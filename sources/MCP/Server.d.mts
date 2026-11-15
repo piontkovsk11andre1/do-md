@@ -23,6 +23,10 @@ export interface ServerOptions {
   timeoutMs?: number;
   noSnippets?: boolean;
   handlers?: Partial<Record<ToolName, ToolHandler>>;
+  host?: string;
+  port?: number;
+  url?: string;
+  maxResponseBytes?: number;
 }
 export interface McpResult {
   ok: boolean;
@@ -33,7 +37,7 @@ export interface McpResult {
   wrote?: string | null;
   errors: Diagnostic[];
 }
-export function parseArgv(argv?: string[]): Required<Pick<ServerOptions, "root" | "maxInputBytes" | "timeoutMs" | "noSnippets">>;
+export function parseArgv(argv?: string[]): Required<Pick<ServerOptions, "root" | "maxInputBytes" | "timeoutMs" | "noSnippets">> & Pick<ServerOptions, "host" | "port" | "url">;
 export function mcpDiagnostic(code: string, message: unknown, extra?: Partial<Diagnostic> & { path?: string }): Diagnostic;
 export function stripDiagnosticSnippets(errors: Diagnostic | readonly Diagnostic[] | null): Diagnostic[];
 export function toMcpDiagnostic(error: unknown, options?: { fallbackInternal?: boolean }): Diagnostic;

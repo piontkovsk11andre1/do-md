@@ -164,7 +164,7 @@ test("conformance/example-kitchen-sink binds modifiers, optionals, and byte-leve
   assert.equal(reader.context.repo, "https://git.example.com");
   assert.equal(reader.context.binary, "do-md");
   assert.deepEqual(reader.context.compatibility.align, ["left", "center", "right"]);
-  assert.deepEqual(reader.context.example, { language: "js", value: "const n = 1;" });
+  assert.deepEqual(reader.context.example, { language: "js", meta: "", value: "const n = 1;" });
 });
 
 test("conformance/example-kitchen-sink status validate rejects unknown values", () => {

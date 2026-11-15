@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { startServe } from "./http-helpers.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const WIN = process.platform === "win32";
@@ -141,11 +142,40 @@ test("npm pack + isolated global install exposes do-md and do-md-mcp", { timeout
     "bin/do-md-mcp.mjs",
     "sources/index.mjs",
     "sources/MCP/Server.mjs",
+    "sources/HttpServer.mjs",
+    "Dockerfile",
+    "compose.example.yaml",
     "README.md",
     "LICENSE",
   ]) {
     assert.equal(await pathExists(path.join(install.installedPkg, relative)), true, relative);
   }
+});
+
+test("installed serve executes HTTP commands and both installed MCP proxies dispatch remotely", { timeout: INSTALL_TIMEOUT_MS }, async () => {
+  const install = await getInstall();
+  await withTempDir("do-md-smoke-http-", async (root) => {
+    await fs.writeFile(path.join(root, "doc.md"), "# Hello\n");
+    await fs.writeFile(path.join(root, "tpl.md"), '# {% doc.line().as("title") %}\n');
+    const service = await startServe(root, install.doMdJs);
+    try {
+      const response = await fetch(`${service.url}/v1/commands/export`, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ params: { file: "doc.md", template: "tpl.md" } }),
+      });
+      assert.deepEqual((await response.json()).context, { title: "Hello" });
+      for (const entry of [[install.doMdJs, "mcp"], [install.doMdMcpJs]]) {
+        const transport = new StdioClientTransport({ command: process.execPath, args: [...entry, "--root", ".", "--url", service.url], stderr: "pipe" });
+        const client = new Client({ name: "installed-remote", version: "1" });
+        try {
+          await client.connect(transport);
+          const result = await client.callTool({ name: "validate", arguments: { file: "doc.md", template: "tpl.md" } });
+          assert.equal(result.isError, false);
+          assert.equal(client.getServerVersion().version, "1.4.0");
+        } finally { await client.close(); }
+      }
+    } finally { await service.close(); }
+  });
 });
 
 test(

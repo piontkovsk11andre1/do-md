@@ -17,7 +17,7 @@ import {
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const AUTHORING_FUNCTIONS = [
-  "literal", "line", "until", "regexp", "text", "rawUntil", "rawBlock", "rawRest",
+  "literal", "line", "until", "regexp", "text", "rawUntil", "rawUntilElement", "rawBlock", "rawRest",
   "heading", "paragraph", "list", "listTree", "frontmatter", "table", "codeBlock",
   "blockQuote", "thematicBreak", "htmlBlock", "link", "image", "autolink", "codeSpan",
   "checkbox", "optional", "scope", "repeat", "skipUntilHeading", "query",
