@@ -31,6 +31,18 @@ import { lookupSlot } from "@p10i/do-md/sources/Editor.mjs";
 import { parseMarkdown } from "@p10i/do-md/sources/Reader/Markdown.mjs";
 import { handleValidate } from "@p10i/do-md/sources/MCP/tools/validate.mjs";
 import { Server } from "@p10i/do-md/sources/MCP/Server.mjs";
+import { createServer as createHttpServer, type ServerOptions as HttpOptions } from "@p10i/do-md/sources/HttpServer.mjs";
+import { Client as HttpClient } from "@p10i/do-md/sources/HTTP/Client.mjs";
+import { ScopedFilesystem } from "@p10i/do-md/sources/Service/ScopedFilesystem.mjs";
+import { execute } from "@p10i/do-md/sources/Service/Executor.mjs";
+import { TOOL_DEFINITIONS } from "@p10i/do-md/sources/Service/Definitions.mjs";
+
+const httpOptions: HttpOptions = { root: "/workspace", port: 0, maxConcurrency: 2 };
+const httpServer = createHttpServer(httpOptions);
+const httpClient = new HttpClient({ url: "http://do-md:8080", root: "/workspace" });
+const remoteMcp = new Server({ root: "/workspace", host: "do-md", port: 8080 });
+const scopedIo: IOAdapter = new ScopedFilesystem("/workspace", 1024);
+void [httpServer, httpClient, remoteMcp, scopedIo, execute, TOOL_DEFINITIONS];
 
 const io: IOAdapter = new Virtual({ "doc.md": "# Hello" });
 const filesystem: IOAdapter = new NodeFilesystem();
@@ -56,7 +68,7 @@ const listTree: ListTreeValue = {
   tight: true,
   items: [{ checked: true, children: [{ type: "paragraph", children: [{ type: "text", value: "Task" }] }] }],
 };
-const code: CodeBlockValue = { language: "ts", value: "const x = 1" };
+const code: CodeBlockValue = { language: "ts", meta: "", value: "const x = 1" };
 const link: LinkValue = { url: "https://example.com", text: "example", title: null };
 const image: ImageValue = { url: "image.png", alt: "image", title: null };
 const frontmatter: FrontmatterValue<{ title: string }> = {

@@ -5,6 +5,7 @@ const functions = [
   ["regexp", "text", "doc.regexp(pattern)", "Matches a regular expression at the current cursor.", "string", 'doc.regexp(/v\\d+\\.\\d+/).as("version")'],
   ["text", "text", "doc.text(limiter?)", "Captures text inside the current Markdown paragraph.", "string", 'doc.text(";").as("summary")'],
   ["rawUntil", "opaque", "doc.rawUntil(limiter)", "Captures byte-exact source up to a literal limiter.", "string", 'doc.rawUntil("## Generated").as("preamble")'],
+  ["rawUntilElement", "opaque", "doc.rawUntilElement(type)", "Captures byte-exact source up to the next top-level list.", "string", 'doc.rawUntilElement("list")'],
   ["rawBlock", "opaque", "doc.rawBlock()", "Captures one byte-exact Markdown block.", "string", 'doc.rawBlock().as("customBlock")'],
   ["rawRest", "opaque", "doc.rawRest()", "Captures all remaining source exactly.", "string", 'doc.rawRest().as("trailing")'],
   ["heading", "block", "doc.heading(level?)", "Parses or writes a complete ATX or Setext heading.", "string", 'doc.heading(2).as("section")'],
@@ -43,7 +44,7 @@ const valueShapes = Object.freeze({
   ListTreeValue: "{ ordered: boolean, start: number | null, tight: boolean, items: Array<{ checked: boolean | null, children: MarkdownBlockNode[] }> }",
   FrontmatterValue: "{ format: 'yaml', raw: string, content: string, data: object, source?: string }",
   TableValue: "{ headers: string[], rows: string[][], align: Array<'left' | 'right' | 'center' | null> }",
-  CodeBlockValue: "{ language: string | null, value: string }",
+  CodeBlockValue: "{ language: string | null, meta: string, value: string }",
   LinkValue: "{ url: string, text: string, title: string | null }",
   ImageValue: "{ url: string, alt: string, title: string | null }",
 });

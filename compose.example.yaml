@@ -1,0 +1,22 @@
+# Run from the project directory that should be mounted as /workspace.
+# Set DO_MD_SOURCE to the do-md source checkout containing its Dockerfile.
+services:
+  do-md:
+    build:
+      context: ${DO_MD_SOURCE:-.}
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    volumes:
+      - type: bind
+        source: ${DO_MD_WORKSPACE:-.}
+        target: /workspace
+        bind:
+          create_host_path: false
+    expose:
+      - "8080"
+    init: true
+    stop_grace_period: 10s
+    restart: unless-stopped
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"

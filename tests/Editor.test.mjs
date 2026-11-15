@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { Editor, lookupSlot } from "../sources/Editor.mjs";
+import { Reader } from "../sources/Reader.mjs";
 import { Virtual } from "../sources/IO/Virtual.mjs";
 import { ERROR_CODES } from "../sources/SyntaxError.mjs";
 
@@ -884,8 +885,12 @@ test("set type mismatches reject list, checkbox, table, codeBlock, link, image, 
     () => code.set("sample", "nope"),
     (err) => err.code === ERROR_CODES.DO_MD_USER_ERROR && /type mismatch/.test(err.message),
   );
+  assert.throws(
+    () => code.set("sample", { language: "ts", meta: 1, value: "const y = 2;" }),
+    (err) => err.code === ERROR_CODES.DO_MD_USER_ERROR && /type mismatch/.test(err.message),
+  );
   code.set("sample", { language: "ts", value: "const y = 2;" });
-  assert.deepEqual(code.get("sample"), { language: "ts", value: "const y = 2;" });
+  assert.deepEqual(new Reader(code.render()).codeBlock().value, { language: "ts", meta: "", value: "const y = 2;" });
 
   const link = await openDoc({
     "/doc.md": '[docs](https://example.com "Guide")\n',

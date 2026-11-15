@@ -229,6 +229,7 @@ const STRING_LEAF_TYPES = new Set([
   "codeSpan",
   "autolink",
   "rawUntil",
+  "rawUntilElement",
   "rawBlock",
   "rawRest",
 ]);
@@ -239,6 +240,7 @@ const AGGREGATE_LEAF_TYPES = new Set([
   "table",
   "frontmatter",
   "rawUntil",
+  "rawUntilElement",
   "rawBlock",
   "rawRest",
 ]);
@@ -324,7 +326,10 @@ function matchesLeafShape(leafType, value) {
     case "table":
       return matchesTableShape(value);
     case "codeBlock":
-      return isPlainObject(value) && (value.language == null || typeof value.language === "string") && typeof value.value === "string";
+      return isPlainObject(value)
+        && (value.language == null || typeof value.language === "string")
+        && (!Object.hasOwn(value, "meta") || typeof value.meta === "string")
+        && typeof value.value === "string";
     case "link":
       return isPlainObject(value) && typeof value.url === "string" && typeof value.text === "string" && (value.title == null || typeof value.title === "string");
     case "image":
@@ -862,7 +867,7 @@ export class Editor {
       ? { ...slot, headingLevel: headingLevelForSlot(slot, this.originalSource) }
       : slot;
     const rendered = writer.serializeSlotValue(prepared, value);
-    return ["rawUntil", "rawBlock", "rawRest"].includes(slot.leafType)
+    return ["rawUntil", "rawUntilElement", "rawBlock", "rawRest"].includes(slot.leafType)
       ? rendered
       : normalizeEol(rendered, eol);
   }

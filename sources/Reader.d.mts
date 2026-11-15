@@ -38,6 +38,7 @@ export class Reader<TContext extends Record<string, unknown> = Record<string, un
   line(): Slot<string>;
   until(limiter: unknown): Slot<string>;
   rawUntil(limiter: unknown): Slot<string>;
+  rawUntilElement(type: unknown): Slot<string>;
   rawBlock(): Slot<string>;
   rawRest(): Slot<string>;
   regexp(re: RegExp | string): Slot<string>;

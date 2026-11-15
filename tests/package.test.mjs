@@ -44,7 +44,7 @@ test("package manifest is CLI-compatible", async () => {
   const pkg = JSON.parse(packageText);
 
   assert.equal(pkg.name, "@p10i/do-md");
-  assert.equal(pkg.version, "1.2.0");
+  assert.equal(pkg.version, "1.4.0");
   assert.equal(pkg.license, "MIT");
   assert.equal(pkg.type, "module");
   assert.equal(pkg.engines?.node, ">=20.0.0");
@@ -54,14 +54,14 @@ test("package manifest is CLI-compatible", async () => {
   });
   assert.equal(pkg.main, "sources/index.mjs");
   assert.equal(pkg.types, "sources/index.d.mts");
-  assert.deepEqual(pkg.files, ["bin/", "sources/", "docs/", "examples/", "README.md", "LICENSE"]);
+  assert.deepEqual(pkg.files, ["bin/", "sources/", "docs/", "examples/", "Dockerfile", "compose.example.yaml", ".dockerignore", "README.md", "LICENSE"]);
   assert.deepEqual(pkg.dependencies, {
-    "@modelcontextprotocol/sdk": "1.30.0",
+    "@modelcontextprotocol/sdk": "1.32.2",
     yargs: "^17.0.0",
     chalk: "^5.0.0",
     "fast-glob": "^3.3.3",
     yaml: "^2.9.0",
-    zod: "4.4.3",
+    zod: "4.6.7",
   });
 
   assert.deepEqual(pkg.exports, {

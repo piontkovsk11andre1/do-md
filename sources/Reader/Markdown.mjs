@@ -890,7 +890,9 @@ function parseFencedCode(lines, start, end) {
   if (fenceChar === "`" && info.includes("`")) {
     return null;
   }
-  const language = info.split(/\s+/)[0] || null;
+  const splitAt = info.search(/\s/);
+  const language = splitAt === -1 ? (info || null) : info.slice(0, splitAt);
+  const meta = splitAt === -1 ? "" : info.slice(splitAt).replace(/^\s+/, "");
   const valueLines = [];
   let i = start + 1;
   for (; i < end; i++) {
@@ -909,7 +911,7 @@ function parseFencedCode(lines, start, end) {
   return {
     node: makeNode(
       "code_block",
-      { language, value: valueLines.join("\n"), fenced: true },
+      { language, meta, value: valueLines.join("\n"), fenced: true },
       lines[start].start,
       lines[Math.max(start, i - 1)].end,
     ),
@@ -942,7 +944,7 @@ function parseIndentedCode(lines, start, end) {
   return {
     node: makeNode(
       "code_block",
-      { language: null, value: valueLines.join("\n"), fenced: false },
+      { language: null, meta: "", value: valueLines.join("\n"), fenced: false },
       lines[start].start,
       lines[lastNonBlank].end,
     ),
@@ -1344,6 +1346,31 @@ export function parseMarkdown(source = "") {
   return makeNode("document", { children }, { offset: 0, line: 1, column: 1 }, endPosition(text));
 }
 
+function lineIndexAt(lines, offset) {
+  let i = 0;
+  while (i < lines.length && lines[i].lineEnd.offset <= offset) {
+    i += 1;
+  }
+  return i;
+}
+
+function skipBlankLines(lines, index) {
+  let i = index;
+  while (i < lines.length && isBlank(lines[i])) {
+    i += 1;
+  }
+  return i;
+}
+
+function firstListAt(nodes, minOffset = 0) {
+  for (const node of nodes) {
+    if (node.type === "list" && (node.position?.start?.offset ?? 0) >= minOffset) {
+      return node;
+    }
+  }
+  return null;
+}
+
 export function parseNextBlock(source, offset = 0) {
   const text = String(source);
   if (offset === 0) {
@@ -1353,21 +1380,22 @@ export function parseNextBlock(source, offset = 0) {
     }
   }
   const lines = splitLines(text);
-  let i = 0;
-  while (i < lines.length && lines[i].lineEnd.offset <= offset) {
-    i += 1;
-  }
+  let i = lineIndexAt(lines, offset);
   if (i < lines.length && lines[i].start.offset < offset) {
     return null;
   }
-  while (i < lines.length && isBlank(lines[i])) {
-    i += 1;
-  }
+  i = skipBlankLines(lines, i);
   if (i >= lines.length) {
     return null;
   }
   const nodes = parseBlockSequence(text, lines, i, lines.length);
   return nodes[0] ?? null;
+}
+
+export function findNextListBlock(source, offset = 0) {
+  // Retain enclosing-block context even when the cursor is at a line boundary
+  // inside a fence, frontmatter, or list. Parsing only the suffix loses it.
+  return firstListAt(parseMarkdown(source).children, offset);
 }
 
 export function collectHeadings(node, out = []) {

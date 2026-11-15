@@ -1,10 +1,8 @@
 import { stat, realpath } from "node:fs/promises";
 import { resolve } from "node:path";
-import { Worker } from "node:worker_threads";
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import * as z from "zod/v4";
 
 import { ERROR_CODES } from "../SyntaxError.mjs";
 import { handleValidate } from "./tools/validate.mjs";
@@ -16,10 +14,11 @@ import { handleMatch } from "./tools/match.mjs";
 import { handleQuery } from "./tools/query.mjs";
 import { handleReference } from "./tools/reference.mjs";
 import { renderTemplateReference } from "../TemplateLanguage.mjs";
+import { VERSION, TOOL_DEFINITIONS, DEFAULT_MAX_INPUT_BYTES, DEFAULT_TIMEOUT_MS, TOOL_NAMES } from "../Service/Definitions.mjs";
+import { execute } from "../Service/Executor.mjs";
+import { Client, remoteUrl } from "../HTTP/Client.mjs";
 
-export const DEFAULT_MAX_INPUT_BYTES = 1_048_576;
-export const DEFAULT_TIMEOUT_MS = 30_000;
-export const TOOL_NAMES = Object.freeze(["validate", "export", "create", "set", "render", "match", "query", "reference"]);
+export { DEFAULT_MAX_INPUT_BYTES, DEFAULT_TIMEOUT_MS, TOOL_NAMES };
 export const MCP_CODES = Object.freeze({
   DO_MD_USER_ERROR: "DO_MD_USER_ERROR",
   DO_MD_TIMEOUT: "DO_MD_TIMEOUT",
@@ -37,82 +36,6 @@ const HANDLERS = Object.freeze({
   query: handleQuery,
   reference: handleReference,
 });
-const jsonObject = z.record(z.string(), z.json());
-
-const TOOL_DEFINITIONS = Object.freeze({
-  validate: {
-    description: "Validate a Markdown file against a template",
-    inputSchema: z.strictObject({
-      file: z.string().min(1),
-      template: z.string().min(1),
-      options: jsonObject.optional(),
-    }),
-  },
-  export: {
-    description: "Parse a Markdown file and return its context inline",
-    inputSchema: z.strictObject({
-      file: z.string().min(1),
-      template: z.string().min(1),
-      options: jsonObject.optional(),
-    }),
-  },
-  create: {
-    description: "Render a template with JSON data, optionally writing a file",
-    inputSchema: z.strictObject({
-      template: z.string().min(1),
-      data: jsonObject,
-      file: z.string().min(1).optional(),
-      force: z.boolean().default(false),
-    }),
-  },
-  set: {
-    description: "Mutate a Markdown file and return the rewritten text",
-    inputSchema: z.strictObject({
-      file: z.string().min(1),
-      template: z.string().min(1),
-      key: z.string().min(1).optional(),
-      value: z.json().optional(),
-      patch: jsonObject.optional(),
-      out: z.string().min(1).optional(),
-      dryRun: z.boolean().default(false),
-    }),
-  },
-  render: {
-    description: "Parse with one template and render with another",
-    inputSchema: z.strictObject({
-      file: z.string().min(1),
-      parseTemplate: z.string().min(1),
-      renderTemplate: z.string().min(1),
-      outFile: z.string().min(1),
-      dryRun: z.boolean().default(false),
-    }),
-  },
-  match: {
-    description: "Find templates that fully match a Markdown file",
-    inputSchema: z.strictObject({
-      file: z.string().min(1),
-      templates: z.string().min(1),
-      all: z.boolean().default(false),
-      options: jsonObject.optional(),
-    }),
-  },
-  query: {
-    description: "Find content occurrences using a query template",
-    inputSchema: z.strictObject({
-      file: z.string().min(1),
-      template: z.string().min(1),
-      all: z.boolean().default(false),
-      options: jsonObject.optional(),
-    }),
-  },
-  reference: {
-    description: "Return the complete template-language reference or one function entry",
-    inputSchema: z.strictObject({
-      topic: z.string().min(1).optional(),
-    }),
-  },
-});
-
 function flagValue(argv, index, name) {
   const arg = String(argv[index]);
   const prefix = `${name}=`;
@@ -155,12 +78,23 @@ export function parseArgv(argv = []) {
       const parsed = flagValue(argv, i, "--timeout-ms");
       options.timeoutMs = nonNegativeInteger(parsed.value, "--timeout-ms");
       i += parsed.consumed;
+    } else if (["--host", "--port", "--url"].some((name) => arg === name || arg.startsWith(`${name}=`))) {
+      const name = arg.split("=")[0];
+      const parsed = flagValue(argv, i, name);
+      options[name.slice(2)] = name === "--port" ? Number(parsed.value) : parsed.value;
+      i += parsed.consumed;
     } else if (arg === "--no-snippets") {
       options.noSnippets = true;
+    } else if (arg === "--max-response-bytes" || arg.startsWith("--max-response-bytes=")) {
+      const parsed = flagValue(argv, i, "--max-response-bytes");
+      options.maxResponseBytes = nonNegativeInteger(parsed.value, "--max-response-bytes");
+      if (options.maxResponseBytes === 0) throw new Error("--max-response-bytes must be positive");
+      i += parsed.consumed;
     } else {
       throw new Error(`unknown option: ${arg}`);
     }
   }
+  remoteUrl(options);
   return options;
 }
 
@@ -248,6 +182,8 @@ export class Server {
     this.handlers = { ...HANDLERS, ...(options.handlers ?? {}) };
     this._customHandlers = options.handlers != null;
     this._protocol = null;
+    this._remote = remoteUrl(options) ? new Client(options) : null;
+    this._active = new Map();
   }
 
   toolNames() { return [...TOOL_NAMES]; }
@@ -267,6 +203,7 @@ export class Server {
   }
 
   async callTool(name, params = {}) {
+    if (this._remote) return this._dispatch(name, params);
     const handler = this.handlers[name];
     if (typeof handler !== "function") {
       return this._failure(name, mcpDiagnostic(MCP_CODES.DO_MD_USER_ERROR, `unknown tool: ${name ?? ""}`));
@@ -280,14 +217,13 @@ export class Server {
   }
 
   async start() {
-    this.root = await resolveRoot(this.root);
-    this._protocol = new McpServer({ name: "do-md", version: "1.2.0" });
+    if (this._remote) await this._remote.connect();
+    else this.root = await resolveRoot(this.root);
+    this._protocol = new McpServer({ name: "do-md", version: VERSION });
     for (const name of TOOL_NAMES) {
       const definition = TOOL_DEFINITIONS[name];
       this._protocol.registerTool(name, definition, async (params, extra) => {
-        const result = this._customHandlers
-          ? await this.callTool(name, params)
-          : await this._callIsolated(name, params, extra.signal);
+        const result = await this._dispatch(name, params, extra.signal);
         return {
           content: [{ type: "text", text: JSON.stringify(result) }],
           isError: result.ok === false,
@@ -302,7 +238,7 @@ export class Server {
       contents: [{
         uri: "do-md://reference/template-language",
         mimeType: "text/markdown",
-        text: renderTemplateReference({ format: "markdown" }),
+        text: await this._referenceText("markdown"),
       }],
     }));
     this._protocol.registerResource("template-language-json", "do-md://reference/template-language.json", {
@@ -313,7 +249,7 @@ export class Server {
       contents: [{
         uri: "do-md://reference/template-language.json",
         mimeType: "application/json",
-        text: renderTemplateReference({ format: "json" }),
+        text: await this._referenceText("json"),
       }],
     }));
     await this._protocol.connect(new StdioServerTransport());
@@ -331,40 +267,36 @@ export class Server {
   }
 
   async close() {
+    for (const controller of this._active.keys()) controller.abort();
+    await Promise.allSettled([...this._active.values()]);
     const protocol = this._protocol;
     this._protocol = null;
     if (protocol) await protocol.close();
   }
 
   async _callIsolated(name, params, signal) {
-    const worker = new Worker(new URL("./Worker.mjs", import.meta.url), {
-      workerData: { name, params, context: this.toolContext() },
-      stdout: true,
-      stderr: true,
-    });
-    worker.stdout?.on("data", (chunk) => process.stderr.write(chunk));
-    worker.stderr?.on("data", (chunk) => process.stderr.write(chunk));
+    return this._shapeResult(name, await execute(name, params, this.toolContext(), { signal }));
+  }
 
-    return new Promise((resolveResult) => {
-      let settled = false;
-      const finish = async (result) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        signal?.removeEventListener("abort", abort);
-        await worker.terminate().catch(() => {});
-        resolveResult(result);
-      };
-      const timeout = () => finish(this._failure(name, mcpDiagnostic(MCP_CODES.DO_MD_TIMEOUT, "tool call timed out")));
-      const abort = () => finish(this._failure(name, mcpDiagnostic(MCP_CODES.DO_MD_TIMEOUT, "tool call cancelled")));
-      const timer = setTimeout(timeout, this.timeoutMs);
-      signal?.addEventListener("abort", abort, { once: true });
-      worker.once("message", (message) => finish(this._shapeResult(name, message)));
-      worker.once("error", (error) => finish(this._failure(name, toMcpDiagnostic(error))));
-      worker.once("exit", (code) => {
-        if (!settled) finish(this._failure(name, mcpDiagnostic(MCP_CODES.DO_MD_INTERNAL_ERROR, `tool worker exited with code ${code}`)));
-      });
-    });
+  async _dispatch(name, params, signal) {
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    signal?.addEventListener("abort", abort, { once: true });
+    if (signal?.aborted) abort();
+    const running = this._remote
+      ? this._remote.call(name, params, controller.signal).then((result) => this._shapeResult(name, result))
+      : this._customHandlers ? this.callTool(name, params) : this._callIsolated(name, params, controller.signal);
+    this._active.set(controller, running);
+    try { return await running; }
+    catch (error) { return this._failure(name, toMcpDiagnostic(error)); }
+    finally { signal?.removeEventListener("abort", abort); this._active.delete(controller); }
+  }
+
+  async _referenceText(format) {
+    if (!this._remote) return renderTemplateReference({ format });
+    const result = await this._dispatch("reference", { format });
+    if (!result.ok) throw new Error(result.errors?.[0]?.message ?? "remote reference failed");
+    return format === "json" ? JSON.stringify(result.reference) : result.reference;
   }
 
   _shapeResult(name, result) {

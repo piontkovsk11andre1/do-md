@@ -15,6 +15,7 @@
       ],
       "example": {
         "language": "js",
+        "meta": "",
         "value": "const status = \"accepted\";"
       },
       "positives": [

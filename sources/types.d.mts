@@ -107,6 +107,7 @@ export interface ThematicBreakNode extends PositionedNode {
 export interface CodeBlockNode extends PositionedNode {
   type: "code_block";
   language: string | null;
+  meta: string;
   value: string;
   fenced: boolean;
 }
@@ -199,6 +200,7 @@ export interface TableValue {
 
 export interface CodeBlockValue {
   language: string | null;
+  meta: string;
   value: string;
 }
 
@@ -283,7 +285,7 @@ export interface WriterOptions extends ReaderOptions {
 
 export type LeafType =
   | "value" | "line" | "text" | "heading" | "paragraph" | "list" | "listTree"
-  | "frontmatter" | "rawUntil" | "rawBlock" | "rawRest" | "table" | "codeBlock"
+  | "frontmatter" | "rawUntil" | "rawUntilElement" | "rawBlock" | "rawRest" | "table" | "codeBlock"
   | "blockQuote" | "thematicBreak" | "htmlBlock" | "link" | "image" | "autolink"
   | "codeSpan" | "checkbox";
 

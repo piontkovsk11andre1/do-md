@@ -1,0 +1,11 @@
+import type { ZodType } from "zod/v4";
+export const VERSION: string;
+export const API_VERSION: 1;
+export const DEFAULT_MAX_INPUT_BYTES: 1048576;
+export const DEFAULT_TIMEOUT_MS: 30000;
+export const TOOL_NAMES: readonly ["validate", "export", "create", "set", "render", "match", "query", "reference"];
+export const TOOL_DEFINITIONS: Readonly<Record<typeof TOOL_NAMES[number], { description: string; inputSchema: ZodType<Record<string, unknown>> }>>;
+export function exitCode(errors?: Array<{ code?: string }>): number;
+export function failure(code: string, message: unknown): { ok: false; errors: import("../types.d.mts").Diagnostic[] };
+export function positiveInteger(value: unknown, name: string): number;
+export function portNumber(value: unknown, allowZero?: boolean): number;

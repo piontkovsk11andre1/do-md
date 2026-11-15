@@ -161,6 +161,36 @@ export class Reader extends Parser {
     return this._rawRange("rawUntil", String(limiter ?? ""));
   }
 
+  rawUntilElement(type) {
+    if (type !== "list") {
+      throw makeTemplateError('rawUntilElement type must be "list"');
+    }
+    const start = this.offset;
+    const list = MarkdownParser.findNextListBlock(this.inputSourceText, start);
+    const end = list?.position?.start?.offset;
+    if (!list || !Number.isInteger(end) || end < start) {
+      this._noteMiss();
+      return new Slot(this, {
+        leafType: "rawUntilElement",
+        value: null,
+        matched: false,
+        sourceOffsetStart: start,
+        sourceOffsetEnd: start,
+      });
+    }
+    if (end !== start) {
+      this.advanceTo(end);
+    }
+    this._noteMatch();
+    return new Slot(this, {
+      leafType: "rawUntilElement",
+      value: this.inputSourceText.slice(start, end),
+      matched: true,
+      sourceOffsetStart: start,
+      sourceOffsetEnd: end,
+    });
+  }
+
   rawBlock() {
     const start = this.offset;
     if (!this._atBlockBoundary()) {
@@ -340,6 +370,7 @@ export class Reader extends Parser {
   codeBlock() {
     return this._blockLeaf("code_block", "codeBlock", (node) => ({
       language: node.language,
+      meta: typeof node.meta === "string" ? node.meta : "",
       value: node.value,
     }));
   }

@@ -87,7 +87,8 @@ async function collectMjs(dir) {
 
 function isCorePackageFile(file) {
   const rel = path.relative(ROOT, file).replaceAll("\\", "/");
-  if (rel.startsWith("sources/MCP/") || rel === "sources/McpServer.mjs") {
+  if (rel.startsWith("sources/MCP/") || rel.startsWith("sources/HTTP/") || rel.startsWith("sources/Service/")
+    || rel === "sources/McpServer.mjs" || rel === "sources/HttpServer.mjs") {
     return false;
   }
   return rel.startsWith("sources/") || rel === "bin/do-md.mjs";
@@ -218,7 +219,7 @@ test("MCP-only codes are remapped and absent from ERROR_CODES", () => {
   assert.equal(isLibraryCode(ERROR_CODES.DO_MD_USER_ERROR), true);
 });
 
-test("core package sources do not mention MCP-only error codes", async () => {
+test("core document sources do not mention service-only error codes", async () => {
   const files = [...(await collectMjs(path.join(ROOT, "sources"))), path.join(ROOT, "bin/do-md.mjs")];
   const hits = [];
   for (const file of files) {

@@ -12,9 +12,11 @@ export async function handleExport(params = {}, context = {}) {
   const io = ioOf(context);
   const file = await resolveToolPath(context, params.file, "file");
   const template = await resolveToolPath(context, params.template, "template");
-  const savePath = io.resolvePath(cwdOf(context), INLINE_EXPORT);
+  const savePath = params.savePath
+    ? await resolveToolPath(context, params.savePath, "savePath")
+    : io.resolvePath(cwdOf(context), INLINE_EXPORT);
   const result = await exportDoc({
-    io: commandIo(io, { suppressWrites: true }),
+    io: params.savePath ? io : commandIo(io, { suppressWrites: true }),
     file,
     template,
     savePath,
@@ -24,6 +26,7 @@ export async function handleExport(params = {}, context = {}) {
   return {
     ok: result.ok === true,
     context: result.ok === true ? result.context ?? null : null,
+    ...(params.savePath ? { wrote: result.ok === true ? params.savePath : null } : {}),
     errors: result.errors ?? [],
   };
 }

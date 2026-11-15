@@ -38,6 +38,7 @@
     },
     "example": {
         "language": "js",
+        "meta": "",
         "value": "const n = 1;"
     },
     "embed": "<div class=\"embed\">raw</div>",
