@@ -69,7 +69,7 @@ export class NodeFilesystem {
         return [resolved];
       }
       if (info.isDirectory()) {
-        return (await fastGlob("**/*.tpl.md", {
+        return (await fastGlob("**/*.md.template", {
           absolute: true,
           cwd: resolved,
           followSymbolicLinks: false,

@@ -223,7 +223,7 @@ test("validate positional form exits 0", () => {
   const result = runCli([
     "validate",
     path.join(fixtureDir, "input.md"),
-    path.join(fixtureDir, "template.tpl.md"),
+    path.join(fixtureDir, "template.md.template"),
   ]);
   assert.equal(result.status, 0);
   assert.equal(result.stderr, "");
@@ -234,20 +234,20 @@ test("match prints the first template or all matches", () => {
     writeSimpleProject(dir);
     const templates = path.join(dir, "templates");
     mkdirSync(templates);
-    writeFileSync(path.join(templates, "a.tpl.md"), '# {% doc.line().as("title") %}\n');
-    writeFileSync(path.join(templates, "b.tpl.md"), '# {% doc.line().as("heading") %}\n');
-    writeFileSync(path.join(templates, "broken.tpl.md"), "{% invalid javascript %}");
+    writeFileSync(path.join(templates, "a.md.template"), '# {% doc.line().as("title") %}\n');
+    writeFileSync(path.join(templates, "b.md.template"), '# {% doc.line().as("heading") %}\n');
+    writeFileSync(path.join(templates, "broken.md.template"), "{% invalid javascript %}");
 
     const first = runCli(["match", "doc.md", "templates"], { cwd: dir });
     assert.equal(first.status, 0);
     assert.equal(first.stderr, "");
-    assert.ok(fileEndsWith(first.stdout.trim(), "templates/a.tpl.md"));
+    assert.ok(fileEndsWith(first.stdout.trim(), "templates/a.md.template"));
 
-    const all = runCli(["match", "doc.md", "templates/**/*.tpl.md", "--all"], { cwd: dir });
+    const all = runCli(["match", "doc.md", "templates/**/*.md.template", "--all"], { cwd: dir });
     assert.equal(all.status, 0);
-    assert.deepEqual(all.stdout.trim().split(/\r?\n/).map((file) => path.basename(file)), ["a.tpl.md", "b.tpl.md"]);
+    assert.deepEqual(all.stdout.trim().split(/\r?\n/).map((file) => path.basename(file)), ["a.md.template", "b.md.template"]);
 
-    const none = runCli(["match", "doc.md", "templates/broken.tpl.md"], { cwd: dir });
+    const none = runCli(["match", "doc.md", "templates/broken.md.template"], { cwd: dir });
     assert.equal(none.status, 2);
     assert.match(none.stderr, /no matching template/);
   });
@@ -513,7 +513,7 @@ test("global --json prints a Result object", () => {
   const result = runCli([
     "validate",
     path.join(fixtureDir, "input.md"),
-    path.join(fixtureDir, "template.tpl.md"),
+    path.join(fixtureDir, "template.md.template"),
     "--json",
   ]);
   assert.equal(result.status, 0);
@@ -530,7 +530,7 @@ test("global --quiet suppresses informational JSON but not errors", () => {
   const ok = runCli([
     "validate",
     path.join(fixtureDir, "input.md"),
-    path.join(fixtureDir, "template.tpl.md"),
+    path.join(fixtureDir, "template.md.template"),
     "--json",
     "--quiet",
   ]);
@@ -753,13 +753,13 @@ test("does not accept -m / -t aliases", () => {
 test("quickstart CLI flow on release-notes", () => {
   withTempDir((dir) => {
     cpSync(path.join(fixtureDir, "input.md"), path.join(dir, "release.md"));
-    cpSync(path.join(fixtureDir, "template.tpl.md"), path.join(dir, "release.tpl.md"));
+    cpSync(path.join(fixtureDir, "template.md.template"), path.join(dir, "release.md.template"));
 
-    const validated = runCli(["validate", "release.md", "release.tpl.md"], { cwd: dir });
+    const validated = runCli(["validate", "release.md", "release.md.template"], { cwd: dir });
     assert.equal(validated.status, 0);
 
     const exported = runCli(
-      ["export", "release.md", "release.tpl.md", "--save", "release.json"],
+      ["export", "release.md", "release.md.template", "--save", "release.json"],
       { cwd: dir },
     );
     assert.equal(exported.status, 0);
@@ -770,7 +770,7 @@ test("quickstart CLI flow on release-notes", () => {
     });
 
     const created = runCli(
-      ["create", "release-2.md", "release.tpl.md", "--data", "release.json"],
+      ["create", "release-2.md", "release.md.template", "--data", "release.json"],
       { cwd: dir },
     );
     assert.equal(created.status, 0);
@@ -780,7 +780,7 @@ test("quickstart CLI flow on release-notes", () => {
     );
 
     const mutated = runCli(
-      ["set", "release.md", "release.tpl.md", "--key", "version", "--value", "2.0.0"],
+      ["set", "release.md", "release.md.template", "--key", "version", "--value", "2.0.0"],
       { cwd: dir },
     );
     assert.equal(mutated.status, 0);

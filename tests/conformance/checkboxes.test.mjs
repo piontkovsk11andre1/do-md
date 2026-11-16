@@ -19,7 +19,7 @@ function readFixture(file) {
 
 function load() {
   return {
-    template: readFixture("template.tpl.md"),
+    template: readFixture("template.md.template"),
     input: readFixture("input.md"),
     expected: JSON.parse(readFixture("expected.json")),
   };
@@ -81,7 +81,7 @@ test("conformance/checkboxes input is a task list", () => {
 
 test("conformance/checkboxes parse of rendered expected data matches expected.json", () => {
   const { template, expected } = load();
-  const rendered = renderDocument(expected, template, `${NAME}/template.tpl.md`);
+  const rendered = renderDocument(expected, template, `${NAME}/template.md.template`);
   assert.match(rendered, /- \[x\] ship it\n- \[ \] write tests\n/);
   const reader = parseDocument(rendered, template, `${NAME}/rendered.md`);
   assert.equal(reader.errors.length, 0, reader.errors.map((err) => err.message).join("; "));

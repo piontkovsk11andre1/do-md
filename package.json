@@ -1,6 +1,6 @@
 {
   "name": "@p10i/do-md",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Markdown template runtime and editing utilities",
   "license": "MIT",
   "type": "module",

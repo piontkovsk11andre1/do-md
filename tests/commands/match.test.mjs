@@ -7,31 +7,31 @@ import { ERROR_CODES } from "../../sources/SyntaxError.mjs";
 
 const files = {
   "/doc.md": "# Hello\n",
-  "/templates/a.tpl.md": '# {% doc.line().as("title") %}\n',
-  "/templates/nested/b.tpl.md": '# {% doc.line().as("heading") %}\n',
-  "/templates/broken.tpl.md": "{% invalid javascript %}",
-  "/templates/no.tpl.md": "plain text\n",
+  "/templates/a.md.template": '# {% doc.line().as("title") %}\n',
+  "/templates/nested/b.md.template": '# {% doc.line().as("heading") %}\n',
+  "/templates/broken.md.template": "{% invalid javascript %}",
+  "/templates/no.md.template": "plain text\n",
   "/templates/ignored.md": '# {% doc.line().as("ignored") %}\n',
 };
 
 test("match returns the first sorted matching template from a directory", async () => {
   const result = await match({ io: new Virtual(files), file: "/doc.md", templates: "/templates" });
   assert.equal(result.ok, true);
-  assert.equal(result.output, "/templates/a.tpl.md");
-  assert.deepEqual(result.context, { matches: ["/templates/a.tpl.md"] });
+  assert.equal(result.output, "/templates/a.md.template");
+  assert.deepEqual(result.context, { matches: ["/templates/a.md.template"] });
 });
 
 test("match all returns every match from a glob and skips invalid candidates", async () => {
   const result = await match({
     io: new Virtual(files),
     file: "/doc.md",
-    templates: "/templates/**/*.tpl.md",
+    templates: "/templates/**/*.md.template",
     all: true,
   });
   assert.equal(result.ok, true);
   assert.deepEqual(result.context.matches, [
-    "/templates/a.tpl.md",
-    "/templates/nested/b.tpl.md",
+    "/templates/a.md.template",
+    "/templates/nested/b.md.template",
   ]);
   assert.equal(result.output, result.context.matches.join("\n"));
 });
@@ -40,7 +40,7 @@ test("match returns a parse-style failure when no template matches", async () =>
   const result = await match({
     io: new Virtual(files),
     file: "/doc.md",
-    templates: "/templates/no.tpl.md",
+    templates: "/templates/no.md.template",
   });
   assert.equal(result.ok, false);
   assert.equal(result.exitCode, 2);

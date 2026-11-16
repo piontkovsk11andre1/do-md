@@ -171,7 +171,7 @@ test("installed serve executes HTTP commands and both installed MCP proxies disp
           await client.connect(transport);
           const result = await client.callTool({ name: "validate", arguments: { file: "doc.md", template: "tpl.md" } });
           assert.equal(result.isError, false);
-          assert.equal(client.getServerVersion().version, "1.4.0");
+          assert.equal(client.getServerVersion().version, "1.4.1");
         } finally { await client.close(); }
       }
     } finally { await service.close(); }
@@ -185,7 +185,7 @@ test(
     const install = await getInstall();
     await withTempDir("do-md-smoke-cli-", async (dir) => {
       await fs.writeFile(
-        path.join(dir, "release.tpl.md"),
+        path.join(dir, "release.md.template"),
         `# {% doc.line().as("version") %}
 
 Released on {% doc.until(".").as("date") %}.
@@ -207,21 +207,21 @@ Released on 2026-05-02.
 - Removed dual-compile
 `,
       );
-      await fs.writeFile(path.join(dir, "other.tpl.md"), 'Version: {% doc.line().as("version") %}\n');
+      await fs.writeFile(path.join(dir, "other.md.template"), 'Version: {% doc.line().as("version") %}\n');
       await fs.writeFile(
-        path.join(dir, "z-query.tpl.md"),
+        path.join(dir, "z-query.md.template"),
         '{% doc.rawUntil("## Changes"); doc.query((match) => { match.literal("## Changes\\n\\n"); match.list().as("changes") }); doc.rawRest() %}',
       );
 
-      const validated = runInstalled(install.doMd, ["validate", "release.md", "release.tpl.md"], { cwd: dir });
+      const validated = runInstalled(install.doMd, ["validate", "release.md", "release.md.template"], { cwd: dir });
       assert.equal(validated.status, 0, validated.stderr);
       assert.equal(validated.stderr, "");
 
-      const matched = runInstalled(install.doMd, ["match", "release.md", "*.tpl.md"], { cwd: dir });
+      const matched = runInstalled(install.doMd, ["match", "release.md", "*.md.template"], { cwd: dir });
       assert.equal(matched.status, 0, matched.stderr);
-      assert.match(matched.stdout.replaceAll("\\", "/"), /\/release\.tpl\.md\s*$/);
+      assert.match(matched.stdout.replaceAll("\\", "/"), /\/release\.md\.template\s*$/);
 
-      const queried = runInstalled(install.doMd, ["query", "release.md", "z-query.tpl.md"], { cwd: dir });
+      const queried = runInstalled(install.doMd, ["query", "release.md", "z-query.md.template"], { cwd: dir });
       assert.equal(queried.status, 0, queried.stderr);
       assert.deepEqual(JSON.parse(queried.stdout).context, {
         changes: ["Added Doc interface", "Removed dual-compile"],
@@ -229,7 +229,7 @@ Released on 2026-05-02.
 
       const exported = runInstalled(
         install.doMd,
-        ["export", "release.md", "release.tpl.md", "--save", "release.json"],
+        ["export", "release.md", "release.md.template", "--save", "release.json"],
         { cwd: dir },
       );
       assert.equal(exported.status, 0, exported.stderr);
@@ -241,7 +241,7 @@ Released on 2026-05-02.
 
       const created = runInstalled(
         install.doMd,
-        ["create", "release-2.md", "release.tpl.md", "--data", "release.json"],
+        ["create", "release-2.md", "release.md.template", "--data", "release.json"],
         { cwd: dir },
       );
       assert.equal(created.status, 0, created.stderr);
@@ -251,7 +251,7 @@ Released on 2026-05-02.
       const original = await fs.readFile(path.join(dir, "release.md"), "utf8");
       const rendered = runInstalled(
         install.doMd,
-        ["render", "release.md", "release.tpl.md", "other.tpl.md", "out.txt"],
+        ["render", "release.md", "release.md.template", "other.md.template", "out.txt"],
         { cwd: dir },
       );
       assert.equal(rendered.status, 0, rendered.stderr);
@@ -260,7 +260,7 @@ Released on 2026-05-02.
 
       const mutated = runInstalled(
         install.doMd,
-        ["set", "release.md", "release.tpl.md", "--key", "version", "--value", "2.0.0"],
+        ["set", "release.md", "release.md.template", "--key", "version", "--value", "2.0.0"],
         { cwd: dir },
       );
       assert.equal(mutated.status, 0, mutated.stderr);

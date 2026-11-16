@@ -39,7 +39,7 @@ Request example:
 ```json
 {
   "directory": "project",
-  "params": { "file": "notes.md", "template": "notes.tpl.md" },
+  "params": { "file": "notes.md", "template": "notes.md.template" },
   "limits": { "timeoutMs": 5000, "maxInputBytes": 65536, "noSnippets": true }
 }
 ```

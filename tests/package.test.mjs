@@ -44,7 +44,7 @@ test("package manifest is CLI-compatible", async () => {
   const pkg = JSON.parse(packageText);
 
   assert.equal(pkg.name, "@p10i/do-md");
-  assert.equal(pkg.version, "1.4.0");
+  assert.equal(pkg.version, "1.4.1");
   assert.equal(pkg.license, "MIT");
   assert.equal(pkg.type, "module");
   assert.equal(pkg.engines?.node, ">=20.0.0");
@@ -272,9 +272,9 @@ test("npm pack --dry-run includes runtime, reference docs, examples, README, and
     "sources/TemplateLanguage.mjs",
     "sources/TemplateLanguage.d.mts",
     "docs/template-language.md",
-    "examples/release-notes/template.tpl.md",
+    "examples/release-notes/template.md.template",
     "examples/release-notes/document.md",
-    "examples/query-sections/query.tpl.md",
+    "examples/query-sections/query.md.template",
     "README.md",
     "LICENSE",
   ]) {

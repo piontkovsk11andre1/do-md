@@ -57,7 +57,7 @@ test("HTTP executes all document commands with CLI-equivalent data and side effe
   await fixture(async ({ project, url, call }) => {
     const health = await (await fetch(`${url}/healthz`)).json();
     assert.equal(health.ok, true);
-    assert.equal(health.version, "1.4.0");
+    assert.equal(health.version, "1.4.1");
     const capabilities = await (await fetch(`${url}/v1/capabilities`)).json();
     assert.equal(capabilities.commands.length, 8);
     assert.equal(capabilities.commands[0].inputSchema.additionalProperties, false);

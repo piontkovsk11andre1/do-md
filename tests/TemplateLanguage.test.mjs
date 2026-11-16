@@ -54,10 +54,10 @@ test("shipped release-notes example parses and renders", async () => {
   const dir = path.join(root, "examples/release-notes");
   const [source, template, dataText] = await Promise.all([
     fs.readFile(path.join(dir, "document.md"), "utf8"),
-    fs.readFile(path.join(dir, "template.tpl.md"), "utf8"),
+    fs.readFile(path.join(dir, "template.md.template"), "utf8"),
     fs.readFile(path.join(dir, "data.json"), "utf8"),
   ]);
-  const fn = Template.wrap(template, "examples/release-notes/template.tpl.md");
+  const fn = Template.wrap(template, "examples/release-notes/template.md.template");
   const reader = new Reader(source);
   fn(reader, reader.context, null, {}, null);
   assert.equal(reader.assertConsumed(), true);

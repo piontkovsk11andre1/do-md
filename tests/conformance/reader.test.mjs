@@ -32,10 +32,10 @@ function readFixture(name, file) {
 }
 
 function parseFixture(name) {
-  const template = readFixture(name, "template.tpl.md");
+  const template = readFixture(name, "template.md.template");
   const input = readFixture(name, "input.md");
   const expected = JSON.parse(readFixture(name, "expected.json"));
-  const fn = Template.wrap(template, `${name}/template.tpl.md`);
+  const fn = Template.wrap(template, `${name}/template.md.template`);
   const reader = new Reader(input, { file: `${name}/input.md` });
   fn(reader, reader.context, null, {}, null);
   return { reader, expected, input };

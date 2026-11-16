@@ -7,8 +7,8 @@ import { ERROR_CODES } from "../../../sources/SyntaxError.mjs";
 
 const io = new Virtual({
   "/root/doc.md": "# Hello\n",
-  "/root/templates/a.tpl.md": '# {% doc.line().as("title") %}\n',
-  "/root/templates/b.tpl.md": '# {% doc.line().as("heading") %}\n',
+  "/root/templates/a.md.template": '# {% doc.line().as("title") %}\n',
+  "/root/templates/b.md.template": '# {% doc.line().as("heading") %}\n',
 });
 
 test("MCP match returns first or all matching templates", async () => {
@@ -16,18 +16,18 @@ test("MCP match returns first or all matching templates", async () => {
     { file: "doc.md", templates: "templates" },
     { io, root: "/root" },
   );
-  assert.deepEqual(first, { ok: true, matches: ["/root/templates/a.tpl.md"], errors: [] });
+  assert.deepEqual(first, { ok: true, matches: ["/root/templates/a.md.template"], errors: [] });
 
   const all = await handleMatch(
-    { file: "doc.md", templates: "templates/**/*.tpl.md", all: true },
+    { file: "doc.md", templates: "templates/**/*.md.template", all: true },
     { io, root: "/root" },
   );
-  assert.deepEqual(all.matches, ["/root/templates/a.tpl.md", "/root/templates/b.tpl.md"]);
+  assert.deepEqual(all.matches, ["/root/templates/a.md.template", "/root/templates/b.md.template"]);
 });
 
 test("MCP match reports no match as a parse error", async () => {
   const result = await handleMatch(
-    { file: "doc.md", templates: "missing/**/*.tpl.md" },
+    { file: "doc.md", templates: "missing/**/*.md.template" },
     { io, root: "/root" },
   );
   assert.equal(result.ok, false);

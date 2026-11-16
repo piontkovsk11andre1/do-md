@@ -49,7 +49,7 @@ export class Virtual {
     }
     const directoryPrefix = target === "/" ? "/" : `${target.replace(/\/$/, "")}/`;
     const directoryMatches = [...this.entries.keys()].filter(
-      (path) => path.startsWith(directoryPrefix) && path.endsWith(".tpl.md"),
+      (path) => path.startsWith(directoryPrefix) && path.endsWith(".md.template"),
     );
     if (directoryMatches.length > 0 && !/[?*]/.test(target)) {
       return directoryMatches.sort();

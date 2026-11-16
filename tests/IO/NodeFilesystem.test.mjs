@@ -21,13 +21,15 @@ test("globAsync expands template directories and glob patterns", async () => {
   const dir = await mkdtemp(join(tmpdir(), "do-md-glob-"));
   try {
     await mkdir(join(dir, "nested"));
-    await writeFile(join(dir, "a.tpl.md"), "a");
-    await writeFile(join(dir, "nested", "b.tpl.md"), "b");
+    await writeFile(join(dir, "a.md.template"), "a");
+    await writeFile(join(dir, "legacy.tpl.md"), "legacy");
+    await writeFile(join(dir, "nested", "b.md.template"), "b");
     await writeFile(join(dir, "ignored.md"), "x");
-    assert.deepEqual(await io.globAsync(dir), [join(dir, "a.tpl.md"), join(dir, "nested", "b.tpl.md")].sort());
-    assert.deepEqual(await io.globAsync("**/*.tpl.md", { cwd: dir }), [
-      join(dir, "a.tpl.md"),
-      join(dir, "nested", "b.tpl.md"),
+    assert.deepEqual(await io.globAsync(dir), [join(dir, "a.md.template"), join(dir, "nested", "b.md.template")].sort());
+    assert.deepEqual(await io.globAsync(join(dir, "legacy.tpl.md")), [join(dir, "legacy.tpl.md")]);
+    assert.deepEqual(await io.globAsync("**/*.md.template", { cwd: dir }), [
+      join(dir, "a.md.template"),
+      join(dir, "nested", "b.md.template"),
     ].sort());
   } finally {
     await rm(dir, { recursive: true, force: true });

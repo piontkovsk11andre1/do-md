@@ -48,7 +48,7 @@ export const MUTATION_FIXTURES = [
   },
 ];
 
-const REQUIRED_FILES = ["template.tpl.md", "input.md", "expected.json", "expected.output.md"];
+const REQUIRED_FILES = ["template.md.template", "input.md", "expected.json", "expected.output.md"];
 const MUTATION_FILE = "mutation.json";
 
 export function normalize(text) {
@@ -78,7 +78,7 @@ export function parseDocument(input, template, file = "input.md") {
   return reader;
 }
 
-export function renderDocument(data, template, file = "template.tpl.md") {
+export function renderDocument(data, template, file = "template.md.template") {
   const fn = Template.wrap(template, file);
   const writer = new Writer(cloneJson(data), { file });
   fn(writer, writer.data, writer.data, {}, null);
@@ -88,7 +88,7 @@ export function renderDocument(data, template, file = "template.tpl.md") {
 export function loadFixture(name) {
   return {
     name,
-    template: readFixture(name, "template.tpl.md"),
+    template: readFixture(name, "template.md.template"),
     input: readFixture(name, "input.md"),
     expected: JSON.parse(readFixture(name, "expected.json")),
     expectedOutput: readFixture(name, "expected.output.md"),

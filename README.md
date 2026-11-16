@@ -44,7 +44,10 @@ Maintained templates and documents are in [`examples/`](examples/).
 
 ### Template
 
-Create `release.tpl.md`:
+Templates use the `.md.template` naming convention. Explicit template paths may
+have any extension; directory discovery uses `*.md.template`.
+
+Create `release.md.template`:
 
 ```
 # {% doc.line().as("version") %}
@@ -59,7 +62,7 @@ Released on {% doc.until(".").as("date") %}.
 ### Validate
 
 ```
-$ do-md validate release.md release.tpl.md
+$ do-md validate release.md release.md.template
 $ echo $?
 0
 ```
@@ -70,7 +73,7 @@ A mismatch prints `<file>:<line>:<column>: <message>` and exits `2`.
 ### Export
 
 ```
-$ do-md export release.md release.tpl.md --save release.json
+$ do-md export release.md release.md.template --save release.json
 ```
 
 Writes pretty-printed captured context JSON. Overwrites an existing save path.
@@ -78,7 +81,7 @@ Writes pretty-printed captured context JSON. Overwrites an existing save path.
 ### Create
 
 ```
-$ do-md create release-2.md release.tpl.md --data release.json
+$ do-md create release-2.md release.md.template --data release.json
 ```
 
 Writes Markdown from JSON. Never reads the target file. Exits `1` if the
@@ -87,7 +90,7 @@ target exists unless `--force` is given.
 ### Set
 
 ```
-$ do-md set release.md release.tpl.md --key version --value 2.0.0
+$ do-md set release.md release.md.template --key version --value 2.0.0
 ```
 
 Rewrites only mutated slots. Same-type scalar replacements leave the rest of
@@ -96,7 +99,7 @@ the file byte-identical.
 ### Render
 
 ```
-$ do-md render release.md release.tpl.md other.tpl.md out.txt
+$ do-md render release.md release.md.template other.md.template out.txt
 ```
 
 Parses with the first template and writes through the second. Never modifies
@@ -105,19 +108,19 @@ the input. Neither template nor output path is inferred.
 ### Match
 
 ```
-$ do-md match release.md "templates/**/*.tpl.md"
+$ do-md match release.md "templates/**/*.md.template"
 ```
 
 Finds templates that parse and fully consume the input. `<templates>` may be a
 single template, a directory, or a glob. Directories recursively search
-`*.tpl.md`. Candidates are sorted; the first matching path is printed by
+`*.md.template`. Candidates are sorted; the first matching path is printed by
 default and `--all` prints every match. Invalid candidates are skipped. No
 match exits `2`.
 
 ### Query
 
 ```
-$ do-md query document.md query.tpl.md --all
+$ do-md query document.md query.md.template --all
 ```
 
 Query templates consume the complete source slice while marking exactly one
@@ -326,7 +329,7 @@ directory under its configured root.
 ```sh
 curl http://127.0.0.1:8080/v1/commands/export \
   -H 'Content-Type: application/json' \
-  -d '{"directory":"project","params":{"file":"notes.md","template":"notes.tpl.md"}}'
+  -d '{"directory":"project","params":{"file":"notes.md","template":"notes.md.template"}}'
 ```
 
 For shared host/container files, bind-mount the project into the service and
