@@ -178,6 +178,7 @@ export class Server {
     if (result.ok && name === "match") output = result.matches.join("\n");
     if (result.ok && name === "query") output = JSON.stringify(parsed.data.all ? result.matches : result.matches[0], null, 2);
     if (name === "reference" && result.ok) output = typeof result.reference === "string" ? result.reference : JSON.stringify(result.reference);
+    if (name === "skill" && result.ok) output = result.skill;
     this.send(response, status, {
       ...result,
       exitCode: result.ok ? 0 : exitCode(result.errors),

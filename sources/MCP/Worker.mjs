@@ -8,6 +8,7 @@ import { handleRender } from "./tools/render.mjs";
 import { handleMatch } from "./tools/match.mjs";
 import { handleQuery } from "./tools/query.mjs";
 import { handleReference } from "./tools/reference.mjs";
+import { handleSkill } from "./tools/skill.mjs";
 import { ScopedFilesystem } from "../Service/ScopedFilesystem.mjs";
 
 const handlers = {
@@ -19,6 +20,7 @@ const handlers = {
   match: handleMatch,
   query: handleQuery,
   reference: handleReference,
+  skill: handleSkill,
 };
 
 try {

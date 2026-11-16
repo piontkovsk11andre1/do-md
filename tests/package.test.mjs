@@ -54,7 +54,7 @@ test("package manifest is CLI-compatible", async () => {
   });
   assert.equal(pkg.main, "sources/index.mjs");
   assert.equal(pkg.types, "sources/index.d.mts");
-  assert.deepEqual(pkg.files, ["bin/", "sources/", "docs/", "examples/", "Dockerfile", "compose.example.yaml", ".dockerignore", "README.md", "LICENSE"]);
+  assert.deepEqual(pkg.files, ["bin/", "sources/", "docs/", "examples/", "skills/", "Dockerfile", "compose.example.yaml", ".dockerignore", "README.md", "LICENSE"]);
   assert.deepEqual(pkg.dependencies, {
     "@modelcontextprotocol/sdk": "1.32.2",
     yargs: "^17.0.0",
@@ -73,6 +73,7 @@ test("package manifest is CLI-compatible", async () => {
       types: "./sources/*.d.mts",
       import: "./sources/*.mjs",
     },
+    "./skills/do-md/SKILL.md": "./skills/do-md/SKILL.md",
     "./package.json": "./package.json",
   });
   assert.equal(pkg.browser, undefined);
@@ -275,6 +276,16 @@ test("npm pack --dry-run includes runtime, reference docs, examples, README, and
     "examples/release-notes/template.md.template",
     "examples/release-notes/document.md",
     "examples/query-sections/query.md.template",
+    "examples/README.md",
+    "examples/release-notes/README.md",
+    "examples/query-sections/README.md",
+    "examples/structured-document/template.md.template",
+    "examples/structured-document/expected.json",
+    "examples/precise-editing/expected.updated.md",
+    "examples/markdown-to-js/report.js.template",
+    "examples/markdown-to-js/expected.mjs",
+    "skills/do-md/SKILL.md",
+    "sources/Skill.mjs",
     "README.md",
     "LICENSE",
   ]) {

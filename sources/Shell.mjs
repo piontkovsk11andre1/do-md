@@ -15,8 +15,9 @@ import { run as runMcpServer } from "./McpServer.mjs";
 import { run as runHttpServer } from "./HttpServer.mjs";
 import { ERROR_CODES, makeUserError } from "./SyntaxError.mjs";
 import { renderTemplateReference } from "./TemplateLanguage.mjs";
+import { readSkill } from "./Skill.mjs";
 
-export const USAGE = "Usage: do-md <validate|create|export|set|render|match|query> ...";
+export const USAGE = "Usage: do-md <validate|create|export|set|render|match|query|reference|skill> ...";
 
 const COMMANDS = new Set(["validate", "create", "export", "set", "render", "match", "query"]);
 const COMMAND_HELP = Object.freeze({
@@ -27,6 +28,8 @@ const COMMAND_HELP = Object.freeze({
   render: "do-md render <file> <parse-template> <render-template> <out-file>\nParse with one template and render with another.",
   match: "do-md match <file> <templates> [--all]\nFind templates that fully match a document.",
   query: "do-md query <file> <template> [--all]\nFind non-overlapping content regions marked by doc.query().",
+  reference: "do-md reference [topic] [--format json|markdown|text]\nRead the template-language reference. JSON is the default, matching MCP reference.",
+  skill: "do-md skill\nPrint the bundled Agent Skill as Markdown. This does not install it.",
 });
 
 export function formatUsage() {
@@ -34,10 +37,11 @@ export function formatUsage() {
 }
 
 function formatHelp() {
-  return `${formatUsage()}\nCommands:\n  validate  Validate a document\n  create    Create a document\n  export    Export parsed context\n  set       Edit a document\n  render    Parse and render\n  match     Find matching templates\n  query     Find content regions\n  mcp       Start the local or remote-dispatch MCP server\n  serve     Start the HTTP execution server\n\nReference:\n  do-md help template [function] [--format text|markdown|json]\n  do-md <command> --help\n`;
+  return `${formatUsage()}\nCommands:\n  validate  Validate a document\n  create    Create a document\n  export    Export parsed context\n  set       Edit a document\n  render    Parse and render\n  match     Find matching templates\n  query     Find content regions\n  reference Read the template-language reference\n  skill     Read the Agent Skill\n  mcp       Start the local or remote-dispatch MCP server\n  serve     Start the HTTP execution server\n\nHelp:\n  do-md <command> --help\n  do-md help template [function] [--format text|markdown|json] (compatibility alias)\n`;
 }
 
 function formatCommandHelp(command) {
+  if (!COMMANDS.has(command)) return `${COMMAND_HELP[command]}\n`;
   return `${COMMAND_HELP[command]}\n\nGlobal options:\n  --cwd <dir>  Resolve relative paths against a directory\n  --json       Print structured command results\n  --quiet      Suppress successful informational output\n`;
 }
 
@@ -57,7 +61,7 @@ function templateHelp(argv) {
   const positionals = argv.filter((arg, index) =>
     index > 0 && !String(arg).startsWith("-") && argv[index - 1] !== "--format");
   if (positionals[0] !== "template") {
-    return formatHelp();
+    return COMMAND_HELP[positionals[0]] ? formatCommandHelp(positionals[0]) : formatHelp();
   }
   const topic = positionals[1] ?? null;
   const rendered = renderTemplateReference({ topic, format });
@@ -65,6 +69,19 @@ function templateHelp(argv) {
     throw makeUserError(`unknown template function: ${topic}`);
   }
   return `${rendered}\n`;
+}
+
+function referenceOutput(argv) {
+  const parsed = yargs(argv).exitProcess(false).help(false).version(false).strictOptions()
+    .option("format", { choices: ["json", "markdown", "text"], default: "json" })
+    .fail(message => { throw makeUserError(message); }).parseSync();
+  if (parsed._.length > 1) throw makeUserError("reference accepts at most one topic");
+  const topic = parsed._[0] == null ? null : String(parsed._[0]);
+  const output = renderTemplateReference({ topic, format: parsed.format });
+  if (output == null) throw makeUserError(`unknown template function: ${topic}`);
+  // The canonical JSON entry matches MCP reference. The legacy help alias keeps
+  // its historical {version, entry} wrapper for compatibility.
+  return topic && parsed.format === "json" ? JSON.stringify(JSON.parse(output).entry, null, 2) : output;
 }
 
 export function coerceValue(value) {
@@ -294,6 +311,19 @@ export async function execute(argv = process.argv.slice(2)) {
   }
 
   const token = firstCommandToken(argv);
+  if (token === "reference" || token === "skill") {
+    try {
+      if (argv.includes("--help") || argv.includes("-h")) {
+        process.stdout.write(`${COMMAND_HELP[token]}\n`);
+      } else if (token === "reference") {
+        process.stdout.write(`${referenceOutput(argv.slice(argv.indexOf(token) + 1))}\n`);
+      } else {
+        if (argv.length !== 1) throw makeUserError("skill accepts no arguments");
+        process.stdout.write(await readSkill());
+      }
+      return 0;
+    } catch (error) { return reportRejected(error, flags); }
+  }
   if (token === "serve" && (argv.includes("--help") || argv.includes("-h"))) {
     process.stdout.write("do-md serve --root <dir> [--host 127.0.0.1] [--port 8080]\nOptions: --max-input-bytes --timeout-ms --max-body-bytes --max-response-bytes --max-concurrency --no-snippets\n");
     return 0;

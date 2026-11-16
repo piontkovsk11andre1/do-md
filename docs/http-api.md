@@ -61,6 +61,7 @@ and must remain within **that directory**, not only the larger server root.
 | `match` | `file`, `templates` path/directory/glob; optional `all`, `options` |
 | `query` | `file`, `template`; optional `all`, `options` |
 | `reference` | optional `topic`, `format` (`json`, `markdown`, or `text`) |
+| `skill` | no parameters; returns the packaged Agent Skill in `skill` and `output` |
 
 Data and patch values are inline JSON, corresponding to CLI-loaded data/patch
 files. `export` returns context inline and writes only when `savePath` is given.

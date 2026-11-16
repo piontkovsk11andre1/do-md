@@ -8,3 +8,4 @@ export { Editor } from "./Editor.mjs";
 export { SyntaxError } from "./SyntaxError.mjs";
 export { NodeFilesystem, Virtual, Fetch } from "./IO/index.mjs";
 export { templateLanguage, listTemplateFunctions, describeTemplateFunction, renderTemplateReference } from "./TemplateLanguage.mjs";
+export { readSkill } from "./Skill.mjs";

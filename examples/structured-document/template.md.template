@@ -1,0 +1,12 @@
+{%
+doc.frontmatter().as("metadata");
+doc.allowNewlinesAndWhitespaces();
+doc.heading(1).as("title");
+doc.literal("\n\n## Settings\n\n");
+doc.table().as("settings");
+doc.literal("\n\n## Tasks\n\n");
+doc.listTree().as("tasks");
+doc.literal("\n\n## Command\n\n");
+doc.codeBlock().as("command");
+doc.allowNewlinesAndWhitespaces();
+%}

@@ -8,6 +8,7 @@ export { Editor } from "./Editor.mjs";
 export { SyntaxError } from "./SyntaxError.mjs";
 export { NodeFilesystem, Virtual, Fetch } from "./IO/index.mjs";
 export { templateLanguage, listTemplateFunctions, describeTemplateFunction, renderTemplateReference } from "./TemplateLanguage.mjs";
+export { readSkill } from "./Skill.mjs";
 export type { TemplateFunctionReference, TemplateLanguageReference, TemplateModifierReference } from "./TemplateLanguage.mjs";
 export type {
   AtomicWriteOptions, AutolinkNode, BaseCommandOptions, BlockQuoteNode, BreakNode,

@@ -1,0 +1,8 @@
+{%
+doc.rawUntilElement("list").as("preamble");
+doc.listTree().as("tasks");
+doc.rawUntil("## Settings").as("between");
+doc.literal("## Settings\n\n");
+doc.table().as("settings");
+doc.rawRest().as("footer");
+%}

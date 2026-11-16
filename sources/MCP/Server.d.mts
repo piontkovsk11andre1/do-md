@@ -1,7 +1,7 @@
 import type { Diagnostic, IOAdapter } from "../types.d.mts";
 export const DEFAULT_MAX_INPUT_BYTES: 1048576;
 export const DEFAULT_TIMEOUT_MS: 30000;
-export const TOOL_NAMES: readonly ["validate", "export", "create", "set", "render", "match", "query", "reference"];
+export const TOOL_NAMES: readonly ["validate", "export", "create", "set", "render", "match", "query", "reference", "skill"];
 export const MCP_CODES: Readonly<{
   DO_MD_USER_ERROR: "DO_MD_USER_ERROR";
   DO_MD_TIMEOUT: "DO_MD_TIMEOUT";
@@ -34,6 +34,7 @@ export interface McpResult {
   context?: unknown;
   matches?: unknown[];
   reference?: unknown;
+  skill?: string | null;
   wrote?: string | null;
   errors: Diagnostic[];
 }

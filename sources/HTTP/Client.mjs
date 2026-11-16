@@ -98,6 +98,7 @@ export class Client {
         || (!result.ok && (result.exitCode === 0 || result.errors.length === 0))) throw new Error("invalid remote command result");
       if (result.ok) {
         if (name === "reference" && !Object.hasOwn(result, "reference")) throw new Error("missing remote reference");
+        if (name === "skill" && typeof result.skill !== "string") throw new Error("missing remote skill");
         if (["match", "query"].includes(name) && !Array.isArray(result.matches)) throw new Error("invalid remote matches");
         if (["create", "set", "render"].includes(name) && typeof result.output !== "string") throw new Error("invalid remote output");
       }

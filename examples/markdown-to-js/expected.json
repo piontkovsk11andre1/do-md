@@ -1,0 +1,23 @@
+{
+  "title": "Work inventory",
+  "inventory": {
+    "headers": [
+      "Group",
+      "Count"
+    ],
+    "rows": [
+      [
+        "Maintenance",
+        "2"
+      ],
+      [
+        "Features",
+        "3"
+      ]
+    ],
+    "align": [
+      null,
+      null
+    ]
+  }
+}

@@ -24,6 +24,8 @@ do-md set      <file> <template> [--key k --value v] [--patch <patch.json>] [--o
 do-md render   <file> <parse-template> <render-template> <out-file>
 do-md match    <file> <templates> [--all]
 do-md query    <file> <template> [--all]
+do-md reference [topic] [--format json|markdown|text]
+do-md skill
 do-md serve    --root <dir> [--host 127.0.0.1] [--port 8080]
 ```
 
@@ -32,15 +34,39 @@ reference is shipped in [`docs/template-language.md`](docs/template-language.md)
 and is also available without filesystem access:
 
 ```
-do-md help template
-do-md help template query
-do-md help template --format markdown
-do-md help template --format json
+do-md reference
+do-md reference query
+do-md reference --format markdown
+do-md reference --format text
 ```
 
 MCP clients can read `do-md://reference/template-language` or
 `do-md://reference/template-language.json`, or call the `reference` tool.
-Maintained templates and documents are in [`examples/`](examples/).
+Maintained, tested walkthroughs are indexed in [`examples/README.md`](examples/README.md):
+release notes, repeated queries, structured documents, precise editing, and
+Markdown-to-JavaScript generation.
+
+CLI `help` explains commands; CLI and MCP `reference` return language documentation.
+Both reference interfaces default to JSON. CLI prints the registry or entry itself;
+MCP returns the same value in its `reference` field. The older `do-md help template`
+path remains a compatibility alias (text by default, and `{version, entry}` for a
+single JSON topic). Use `reference` in new integrations.
+
+### Agent Skill
+
+`do-md skill` prints the bundled English [Agent Skill](skills/do-md/SKILL.md).
+It describes when to use each command, how to inspect actual parsed data, how to
+validate templates, and how to edit or generate files without guessing the API.
+The method reference remains authoritative; the skill does not duplicate it.
+
+MCP exposes a `skill` tool and the Markdown resource `do-md://skills/do-md`.
+Remote proxies retrieve the skill from the executing service, just like reference
+resources. HTTP clients can call `POST /v1/commands/skill` with empty params.
+
+The file is exported as `@p10i/do-md/skills/do-md/SKILL.md` for agent-skill installers.
+Copy `skills/do-md/` to the skills directory documented by your agent to activate it.
+Installing the npm package or reading the MCP resource does not automatically
+install/enable a skill in a particular harness. The library also exports `readSkill()`.
 
 ### Template
 
@@ -312,8 +338,8 @@ are fetched from the remote service so they describe the executing version.
 
 `--root` is required and must exist locally in local mode or on the server in
 remote mode. Tools are `validate`, `export`,
-`create`, `set`, `render`, `match`, `query`, and `reference`. The server also
-publishes Markdown and JSON template-language resources at the URIs above.
+`create`, `set`, `render`, `match`, `query`, `reference`, and `skill`. The server also
+publishes Markdown/JSON template-language resources and the Agent Skill resource.
 
 ### HTTP Execution Service
 
@@ -322,7 +348,7 @@ do-md serve --root /workspace --host 0.0.0.0 --port 8080
 ```
 
 The listener defaults to `127.0.0.1:8080`. The web API supports the same seven
-document commands as the CLI, plus `reference`. All document, template, and
+document commands as the CLI, plus `reference` and `skill`. All document, template, and
 output paths refer to the service's filesystem and stay inside the selected
 directory under its configured root.
 

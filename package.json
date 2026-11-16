@@ -25,6 +25,7 @@
       "types": "./sources/*.d.mts",
       "import": "./sources/*.mjs"
     },
+    "./skills/do-md/SKILL.md": "./skills/do-md/SKILL.md",
     "./package.json": "./package.json"
   },
   "files": [
@@ -32,6 +33,7 @@
     "sources/",
     "docs/",
     "examples/",
+    "skills/",
     "Dockerfile",
     "compose.example.yaml",
     ".dockerignore",

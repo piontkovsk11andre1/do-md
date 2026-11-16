@@ -13,6 +13,7 @@ import { handleRender } from "./tools/render.mjs";
 import { handleMatch } from "./tools/match.mjs";
 import { handleQuery } from "./tools/query.mjs";
 import { handleReference } from "./tools/reference.mjs";
+import { handleSkill } from "./tools/skill.mjs";
 import { renderTemplateReference } from "../TemplateLanguage.mjs";
 import { VERSION, TOOL_DEFINITIONS, DEFAULT_MAX_INPUT_BYTES, DEFAULT_TIMEOUT_MS, TOOL_NAMES } from "../Service/Definitions.mjs";
 import { execute } from "../Service/Executor.mjs";
@@ -35,6 +36,7 @@ const HANDLERS = Object.freeze({
   match: handleMatch,
   query: handleQuery,
   reference: handleReference,
+  skill: handleSkill,
 });
 function flagValue(argv, index, name) {
   const arg = String(argv[index]);
@@ -157,6 +159,7 @@ function emptyResult(name) {
     case "match":
     case "query": return { ok: false, matches: [], errors: [] };
     case "reference": return { ok: false, reference: null, errors: [] };
+    case "skill": return { ok: false, skill: null, errors: [] };
     default: return { ok: false, errors: [] };
   }
 }
@@ -252,6 +255,13 @@ export class Server {
         text: await this._referenceText("json"),
       }],
     }));
+    this._protocol.registerResource("agent-skill", "do-md://skills/do-md", {
+      title: "do-md Agent Skill", description: "Workflow for authoring, validating and editing documents with do-md", mimeType: "text/markdown",
+    }, async () => {
+      const result = await this._dispatch("skill", {});
+      if (!result.ok || typeof result.skill !== "string") throw new Error(result.errors?.[0]?.message ?? "skill unavailable");
+      return { contents: [{ uri: "do-md://skills/do-md", mimeType: "text/markdown", text: result.skill }] };
+    });
     await this._protocol.connect(new StdioServerTransport());
     return new Promise((resolveDone) => {
       let done = false;
@@ -306,7 +316,7 @@ export class Server {
     const shaped = emptyResult(name);
     shaped.ok = result.ok === true;
     shaped.errors = this._normalizeErrors(result.errors);
-    for (const key of ["output", "context", "wrote", "matches", "reference"]) {
+    for (const key of ["output", "context", "wrote", "matches", "reference", "skill"]) {
       if (Object.hasOwn(shaped, key)) shaped[key] = result[key] ?? null;
     }
     return this._finalizeResult(shaped);

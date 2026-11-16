@@ -24,7 +24,7 @@ import { ERROR_CODES, makeParseError, makeUserError } from "../../sources/Syntax
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const MCP_BIN = path.join(ROOT, "bin/do-md-mcp.mjs");
-const SUPPORTED_TOOLS = ["validate", "export", "create", "set", "render", "match", "query", "reference"];
+const SUPPORTED_TOOLS = ["validate", "export", "create", "set", "render", "match", "query", "reference", "skill"];
 
 async function withRoot(fn) {
   const root = await fs.mkdtemp(path.join(tmpdir(), "do-md-sdk-"));
@@ -172,9 +172,15 @@ test("official SDK client negotiates, lists, and invokes tools", async () => {
       assert.deepEqual(resources.resources.map((resource) => resource.uri), [
         "do-md://reference/template-language",
         "do-md://reference/template-language.json",
+        "do-md://skills/do-md",
       ]);
       const reference = await client.readResource({ uri: "do-md://reference/template-language" });
       assert.match(reference.contents[0].text, /^# do-md Template Language/);
+      const skill = await client.callTool({ name: "skill", arguments: {} });
+      assert.equal(skill.isError, false);
+      assert.match(payload(skill).skill, /name: do-md/);
+      const skillResource = await client.readResource({ uri: "do-md://skills/do-md" });
+      assert.equal(skillResource.contents[0].text, payload(skill).skill);
 
       const invalid = await client.callTool({
         name: "validate",

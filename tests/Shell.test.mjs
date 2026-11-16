@@ -17,7 +17,7 @@ const EXIT_BY_CODE = {
   [ERROR_CODES.DO_MD_CONFLICT]: 4,
 };
 
-const V1_USAGE = "Usage: do-md <validate|create|export|set|render|match|query> ...\n";
+const V1_USAGE = "Usage: do-md <validate|create|export|set|render|match|query|reference|skill> ...\n";
 const POST_V1_COMMANDS = [
   "diff",
   "schema",
@@ -117,7 +117,7 @@ test("missing command prints usage and exits with code 1", () => {
 });
 
 test("CLI help lists the supported commands", () => {
-  assert.equal(USAGE, "Usage: do-md <validate|create|export|set|render|match|query> ...");
+  assert.equal(USAGE, "Usage: do-md <validate|create|export|set|render|match|query|reference|skill> ...");
   assert.equal(formatUsage(), V1_USAGE);
   for (const args of [[], ["not-a-command"]]) {
     const result = runCli(args);

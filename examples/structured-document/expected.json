@@ -1,0 +1,120 @@
+{
+  "metadata": {
+    "format": "yaml",
+    "raw": "project: Orchard\nowner: Platform\n",
+    "content": "project: Orchard\nowner: Platform\n",
+    "data": {
+      "project": "Orchard",
+      "owner": "Platform"
+    }
+  },
+  "title": "Release checklist",
+  "settings": {
+    "headers": [
+      "Name",
+      "Value"
+    ],
+    "rows": [
+      [
+        "environment",
+        "staging"
+      ],
+      [
+        "replicas",
+        "2"
+      ]
+    ],
+    "align": [
+      null,
+      null
+    ]
+  },
+  "tasks": {
+    "ordered": false,
+    "start": null,
+    "tight": true,
+    "items": [
+      {
+        "checked": false,
+        "children": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "type": "text",
+                "value": "Package the release"
+              }
+            ]
+          },
+          {
+            "type": "list",
+            "ordered": false,
+            "start": null,
+            "tight": true,
+            "children": [
+              {
+                "type": "list_item",
+                "checked": true,
+                "children": [
+                  {
+                    "type": "paragraph",
+                    "children": [
+                      {
+                        "type": "text",
+                        "value": "Run tests"
+                      }
+                    ]
+                  }
+                ],
+                "checkboxPosition": {
+                  "start": {
+                    "offset": 191,
+                    "line": 18,
+                    "column": 5
+                  },
+                  "end": {
+                    "offset": 194,
+                    "line": 18,
+                    "column": 8
+                  }
+                }
+              },
+              {
+                "type": "list_item",
+                "checked": false,
+                "children": [
+                  {
+                    "type": "paragraph",
+                    "children": [
+                      {
+                        "type": "text",
+                        "value": "Check the changelog"
+                      }
+                    ]
+                  }
+                ],
+                "checkboxPosition": {
+                  "start": {
+                    "offset": 209,
+                    "line": 19,
+                    "column": 5
+                  },
+                  "end": {
+                    "offset": 212,
+                    "line": 19,
+                    "column": 8
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "command": {
+    "language": "sh",
+    "meta": "",
+    "value": "npm test"
+  }
+}

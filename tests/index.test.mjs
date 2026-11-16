@@ -23,6 +23,7 @@ const EXPECTED_PUBLIC_EXPORTS = [
   "Parser",
   "query",
   "Reader",
+  "readSkill",
   "render",
   "renderTemplateReference",
   "set",
@@ -103,7 +104,7 @@ test("public API re-exports IO adapters from IO/index.mjs", () => {
 });
 
 test("documented public exports have the expected kinds", () => {
-  for (const name of ["validate", "create", "exportDoc", "set", "render", "match", "query", "describeTemplateFunction", "listTemplateFunctions", "renderTemplateReference"]) {
+  for (const name of ["validate", "create", "exportDoc", "set", "render", "match", "query", "describeTemplateFunction", "listTemplateFunctions", "renderTemplateReference", "readSkill"]) {
     assert.equal(typeof api[name], "function", name);
   }
   for (const name of [

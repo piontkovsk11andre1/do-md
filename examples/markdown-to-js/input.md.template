@@ -1,0 +1,6 @@
+{%
+doc.heading(1).as("title");
+doc.literal("\n\n");
+doc.table().as("inventory");
+doc.allowNewlinesAndWhitespaces();
+%}

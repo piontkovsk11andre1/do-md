@@ -59,7 +59,7 @@ test("HTTP executes all document commands with CLI-equivalent data and side effe
     assert.equal(health.ok, true);
     assert.equal(health.version, "1.4.1");
     const capabilities = await (await fetch(`${url}/v1/capabilities`)).json();
-    assert.equal(capabilities.commands.length, 8);
+    assert.equal(capabilities.commands.length, 9);
     assert.equal(capabilities.commands[0].inputSchema.additionalProperties, false);
     const params = { file: "doc.md", template: "main.tpl.md" };
     const valid = await call("validate", params);
@@ -86,6 +86,10 @@ test("HTTP executes all document commands with CLI-equivalent data and side effe
     assert.deepEqual(queried.result.matches[0].context, { title: "Hello" });
     const reference = await call("reference", { topic: "rawUntilElement", format: "markdown" });
     assert.match(reference.result.reference, /rawUntilElement/);
+    const skill = await call("skill", {});
+    assert.equal(skill.status, 200);
+    assert.match(skill.result.skill, /name: do-md/);
+    assert.equal(skill.result.output, skill.result.skill);
     const set = await call("set", { ...params, key: "title", value: "Saved" });
     assert.equal(set.result.wrote, "doc.md");
     assert.equal(await readFile(join(project, "doc.md"), "utf8"), "# Saved\n");
@@ -231,7 +235,7 @@ test("real MCP proxies use both binaries and server-side roots, resources and wr
         const client = new McpClient({ name: "http-tests", version: "1" });
         try {
           await client.connect(transport);
-          assert.equal((await client.listTools()).tools.length, 8);
+          assert.equal((await client.listTools()).tools.length, 9);
           const valid = await client.callTool({ name: "validate", arguments: { file: "doc.md", template: "main.tpl.md" } });
           assert.deepEqual(JSON.parse(valid.content[0].text), { ok: true, errors: [] });
           for (const [name, args] of [
@@ -316,7 +320,8 @@ test("remote MCP resources come from the remote version through a URL prefix", a
     let body = "";
     for await (const chunk of request) body += chunk;
     const { params } = JSON.parse(body);
-    response.end(JSON.stringify({ ok: true, apiVersion: 1, exitCode: 0, errors: [], reference: params.format === "json" ? { remote: true } : "REMOTE REFERENCE" }));
+    response.end(JSON.stringify({ ok: true, apiVersion: 1, exitCode: 0, errors: [],
+      ...(request.url.endsWith("/skill") ? { skill: "REMOTE SKILL" } : { reference: params.format === "json" ? { remote: true } : "REMOTE REFERENCE" }) }));
   });
   await new Promise((done) => fake.listen(0, "127.0.0.1", done));
   const transport = new StdioClientTransport({ command: process.execPath, args: [resolve("bin/do-md-mcp.mjs"), "--root", "/not-present-on-this-machine", "--url", `http://127.0.0.1:${fake.address().port}/prefix`], stderr: "pipe" });
@@ -327,6 +332,8 @@ test("remote MCP resources come from the remote version through a URL prefix", a
     assert.equal(markdown.contents[0].text, "REMOTE REFERENCE");
     const json = await client.readResource({ uri: "do-md://reference/template-language.json" });
     assert.deepEqual(JSON.parse(json.contents[0].text), { remote: true });
+    const skill = await client.readResource({ uri: "do-md://skills/do-md" });
+    assert.equal(skill.contents[0].text, "REMOTE SKILL");
     assert.ok(seen.every((path) => path.startsWith("/prefix/v1/")));
   } finally { await client.close(); fake.closeAllConnections(); await new Promise((done) => fake.close(done)); }
 });

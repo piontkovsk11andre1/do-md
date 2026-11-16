@@ -5,7 +5,7 @@ export const VERSION = createRequire(import.meta.url)("../../package.json").vers
 export const API_VERSION = 1;
 export const DEFAULT_MAX_INPUT_BYTES = 1_048_576;
 export const DEFAULT_TIMEOUT_MS = 30_000;
-export const TOOL_NAMES = Object.freeze(["validate", "export", "create", "set", "render", "match", "query", "reference"]);
+export const TOOL_NAMES = Object.freeze(["validate", "export", "create", "set", "render", "match", "query", "reference", "skill"]);
 const path = z.string().min(1);
 const object = z.record(z.string(), z.json());
 const options = object.optional();
@@ -18,6 +18,7 @@ export const TOOL_DEFINITIONS = Object.freeze({
   match: { description: "Find templates that fully match a Markdown file", inputSchema: z.strictObject({ file: path, templates: path, all: z.boolean().default(false), options }) },
   query: { description: "Find content occurrences using a query template", inputSchema: z.strictObject({ file: path, template: path, all: z.boolean().default(false), options }) },
   reference: { description: "Return the complete template-language reference or one function entry", inputSchema: z.strictObject({ topic: path.optional(), format: z.enum(["json", "markdown", "text"]).default("json") }) },
+  skill: { description: "Read the bundled Agent Skill for authoring and editing do-md documents", inputSchema: z.strictObject({}) },
 });
 
 export function exitCode(errors = []) {

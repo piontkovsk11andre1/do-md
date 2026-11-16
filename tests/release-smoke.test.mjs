@@ -143,6 +143,7 @@ test("npm pack + isolated global install exposes do-md and do-md-mcp", { timeout
     "sources/index.mjs",
     "sources/MCP/Server.mjs",
     "sources/HttpServer.mjs",
+    "skills/do-md/SKILL.md",
     "Dockerfile",
     "compose.example.yaml",
     "README.md",
@@ -150,6 +151,12 @@ test("npm pack + isolated global install exposes do-md and do-md-mcp", { timeout
   ]) {
     assert.equal(await pathExists(path.join(install.installedPkg, relative)), true, relative);
   }
+  const skill = runInstalled(install.doMd, ["skill"]);
+  assert.equal(skill.status, 0, skill.stderr);
+  assert.equal(skill.stdout, await fs.readFile(path.join(install.installedPkg, "skills/do-md/SKILL.md"), "utf8"));
+  const reference = runInstalled(install.doMd, ["reference", "query"]);
+  assert.equal(reference.status, 0, reference.stderr);
+  assert.equal(JSON.parse(reference.stdout).name, "query");
 });
 
 test("installed serve executes HTTP commands and both installed MCP proxies dispatch remotely", { timeout: INSTALL_TIMEOUT_MS }, async () => {
@@ -172,6 +179,8 @@ test("installed serve executes HTTP commands and both installed MCP proxies disp
           const result = await client.callTool({ name: "validate", arguments: { file: "doc.md", template: "tpl.md" } });
           assert.equal(result.isError, false);
           assert.equal(client.getServerVersion().version, "1.4.1");
+          const skill = await client.readResource({ uri: "do-md://skills/do-md" });
+          assert.match(skill.contents[0].text, /name: do-md/);
         } finally { await client.close(); }
       }
     } finally { await service.close(); }
