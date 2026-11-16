@@ -122,7 +122,7 @@ export function renderTemplateReference({ topic = null, format = "text" } = {}) 
   if (topic != null && !entry) {
     return null;
   }
-  const selected = entry ? { version: templateLanguage.version, entry } : templateLanguage;
+  const selected = entry ?? templateLanguage;
   if (format === "json") {
     return JSON.stringify(selected, null, 2);
   }

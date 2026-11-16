@@ -43,10 +43,11 @@ for (const topic of [undefined, "listTree"]) {
   }
 }
 
-test("reference defaults to JSON and old help template keeps its JSON wrapper", async () => {
+test("reference defaults to JSON while help describes commands", async () => {
   const current = await exec(process.execPath, [cli, "reference", "query"]);
-  const legacy = await exec(process.execPath, [cli, "help", "template", "query", "--format", "json"]);
-  assert.deepEqual(JSON.parse(current.stdout), JSON.parse(legacy.stdout).entry);
+  assert.equal(JSON.parse(current.stdout).name, "query");
+  const command = await exec(process.execPath, [cli, "help", "query"]);
+  assert.match(command.stdout, /do-md query <file> <template>/);
   const usage = await exec(process.execPath, [cli, "reference", "--help"]);
   assert.match(usage.stdout, /do-md reference/);
   const skillUsage = await exec(process.execPath, [cli, "skill", "--help"]);
@@ -54,7 +55,7 @@ test("reference defaults to JSON and old help template keeps its JSON wrapper", 
 });
 
 test("reference and skill reject unknown topics, formats and extra arguments", async () => {
-  for (const args of [["reference", "missing"], ["reference", "--format", "invalid"], ["reference", "query", "table"], ["skill", "extra"]]) {
+  for (const args of [["reference", "missing"], ["reference", "--format", "invalid"], ["reference", "query", "table"], ["skill", "extra"], ["help", "template"]]) {
     await assert.rejects(exec(process.execPath, [cli, ...args]), error => error.code === 1 && Boolean(error.stderr));
   }
 });

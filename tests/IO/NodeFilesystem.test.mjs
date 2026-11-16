@@ -22,11 +22,11 @@ test("globAsync expands template directories and glob patterns", async () => {
   try {
     await mkdir(join(dir, "nested"));
     await writeFile(join(dir, "a.md.template"), "a");
-    await writeFile(join(dir, "legacy.tpl.md"), "legacy");
+    await writeFile(join(dir, "custom.template"), "custom");
     await writeFile(join(dir, "nested", "b.md.template"), "b");
     await writeFile(join(dir, "ignored.md"), "x");
     assert.deepEqual(await io.globAsync(dir), [join(dir, "a.md.template"), join(dir, "nested", "b.md.template")].sort());
-    assert.deepEqual(await io.globAsync(join(dir, "legacy.tpl.md")), [join(dir, "legacy.tpl.md")]);
+    assert.deepEqual(await io.globAsync(join(dir, "custom.template")), [join(dir, "custom.template")]);
     assert.deepEqual(await io.globAsync("**/*.md.template", { cwd: dir }), [
       join(dir, "a.md.template"),
       join(dir, "nested", "b.md.template"),

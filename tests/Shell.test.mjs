@@ -132,7 +132,7 @@ test("CLI help lists the supported commands", () => {
   for (const args of [["--help"], ["-h"]]) {
     const result = runCli(args);
     assert.equal(result.status, 0);
-    assert.match(result.stdout, /do-md help template/);
+    assert.match(result.stdout, /do-md help \[command\]/);
     assert.match(result.stdout, /\bmcp\b/);
   }
 });
@@ -142,15 +142,15 @@ test("CLI exposes command and template-language reference help", () => {
   assert.equal(command.status, 0);
   assert.match(command.stdout, /do-md query <file> <template>/);
 
-  const focused = runCli(["help", "template", "query", "--format", "json"]);
+  const focused = runCli(["reference", "query", "--format", "json"]);
   assert.equal(focused.status, 0);
-  assert.equal(JSON.parse(focused.stdout).entry.name, "query");
+  assert.equal(JSON.parse(focused.stdout).name, "query");
 
-  const markdown = runCli(["help", "template", "--format=markdown"]);
+  const markdown = runCli(["reference", "--format=markdown"]);
   assert.equal(markdown.status, 0);
   assert.match(markdown.stdout, /^# do-md Template Language/);
 
-  const unknown = runCli(["help", "template", "unknown"]);
+  const unknown = runCli(["reference", "unknown"]);
   assert.equal(unknown.status, 1);
   assert.match(unknown.stderr, /unknown template function/);
 });

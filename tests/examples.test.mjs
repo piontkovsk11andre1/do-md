@@ -76,11 +76,9 @@ for (const name of examples) {
     });
 }
 
-test("CLI template help and MCP reference expose the same registry entry", async () => {
-    const { stdout } = await exec(process.execPath, [cli, "help", "template", "listTree", "--format", "json"]);
+test("CLI and MCP reference expose the same registry entry", async () => {
+    const { stdout } = await exec(process.execPath, [cli, "reference", "listTree", "--format", "json"]);
     const mcp = await handleReference({ topic: "listTree", format: "json" });
     assert.equal(mcp.ok, true);
-    const reference = JSON.parse(stdout);
-    assert.equal(typeof reference.version, "string");
-    assert.deepEqual(reference.entry, mcp.reference);
+    assert.deepEqual(JSON.parse(stdout), mcp.reference);
 });

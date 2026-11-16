@@ -44,12 +44,12 @@ test("resolvePath joins relative paths and keeps absolute ones", () => {
 test("globAsync expands template directories and glob patterns", async () => {
   const io = new Virtual({
     "/templates/a.md.template": "a",
-    "/templates/legacy.tpl.md": "legacy",
+    "/templates/custom.template": "custom",
     "/templates/nested/b.md.template": "b",
     "/templates/ignored.md": "x",
   });
   const expected = ["/templates/a.md.template", "/templates/nested/b.md.template"];
   assert.deepEqual(await io.globAsync("templates", { cwd: "/" }), expected);
-  assert.deepEqual(await io.globAsync("/templates/legacy.tpl.md"), ["/templates/legacy.tpl.md"]);
+  assert.deepEqual(await io.globAsync("/templates/custom.template"), ["/templates/custom.template"]);
   assert.deepEqual(await io.globAsync("templates/**/*.md.template", { cwd: "/" }), expected);
 });

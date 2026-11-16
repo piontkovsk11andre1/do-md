@@ -30,6 +30,8 @@ const COMMAND_HELP = Object.freeze({
   query: "do-md query <file> <template> [--all]\nFind non-overlapping content regions marked by doc.query().",
   reference: "do-md reference [topic] [--format json|markdown|text]\nRead the template-language reference. JSON is the default, matching MCP reference.",
   skill: "do-md skill\nPrint the bundled Agent Skill as Markdown. This does not install it.",
+  serve: "do-md serve --root <dir> [--host 127.0.0.1] [--port 8080]\nOptions: --max-input-bytes --timeout-ms --max-body-bytes --max-response-bytes --max-concurrency --no-snippets",
+  mcp: "do-md mcp --root <dir> [--host <host> --port 8080 | --url <http(s)://host/prefix>]\nOptions: --max-input-bytes --timeout-ms --max-response-bytes --no-snippets\nWithout host/port/URL, commands execute locally. In remote mode --root is a server-side directory.",
 });
 
 export function formatUsage() {
@@ -37,7 +39,7 @@ export function formatUsage() {
 }
 
 function formatHelp() {
-  return `${formatUsage()}\nCommands:\n  validate  Validate a document\n  create    Create a document\n  export    Export parsed context\n  set       Edit a document\n  render    Parse and render\n  match     Find matching templates\n  query     Find content regions\n  reference Read the template-language reference\n  skill     Read the Agent Skill\n  mcp       Start the local or remote-dispatch MCP server\n  serve     Start the HTTP execution server\n\nHelp:\n  do-md <command> --help\n  do-md help template [function] [--format text|markdown|json] (compatibility alias)\n`;
+  return `${formatUsage()}\nCommands:\n  validate  Validate a document\n  create    Create a document\n  export    Export parsed context\n  set       Edit a document\n  render    Parse and render\n  match     Find matching templates\n  query     Find content regions\n  reference Read the template-language reference\n  skill     Read the Agent Skill\n  mcp       Start the local or remote-dispatch MCP server\n  serve     Start the HTTP execution server\n\nHelp:\n  do-md help [command]\n  do-md <command> --help\n`;
 }
 
 function formatCommandHelp(command) {
@@ -45,30 +47,10 @@ function formatCommandHelp(command) {
   return `${COMMAND_HELP[command]}\n\nGlobal options:\n  --cwd <dir>  Resolve relative paths against a directory\n  --json       Print structured command results\n  --quiet      Suppress successful informational output\n`;
 }
 
-function optionValue(argv, name, fallback) {
-  const prefix = `--${name}=`;
-  const joined = argv.find((arg) => String(arg).startsWith(prefix));
-  if (joined) return String(joined).slice(prefix.length);
-  const index = argv.indexOf(`--${name}`);
-  return index >= 0 && argv[index + 1] != null ? String(argv[index + 1]) : fallback;
-}
-
-function templateHelp(argv) {
-  const format = optionValue(argv, "format", "text");
-  if (!["text", "markdown", "json"].includes(format)) {
-    throw makeUserError("--format must be text, markdown, or json");
-  }
-  const positionals = argv.filter((arg, index) =>
-    index > 0 && !String(arg).startsWith("-") && argv[index - 1] !== "--format");
-  if (positionals[0] !== "template") {
-    return COMMAND_HELP[positionals[0]] ? formatCommandHelp(positionals[0]) : formatHelp();
-  }
-  const topic = positionals[1] ?? null;
-  const rendered = renderTemplateReference({ topic, format });
-  if (rendered == null) {
-    throw makeUserError(`unknown template function: ${topic}`);
-  }
-  return `${rendered}\n`;
+function commandHelp(argv) {
+  if (argv.length === 1 || (argv.length === 2 && ["--help", "-h"].includes(argv[1]))) return formatHelp();
+  if (argv.length !== 2 || !Object.hasOwn(COMMAND_HELP, argv[1])) throw makeUserError("help expects a command name; use reference for the template language");
+  return formatCommandHelp(argv[1]);
 }
 
 function referenceOutput(argv) {
@@ -79,9 +61,7 @@ function referenceOutput(argv) {
   const topic = parsed._[0] == null ? null : String(parsed._[0]);
   const output = renderTemplateReference({ topic, format: parsed.format });
   if (output == null) throw makeUserError(`unknown template function: ${topic}`);
-  // The canonical JSON entry matches MCP reference. The legacy help alias keeps
-  // its historical {version, entry} wrapper for compatibility.
-  return topic && parsed.format === "json" ? JSON.stringify(JSON.parse(output).entry, null, 2) : output;
+  return output;
 }
 
 export function coerceValue(value) {
@@ -324,17 +304,13 @@ export async function execute(argv = process.argv.slice(2)) {
       return 0;
     } catch (error) { return reportRejected(error, flags); }
   }
-  if (token === "serve" && (argv.includes("--help") || argv.includes("-h"))) {
-    process.stdout.write("do-md serve --root <dir> [--host 127.0.0.1] [--port 8080]\nOptions: --max-input-bytes --timeout-ms --max-body-bytes --max-response-bytes --max-concurrency --no-snippets\n");
-    return 0;
-  }
-  if (token === "mcp" && (argv.includes("--help") || argv.includes("-h"))) {
-    process.stdout.write("do-md mcp --root <dir> [--host <host> --port 8080 | --url <http(s)://host/prefix>]\nOptions: --max-input-bytes --timeout-ms --max-response-bytes --no-snippets\nWithout host/port/URL, commands execute locally. In remote mode --root is a server-side directory.\n");
+  if (["serve", "mcp"].includes(token) && (argv.includes("--help") || argv.includes("-h"))) {
+    process.stdout.write(`${COMMAND_HELP[token]}\n`);
     return 0;
   }
   if (token === "help") {
     try {
-      process.stdout.write(templateHelp(argv));
+      process.stdout.write(commandHelp(argv));
       return 0;
     } catch (error) {
       return reportRejected(error, flags);

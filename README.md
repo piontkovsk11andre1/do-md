@@ -48,9 +48,8 @@ Markdown-to-JavaScript generation.
 
 CLI `help` explains commands; CLI and MCP `reference` return language documentation.
 Both reference interfaces default to JSON. CLI prints the registry or entry itself;
-MCP returns the same value in its `reference` field. The older `do-md help template`
-path remains a compatibility alias (text by default, and `{version, entry}` for a
-single JSON topic). Use `reference` in new integrations.
+MCP returns the same value in its `reference` field. `do-md help [command]` and
+`do-md <command> --help` describe command usage, not the template language.
 
 ### Agent Skill
 
@@ -258,7 +257,7 @@ unbound writer call emits nothing, while a bound raw capture is emitted exactly.
 `"module id=example"`; do-md does not interpret its tokens. Language-only,
 unlabelled, and indented blocks have `meta: ""`.
 
-Writers and edits accept values without `meta` for compatibility. When present,
+Writers and edits accept values with an optional `meta` field. When present,
 `meta` must be a string, and it is emitted after the language with a separating
 space. If the language is empty or null, metadata is not emitted. Parsed values
 and code-block AST nodes now include the additional `meta` property, so update
