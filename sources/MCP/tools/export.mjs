@@ -1,12 +1,5 @@
 import { exportDoc } from "../../commands/exportDoc.mjs";
-import {
-  INLINE_EXPORT,
-  commandIo,
-  commandOptions,
-  cwdOf,
-  ioOf,
-  resolveToolPath,
-} from "./helpers.mjs";
+import { commandOptions, cwdOf, ioOf, resolveToolPath } from "./helpers.mjs";
 
 export async function handleExport(params = {}, context = {}) {
   const io = ioOf(context);
@@ -14,9 +7,9 @@ export async function handleExport(params = {}, context = {}) {
   const template = await resolveToolPath(context, params.template, "template");
   const savePath = params.savePath
     ? await resolveToolPath(context, params.savePath, "savePath")
-    : io.resolvePath(cwdOf(context), INLINE_EXPORT);
+    : undefined;
   const result = await exportDoc({
-    io: params.savePath ? io : commandIo(io, { suppressWrites: true }),
+    io,
     file,
     template,
     savePath,

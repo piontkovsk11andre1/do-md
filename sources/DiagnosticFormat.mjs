@@ -1,10 +1,10 @@
-import { Chalk } from "chalk";
 import stringWidth from "string-width";
 import { primaryLocation, sameLocation } from "./Diagnostics.mjs";
 
 const graphemes = new Intl.Segmenter("en", { granularity: "grapheme" });
 const FRAME_WIDTH = 100;
 const CONTEXT_BEFORE = 40;
+const plainStyle = { dim: (text) => text, cyan: (text) => text, red: (text) => text };
 
 /** Expand terminal tabs and neutralize controls before measuring display cells. */
 function displayText(value) {
@@ -87,8 +87,12 @@ function codeFrame(location, color) {
 }
 
 /** Render an existing diagnostic without reading files, changing state or traversing causes. */
-export function formatDiagnostic(diagnostic, { colors = false, includeGenerated = false } = {}) {
-  const color = new Chalk({ level: colors ? 1 : 0 });
+export function formatDiagnostic(diagnostic, options = {}) {
+  return renderDiagnostic(diagnostic, plainStyle, options);
+}
+
+/** Internal presentation seam: Node supplies ANSI styles, the browser uses plain text. */
+export function renderDiagnostic(diagnostic, color, { includeGenerated = false } = {}) {
   const primary =
     primaryLocation(diagnostic) ?? (includeGenerated ? diagnostic.locations?.at(-1) : null);
   const message = displayText(diagnostic.message ?? "");

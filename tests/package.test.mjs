@@ -4,6 +4,7 @@ import { readFile, access } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
+import { parse as parseYaml } from "yaml";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const pkg = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
@@ -25,6 +26,7 @@ test("every public entry point resolves to runtime code and declarations", async
     Object.keys(pkg.exports).sort(),
     [
       ".",
+      "./browser",
       "./http",
       "./io",
       "./markdown",
@@ -57,11 +59,20 @@ test("private implementation files cannot be imported through package subpaths",
   }
 });
 
-test("CI checks source quality and runtime behavior on Linux and Windows", async () => {
-  const workflow = await readFile(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
-  assert.match(workflow, /windows-latest/);
-  assert.match(workflow, /npm run check/);
-  assert.match(workflow, /node-version/);
+test("CI runs Linux/image gates and leaves Windows/browser jobs opt-in", async () => {
+  const workflow = parseYaml(
+    await readFile(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8"),
+  );
+  assert.deepEqual(workflow.jobs.test.strategy.matrix.os, ["ubuntu-latest"]);
+  assert.equal(workflow.on.workflow_dispatch.inputs.windows.default, false);
+  assert.equal(workflow.on.workflow_dispatch.inputs.browsers.default, false);
+  assert.match(workflow.jobs.windows.if, /workflow_dispatch.*inputs.windows/);
+  assert.match(workflow.jobs.browser.if, /workflow_dispatch.*inputs.browsers/);
+  assert.ok(
+    workflow.jobs.image.steps.some((step) =>
+      step.run?.includes("docker build --target verification"),
+    ),
+  );
 });
 
 test("packed artifact includes public integrations and excludes development state", () => {
@@ -82,6 +93,10 @@ test("packed artifact includes public integrations and excludes development stat
     "sources/index.d.mts",
     "sources/SourceText.d.mts",
     "sources/HTTP/index.mjs",
+    "sources/browser.mjs",
+    "sources/browser.d.mts",
+    "examples/browser/index.html",
+    "examples/browser/app.mjs",
     "skills/do-md/SKILL.md",
     "docs/migration-2.md",
     "examples/release-notes/template.md.template",

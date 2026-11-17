@@ -9,6 +9,8 @@ import {
   wrapTemplate,
 } from "./helpers.mjs";
 
+/** @overload @param {import('../types.d.mts').ValidateOptions} input @returns {Promise<import('../types.d.mts').CommandResult>} */
+/** @param {Partial<import('../types.d.mts').ValidateOptions>} [input] */
 export async function validate({ io, file, template, cwd, options } = {}) {
   requireIo(io);
   requireArg(file, "file");

@@ -47,3 +47,6 @@ export function fromNativeError(
   error: unknown,
   options?: DiagnosticOptions & { code?: ErrorCode },
 ): DoMdError;
+export function isDiagnosticError(error: unknown): error is DoMdError;
+export function errorMessage(error: unknown): string;
+export function errorStack(error: unknown): string | undefined;

@@ -1,2 +1,4 @@
-import type { CommandResult, QueryContext, QueryOptions } from "../types.d.mts";
-export function query(options: QueryOptions): Promise<CommandResult<QueryContext>>;
+// Generated from checked JSDoc by npm run types. Do not edit.
+export declare function query<T extends Record<string, unknown> = Record<string, unknown>>(
+  input: import("../types.d.mts").QueryOptions,
+): Promise<import("../types.d.mts").CommandResult<import("../types.d.mts").QueryContext<T>>>;

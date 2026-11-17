@@ -6,9 +6,13 @@ export default [
       "node_modules/**",
       ".types/**",
       "coverage/**",
+      ".browser/**",
+      ".release/**",
+      "playwright-report/**",
+      "test-results/**",
       "tests/fixtures/**",
       "tests/conformance/**",
-      "examples/**",
+      "examples/{release-notes,query-sections,structured-document,precise-editing,markdown-to-js}/**",
     ],
   },
   {
@@ -38,5 +42,10 @@ export default [
       "use-isnan": "error",
       "valid-typeof": "error",
     },
+  },
+  {
+    files: ["examples/browser/**/*.mjs", "browser-tests/**/*.mjs"],
+    languageOptions: { globals: globals.browser },
+    rules: { "no-restricted-globals": ["error", "process", "Buffer", "require"] },
   },
 ];

@@ -1,65 +1,111 @@
+// Generated from checked JSDoc by npm run types. Do not edit.
 import { Reader } from "../Reader.mjs";
-import { DoMdError } from "../DoMdError.mjs";
+export { runTemplate } from "../Template.mjs";
 import { Writer } from "../Writer.mjs";
-import type {
-  AtomicWriteOptions,
-  CommandFailure,
-  CommandOptions,
-  CommandSuccess,
-  Diagnostic,
-  IOAdapter,
-  ReadSnapshot,
-  TemplateFunction,
-  WriteSnapshot,
-} from "../types.d.mts";
-export function requireIo<T extends IOAdapter>(io: T | null | undefined): T;
-export function requireArg<T>(value: T | null | undefined, name: string): T;
-export function resolvePath(io: IOAdapter, cwd: string | null | undefined, path: string): string;
-export function diagnosticsFrom(
-  errors: DoMdError | Diagnostic | readonly (DoMdError | Diagnostic)[] | null,
-): Diagnostic[];
-export function success<TContext = unknown>(options?: {
-  output?: string | null;
-  context?: TContext | null;
-}): CommandSuccess<TContext>;
-export function failure<TContext = unknown>(
-  exitCode: number,
-  errors: unknown,
-  extra?: { output?: string | null; context?: TContext | null },
-): CommandFailure<TContext>;
-export function ensureTrailingNewline(text: unknown): string;
-export function normalizeDocument(text: unknown): string;
-export function runTemplate<TContext extends Record<string, unknown>>(
-  fn: TemplateFunction<TContext>,
-  doc: unknown,
-  context: TContext,
-  data: TContext | null,
-  options: Record<string, unknown> | undefined,
+export type IOAdapter = import("../types.d.mts").IOAdapter;
+export type CommandOptions = import("../types.d.mts").CommandOptions;
+export type Diagnostic = import("../types.d.mts").Diagnostic;
+export type DoMdError = import("../DoMdError.mjs").DoMdError;
+export type AtomicWriteOptions = import("../types.d.mts").AtomicWriteOptions;
+/** @typedef {import('../types.d.mts').IOAdapter} IOAdapter */
+/** @typedef {import('../types.d.mts').CommandOptions} CommandOptions */
+/** @typedef {import('../types.d.mts').Diagnostic} Diagnostic */
+/** @typedef {import('../DoMdError.mjs').DoMdError} DoMdError */
+/** @typedef {import('../types.d.mts').AtomicWriteOptions} AtomicWriteOptions */
+/** @param {IOAdapter | undefined} io @returns {asserts io is IOAdapter} */
+export declare function requireIo(io: IOAdapter | undefined): asserts io is IOAdapter;
+/** @param {unknown} value @param {string} name @returns {asserts value is string} */
+export declare function requireArg(value: unknown, name: string): asserts value is string;
+/** @param {IOAdapter} io @param {string | null | undefined} cwd @param {string} path */
+export declare function resolvePath(
   io: IOAdapter,
-  templatePath: string,
-): void;
-export function wrapTemplate<TContext extends Record<string, unknown> = Record<string, unknown>>(
+  cwd: string | null | undefined,
+  path: string,
+): string;
+/** @param {Diagnostic | DoMdError | readonly (Diagnostic | DoMdError)[] | null | undefined} errors @returns {Diagnostic[]} */
+export declare function diagnosticsFrom(
+  errors: Diagnostic | DoMdError | readonly (Diagnostic | DoMdError)[] | null | undefined,
+): Diagnostic[];
+/** @template T @param {{output?: string | null, context?: T | null}} [data] @returns {import('../types.d.mts').CommandSuccess<T>} */
+export declare function success<T>({
+  output,
+  context,
+}?: {
+  output?: string | null;
+  context?: T | null;
+}): import("../types.d.mts").CommandSuccess<T>;
+/** @template T @param {number} exitCode @param {Diagnostic | DoMdError | readonly (Diagnostic | DoMdError)[]} errors
+ * @param {{output?: string | null, context?: T | null}} [extra] @returns {import('../types.d.mts').CommandFailure<T>} */
+export declare function failure<T>(
+  exitCode: number,
+  errors: Diagnostic | DoMdError | readonly (Diagnostic | DoMdError)[],
+  extra?: {
+    output?: string | null;
+    context?: T | null;
+  },
+): import("../types.d.mts").CommandFailure<T>;
+/** @param {unknown} text */
+export declare function ensureTrailingNewline(text: unknown): string;
+/** @param {unknown} text */
+export declare function normalizeDocument(text: unknown): string;
+/** @template {Record<string, unknown>} [T=Record<string, unknown>]
+ * @param {unknown} source @param {string} path @returns {import('../types.d.mts').TemplateFunction<T>} */
+export declare function wrapTemplate<T extends Record<string, unknown> = Record<string, unknown>>(
   source: unknown,
   path: string,
-): TemplateFunction<TContext>;
-export function utf8ByteLength(text: unknown): number;
-export function readText(io: IOAdapter, path: string, options?: CommandOptions): Promise<string>;
-export function readTextSnapshot(
+): import("../types.d.mts").TemplateFunction<T>;
+/** @param {unknown} text */
+export declare function utf8ByteLength(text: unknown): number;
+/** @param {IOAdapter} io @param {string} path @param {CommandOptions} [options] */
+export declare function readText(
   io: IOAdapter,
   path: string,
   options?: CommandOptions,
-): Promise<{ content: string; revision: string | null }>;
-export function writeText(
+): Promise<string>;
+/** @param {IOAdapter} io @param {string} path @param {CommandOptions} [options] */
+export declare function readTextSnapshot(
+  io: IOAdapter,
+  path: string,
+  options?: CommandOptions,
+): Promise<
+  | {
+      content: string;
+      revision: null;
+    }
+  | {
+      content: string;
+      revision: string;
+    }
+>;
+/** @param {IOAdapter} io @param {string} path @param {string} content @param {AtomicWriteOptions} [options] */
+export declare function writeText(
   io: IOAdapter,
   path: string,
   content: string,
   options?: AtomicWriteOptions,
-): Promise<WriteSnapshot | { revision: null }>;
-export function fileExists(io: IOAdapter, path: string): Promise<boolean>;
-export function parseSource<TContext extends Record<string, unknown> = Record<string, unknown>>(
+): Promise<
+  | import("../types.d.mts").WriteSnapshot
+  | {
+      revision: null;
+    }
+>;
+/** @param {IOAdapter} io @param {string} path */
+export declare function fileExists(io: IOAdapter, path: string): Promise<boolean>;
+/** @template {Record<string, unknown>} [T=Record<string, unknown>]
+ * @param {unknown} source @param {import('../types.d.mts').TemplateFunction<T>} fn
+ * @param {{ file: string, templatePath: string, options?: CommandOptions, io: IOAdapter, diagnosticSource?: unknown, diagnosticOffset?: number }} settings
+ * @returns {Reader<T>} */
+export declare function parseSource<T extends Record<string, unknown> = Record<string, unknown>>(
   source: unknown,
-  fn: TemplateFunction<TContext>,
-  options: {
+  fn: import("../types.d.mts").TemplateFunction<T>,
+  {
+    file,
+    templatePath,
+    options,
+    io,
+    diagnosticSource,
+    diagnosticOffset,
+  }: {
     file: string;
     templatePath: string;
     options?: CommandOptions;
@@ -67,9 +113,20 @@ export function parseSource<TContext extends Record<string, unknown> = Record<st
     diagnosticSource?: unknown;
     diagnosticOffset?: number;
   },
-): Reader<TContext>;
-export function renderSource<TContext extends Record<string, unknown> = Record<string, unknown>>(
-  data: TContext,
-  fn: TemplateFunction<TContext>,
-  options: { templatePath: string; options?: CommandOptions; io: IOAdapter },
-): Writer<TContext>;
+): Reader<T>;
+/** @template {Record<string, unknown>} T
+ * @param {T} data @param {import('../types.d.mts').TemplateFunction<T>} fn
+ * @param {{templatePath: string, options?: CommandOptions, io: IOAdapter}} settings */
+export declare function renderSource<T extends Record<string, unknown>>(
+  data: T,
+  fn: import("../types.d.mts").TemplateFunction<T>,
+  {
+    templatePath,
+    options,
+    io,
+  }: {
+    templatePath: string;
+    options?: CommandOptions;
+    io: IOAdapter;
+  },
+): Writer<T>;

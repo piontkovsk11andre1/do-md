@@ -52,6 +52,12 @@ segments. Reuse SourceText when resolving multiple coordinates in the same text.
 
 ## Template and binding conventions
 
+- `reset()` clears the entire read session, including bindings and Reader maps.
+- Source assignment and `replaceSource()` start fresh sessions; seek/position assignment retain data.
+- `lineNumber`, `char`, source index and filename are read-only. Movement derives coordinates from offset.
+- Reader shares a cursor kernel with Parser; it is not a subclass of the public Parser leaf API.
+- Automatic error inspection is plain and import-order independent. Explicit Node formatting provides colors.
+
 - Directory discovery uses `.md.template`; explicit output-template paths may have another extension.
 - `do-md reference [topic]` replaces `help template`; reference JSON entries match MCP.
 - Optional and repeat attempts roll back on exceptions as well as normal rejection.

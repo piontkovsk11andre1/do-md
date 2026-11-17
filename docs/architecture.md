@@ -56,8 +56,9 @@ share output storage but have independent data and binding registries.
 
 `DoMdError` owns the error code, detached locations and ordinary JS cause.
 `Diagnostics` owns location selection/context attachment. `StackTrace` isolates
-Node/V8 stack parsing and Function-wrapper offsets. `DiagnosticFormat` owns
-terminal display and is the only module needing color/layout libraries.
+engine stack parsing and calibrates Function-wrapper offsets. `DiagnosticFormat`
+owns portable plain-text frames; `NodeDiagnosticFormat` adds explicit terminal styling.
+The model declares one stable plain inspection hook. Imports never patch its prototype.
 
 CompiledTemplate maps runtime frames and accumulated reader mismatches. External
 applications append their own origin maps using `mapDiagnostic`. JSON transport
@@ -74,13 +75,28 @@ transport modules own listeners, workers, cancellation and resource limits.
 The CLI loads HTTP/MCP protocol stacks only when their command is selected;
 ordinary document commands do not initialize the MCP SDK.
 
+## Platform boundary
+
+The `/browser` entry exports the domain model and document commands, plus Virtual
+and Fetch directly. It excludes the Node I/O barrel, package-file reads and service
+lifecycle code. ContentRevision uses portable synchronous SHA-256; Writer uses a
+data equality comparator; compilation uses diagnostic-only module/sequence identities.
+CWD defaults belong to adapters. Browser builds reject Node built-ins and free
+Node globals; packed browser tests own cross-engine verification. See [browser](browser.md).
+
 ## Types and generated artifacts
 
-SourceText, SourceMap and IterationState use checked JSDoc as their declaration
-source of truth. `npm run types` emits their `.d.mts` files; `types:check` detects
-drift without changing tracked files. Other modules retain reviewed declarations,
-checked through the strict consumer fixture. This is an explicit incremental
-migration: the entire older parser/writer is not yet under `checkJs`.
+The source-map core, cursor kernel, Parser, Reader, Writer, Slot, compilation path
+and commands use strict checked JSDoc as their declaration source of truth.
+`npm run types` emits and formats their `.d.mts` files; `types:check` detects drift.
+Internal helpers are stripped from declarations. Editor, Markdown parsing and
+transports retain reviewed declarations checked by the strict consumer fixture;
+their implementations are not yet claimed as checked-JS code.
+
+CursorParser owns the immutable source index and one offset. Parser adds its
+numeric line alias and low-level repeat API; Reader adds leaf/session policies.
+Reset clears a session, seek moves only the cursor, and source replacement starts
+a fresh session. Lifecycle changes are rejected during read callbacks/execution.
 
 The language registry generates `docs/template-language.md`. Both generators have
 read-only checks. The runtime stays unbundled ESM; consumers do not need a build

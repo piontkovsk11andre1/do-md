@@ -1,5 +1,5 @@
 import { formatDiagnostic } from "./DiagnosticFormat.mjs";
-import { locationFromStack } from "./StackTrace.mjs";
+import { captureDiagnosticStack, locationFromStack } from "./StackTrace.mjs";
 export { formatDiagnostic } from "./DiagnosticFormat.mjs";
 export { primaryLocation, attachSource, addProcessingLocation } from "./Diagnostics.mjs";
 export { locationFromStack } from "./StackTrace.mjs";
@@ -67,16 +67,7 @@ export class DoMdError extends Error {
       ? payload.code
       : ERROR_CODES.DO_MD_USER_ERROR;
     this.locations = structuredClone(payload.locations ?? cursorLocation(payload, this.code));
-    // Parser stacks can be deep. Change the limit only during synchronous capture
-    // and materialization, so callers keep their own process-wide stack policy.
-    const limit = Error.stackTraceLimit;
-    try {
-      Error.stackTraceLimit = Math.max(limit ?? 10, 100);
-      Error.captureStackTrace(this, DoMdError);
-      void this.stack;
-    } finally {
-      Error.stackTraceLimit = limit;
-    }
+    captureDiagnosticStack(this, DoMdError);
   }
 
   /** Return detached plain data, deliberately excluding JS stacks and causes. */
@@ -86,8 +77,9 @@ export class DoMdError extends Error {
   toString() {
     return formatDiagnostic(this);
   }
-  [Symbol.for("nodejs.util.inspect.custom")](_depth, options) {
-    return formatDiagnostic(this, { colors: options?.colors === true });
+  /** A stable, portable inspection protocol. ANSI rendering is an explicit Node API. */
+  [Symbol.for("nodejs.util.inspect.custom")]() {
+    return this.toString();
   }
 }
 
@@ -131,4 +123,26 @@ export function fromNativeError(error, options = {}) {
     snippet: options.snippet ?? null,
     cause: error,
   });
+}
+
+/** Structural diagnostic identity also works across bundled package copies. */
+export function isDiagnosticError(error) {
+  return (
+    error != null &&
+    typeof error === "object" &&
+    typeof error.message === "string" &&
+    Object.values(ERROR_CODES).includes(error.code) &&
+    Array.isArray(error.locations) &&
+    typeof error.toDiagnostic === "function"
+  );
+}
+export function errorMessage(error) {
+  return error != null && typeof error === "object" && "message" in error
+    ? String(error.message)
+    : String(error);
+}
+export function errorStack(error) {
+  return error != null && typeof error === "object" && typeof error.stack === "string"
+    ? error.stack
+    : undefined;
 }

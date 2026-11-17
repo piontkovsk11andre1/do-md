@@ -1,6 +1,5 @@
 import type { CommandOptions, IOAdapter } from "../../types.d.mts";
 export const INLINE_OUTPUT: "__do_md_mcp_inline__";
-export const INLINE_EXPORT: "__do_md_mcp_export__.json";
 export interface McpToolContext {
   root?: string | null;
   maxInputBytes?: number;

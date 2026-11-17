@@ -2,7 +2,8 @@ import yargs from "yargs";
 
 import { validate, create, exportDoc, set, render, match, query } from "./commands/index.mjs";
 import { NodeFilesystem } from "./IO/NodeFilesystem.mjs";
-import { ERROR_CODES, makeUserError, formatDiagnostic } from "./DoMdError.mjs";
+import { ERROR_CODES, makeUserError } from "./DoMdError.mjs";
+import { formatDiagnostic } from "./NodeDiagnosticFormat.mjs";
 import { renderTemplateReference } from "./TemplateLanguage.mjs";
 import { readSkill } from "./Skill.mjs";
 

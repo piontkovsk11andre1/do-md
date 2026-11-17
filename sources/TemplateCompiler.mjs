@@ -1,17 +1,24 @@
-import { randomUUID } from "node:crypto";
 import { SourceMap } from "./SourceMap.mjs";
 import { SourceText } from "./SourceText.mjs";
+
+// Identity is diagnostic-only. A module nonce separates bundled copies; the
+// sequence guarantees distinct identities for compilations owned by this module.
+const moduleId = Math.random().toString(36).slice(2);
+let nextCompilation = 0;
 
 /**
  * Translate literal runs and JS blocks in one pass. Segment offsets are recorded
  * when emitting code, so trimming delimiters/newlines never loses provenance.
  * Exact segments describe copied JS; generated literal calls retain whole spans.
+ * @param {unknown} source @param {string} file
  */
 export function compileTemplateSource(source, file) {
   const original = new SourceText(String(source ?? ""), file);
   const text = original.text;
   let code = "";
+  /** @type {import('./SourceMap.mjs').SourceMapSegment[]} */
   const segments = [];
+  /** @param {string} value @param {number} start @param {number} end @param {'exact' | 'range'} kind */
   const emit = (value, start, end, kind) => {
     if (!value.length) {
       return;
@@ -68,6 +75,9 @@ export function compileTemplateSource(source, file) {
     }
   }
   flushLiteral();
-  const generated = new SourceText(code, `generated:do-md/template-${randomUUID()}`);
+  const generated = new SourceText(
+    code,
+    `generated:do-md/template-${moduleId}-${++nextCompilation}`,
+  );
   return { code, sourceMap: new SourceMap({ generated, original, segments }) };
 }

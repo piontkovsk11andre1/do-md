@@ -10,6 +10,8 @@ import {
   wrapTemplate,
 } from "./helpers.mjs";
 
+/** @overload @param {import('../types.d.mts').MatchOptions} input @returns {Promise<import('../types.d.mts').CommandResult<import('../types.d.mts').MatchContext>>} */
+/** @param {Partial<import('../types.d.mts').MatchOptions>} [input] */
 export async function match({ io, file, templates, all = false, cwd, options } = {}) {
   requireIo(io);
   requireArg(file, "file");
@@ -18,10 +20,9 @@ export async function match({ io, file, templates, all = false, cwd, options } =
     throw makeUserError("io does not support template discovery");
   }
 
-  const base = cwd == null ? process.cwd() : cwd;
   const filePath = resolvePath(io, cwd, file);
   const source = await readText(io, filePath, options);
-  const candidates = [...new Set(await io.globAsync(templates, { cwd: base }))].sort();
+  const candidates = [...new Set(await io.globAsync(templates, cwd == null ? {} : { cwd }))].sort();
   const matches = [];
 
   for (const templatePath of candidates) {

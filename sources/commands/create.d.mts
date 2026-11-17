@@ -1,4 +1,4 @@
-import type { CommandResult, CreateOptions } from "../types.d.mts";
-export function create<TData extends Record<string, unknown> = Record<string, unknown>>(
-  options: CreateOptions<TData>,
-): Promise<CommandResult<never>>;
+// Generated from checked JSDoc by npm run types. Do not edit.
+export declare function create<T extends Record<string, unknown> = Record<string, unknown>>(
+  input: import("../types.d.mts").CreateOptions<T>,
+): Promise<import("../types.d.mts").CommandResult>;

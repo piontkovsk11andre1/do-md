@@ -15,6 +15,18 @@ npm run check
 npm run bench
 ```
 
+`npm run test:runtime` checks the CLI, Skill, MCP and HTTP smoke program. The
+Docker verification stage runs it inside the pinned non-root image. Windows and
+real browser checks are deferred/manual; do not record them as passing by inference.
+
+From an approved clean commit, `npm run release:candidate` records a versioned
+tarball and commit/hash manifest without publication or Git mutation.
+
+When resuming deferred browser verification, run `npm run browser:pack`, install engines with
+`npx playwright install --with-deps`, then run `npm run test:browser` on a supported
+glibc host. Browser builds reject Node imports/globals. The no-Node VM check is
+complementary; it does not replace Chromium, Firefox and WebKit tests.
+
 `npm run check` is read-only with respect to tracked artifacts. Generated
 declarations and reference documentation are committed so the packed runtime
 needs no build step. Golden documents and template fixtures are excluded from

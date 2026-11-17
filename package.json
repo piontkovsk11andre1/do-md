@@ -1,6 +1,6 @@
 {
   "name": "@p10i/do-md",
-  "version": "2.0.0-rc.1",
+  "version": "2.0.0-rc.2",
   "description": "Markdown template runtime and editing utilities",
   "license": "MIT",
   "repository": {
@@ -13,6 +13,7 @@
   },
   "keywords": [
     "markdown",
+    "browser",
     "templates",
     "parser",
     "code-generation",
@@ -33,6 +34,10 @@
   "main": "sources/index.mjs",
   "types": "sources/index.d.mts",
   "exports": {
+    "./browser": {
+      "types": "./sources/browser.d.mts",
+      "import": "./sources/browser.mjs"
+    },
     ".": {
       "types": "./sources/index.d.mts",
       "import": "./sources/index.mjs"
@@ -80,13 +85,21 @@
     "types": "node scripts/generate-types.mjs",
     "types:check": "node scripts/generate-types.mjs --check && node --test tests/types.test.mjs",
     "check": "npm run format:check && npm run lint && npm run types:check && npm run docs:check && npm test",
-    "bench": "node benchmarks/runtime.mjs"
+    "bench": "node benchmarks/runtime.mjs",
+    "browser:build": "node scripts/browser.mjs build",
+    "browser:pack": "node scripts/browser.mjs pack",
+    "browser:serve": "node scripts/browser.mjs serve",
+    "test:browser": "node scripts/browser.mjs test",
+    "test:runtime": "node scripts/image-smoke.mjs",
+    "release:candidate": "node scripts/release-candidate.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.2",
+    "@noble/hashes": "2.4.0",
     "acorn": "8.15.0",
     "chalk": "^5.0.0",
     "error-stack-parser": "2.1.4",
+    "fast-equals": "6.2.2",
     "glob": "14.0.6",
     "string-width": "4.2.3",
     "yaml": "^2.9.0",
@@ -94,7 +107,10 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@playwright/test": "1.65.1",
+    "esbuild": "0.28.2",
     "eslint": "10.15.0",
+    "eslint-scope": "9.1.2",
     "fast-check": "4.3.0",
     "globals": "16.5.0",
     "prettier": "3.10.1",

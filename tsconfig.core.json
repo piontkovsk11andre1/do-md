@@ -11,7 +11,29 @@
     "emitDeclarationOnly": true,
     "outDir": ".types",
     "rootDir": "sources",
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "stripInternal": true
   },
-  "files": ["sources/SourceText.mjs", "sources/SourceMap.mjs", "sources/Reader/IterationState.mjs"]
+  "files": [
+    "sources/SourceText.mjs",
+    "sources/SourceMap.mjs",
+    "sources/Reader/IterationState.mjs",
+    "sources/CursorParser.mjs",
+    "sources/Parser.mjs",
+    "sources/Reader.mjs",
+    "sources/Writer.mjs",
+    "sources/Slot.mjs",
+    "sources/CompiledTemplate.mjs",
+    "sources/TemplateCompiler.mjs",
+    "sources/Template.mjs",
+    "sources/Schema.mjs",
+    "sources/commands/helpers.mjs",
+    "sources/commands/create.mjs",
+    "sources/commands/exportDoc.mjs",
+    "sources/commands/validate.mjs",
+    "sources/commands/match.mjs",
+    "sources/commands/query.mjs",
+    "sources/commands/render.mjs",
+    "sources/commands/set.mjs"
+  ]
 }

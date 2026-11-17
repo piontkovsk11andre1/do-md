@@ -84,8 +84,8 @@ const detailed = formatDiagnostic(diagnostic, {
 ```
 
 Plain output is the default. CLI colors require a color-capable stderr TTY and
-respect `NO_COLOR` and `TERM=dumb`. Node inspection uses the inspector's `colors`
-option. Generated locations are hidden by default; `includeGenerated: true`
+respect `NO_COLOR` and `TERM=dumb`. Automatic inspection always uses stable plain
+frames; ANSI is explicitly selected by the Node formatter. Generated locations are hidden by default; `includeGenerated: true`
 includes their frames for debugging.
 
 Formatting uses only the existing diagnostic: it does not read files or mutate
@@ -117,7 +117,7 @@ template BOMs retain original offsets. `renderBlocks()` uses this same compiler.
 Compilation failures are parsed with Acorn to locate the syntax error, using
 the same function-body context as execution. Acorn runs only after the Function
 constructor fails. Runtime frames are mapped through the same compilation map;
-Node/V8's Function-constructor wrapper offset is accounted for. If an engine
+the engine's Function-constructor wrapper offset is calibrated. If an engine
 failure cannot be localized, no exact template coordinate is fabricated.
 
 Reader mismatches, binding failures and validator exceptions retain template

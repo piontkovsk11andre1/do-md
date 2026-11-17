@@ -1,5 +1,14 @@
 import { SourceText } from "./SourceText.mjs";
 
+/** Unknown template arguments become diagnostic contexts only through the owner protocol. */
+export function diagnosticDocument(value) {
+  return value != null &&
+    typeof value === "object" &&
+    (value.mode === "reader" || value.mode === "writer")
+    ? value
+    : undefined;
+}
+
 /** Prefer the outermost processing site, then the outermost mapped code origin. */
 export function primaryLocation(diagnostic) {
   const locations = diagnostic?.locations ?? [];

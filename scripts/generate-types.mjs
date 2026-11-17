@@ -2,12 +2,14 @@ import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { format } from "prettier";
 
 // Use TypeScript's stable CLI (the v7 JS compiler API is experimental). Generated
 // files go to an ignored directory; --check never changes tracked declarations.
 const root = fileURLToPath(new URL("../", import.meta.url));
 const compiler = fileURLToPath(new URL("bin/tsc", import.meta.resolve("typescript/package.json")));
 const config = JSON.parse(await readFile(`${root}tsconfig.core.json`, "utf8"));
+const formatting = JSON.parse(await readFile(`${root}.prettierrc.json`, "utf8"));
 const generated = new Set(
   config.files.map((source) => source.replace(/^sources\//, "").replace(/\.mjs$/, ".d.mts")),
 );
@@ -47,7 +49,10 @@ try {
     const declaration = source.replace(/^sources\//, "").replace(/\.mjs$/, ".d.mts");
     const target = `${root}sources/${declaration}`;
     const text = await readFile(join(temporary, "output", declaration), "utf8");
-    const expected = `// Generated from checked JSDoc by npm run types. Do not edit.\n${text.replace(/\r\n/g, "\n")}`;
+    const expected = await format(
+      `// Generated from checked JSDoc by npm run types. Do not edit.\n${text.replace(/\r\n/g, "\n")}`,
+      { ...formatting, parser: "typescript" },
+    );
     if (process.argv.includes("--check")) {
       if ((await readFile(target, "utf8")) !== expected) {
         throw new Error(`Stale declaration: ${target}; run npm run types`);

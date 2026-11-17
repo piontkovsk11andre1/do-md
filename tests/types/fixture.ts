@@ -50,6 +50,21 @@ import {
 import { ScopedFilesystem } from "../../sources/Service/ScopedFilesystem.mjs";
 import { execute } from "../../sources/Service/Executor.mjs";
 import { TOOL_DEFINITIONS } from "../../sources/Service/Definitions.mjs";
+import {
+  Virtual as BrowserIO,
+  Template as BrowserTemplate,
+  formatDiagnostic as browserDiagnostic,
+  type Diagnostic as BrowserDiagnostic,
+} from "@p10i/do-md/browser";
+
+const browserIO: IOAdapter = new BrowserIO({ "doc.md": "# Browser" });
+const browserCompilation = BrowserTemplate.compile("{% return; %}");
+const browserError: BrowserDiagnostic = {
+  code: "DO_MD_TEMPLATE_ERROR",
+  message: "bad",
+  locations: [],
+};
+void [browserIO, browserCompilation, browserDiagnostic(browserError, { includeGenerated: true })];
 
 const httpOptions: HttpOptions = { root: "/workspace", port: 0, maxConcurrency: 2 };
 const httpServer = createHttpServer(httpOptions);
@@ -74,6 +89,17 @@ textSlot
   .validate((value) => value !== "bad");
 
 const reader = new Reader<{ title?: string }>("# Hello");
+reader.reset().replaceSource("# New", { file: "new.md" }).seek(0);
+const lineNumber: number = reader.lineNumber;
+const checkboxSlot: Slot<boolean> = reader.checkbox();
+void [lineNumber, checkboxSlot];
+// @ts-expect-error derived coordinates are read-only
+reader.char = 7;
+// @ts-expect-error source identity can only change via replaceSource
+reader.file = "other.md";
+// @ts-expect-error checkbox values must not erase to any
+const invalidCheckbox: Slot<string> = reader.checkbox();
+void invalidCheckbox;
 reader.heading(1).as("title");
 const document: DocumentNode = Reader.fromMarkdown("# Heading");
 const parsed: DocumentNode = parseMarkdown("- [x] task");

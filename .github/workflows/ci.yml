@@ -3,6 +3,16 @@ name: Release checks
 on:
   push:
   pull_request:
+  workflow_dispatch:
+    inputs:
+      windows:
+        description: Run deferred Windows verification
+        type: boolean
+        default: false
+      browsers:
+        description: Run deferred real-browser verification
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -16,9 +26,6 @@ jobs:
       matrix:
         node-version: [22, 24, 26]
         os: [ubuntu-latest]
-        include:
-          - node-version: 24
-            os: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -28,3 +35,43 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm run bench
+  browser:
+    if: github.event_name == 'workflow_dispatch' && inputs.browsers
+    name: Packed browser slice / Chromium, Firefox, WebKit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - run: npm run test:browser
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-failure-traces
+          include-hidden-files: true
+          path: .browser/**/results/
+          retention-days: 7
+  windows:
+    if: github.event_name == 'workflow_dispatch' && inputs.windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+  image:
+    name: Installed Docker runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build --target verification --tag do-md:verification .
+      - run: docker build --target final --tag do-md:runtime .

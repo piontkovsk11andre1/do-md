@@ -7,11 +7,11 @@ export { Slot } from "./Slot.mjs";
 export { Editor } from "./Editor.mjs";
 export { DoMdError } from "./DoMdError.mjs";
 export { primaryLocation } from "./Diagnostics.mjs";
-export { formatDiagnostic } from "./DiagnosticFormat.mjs";
+export { formatDiagnostic } from "./NodeDiagnosticFormat.mjs";
 export { SourceText } from "./SourceText.mjs";
 export { SourceMap } from "./SourceMap.mjs";
 export { CompiledTemplate } from "./CompiledTemplate.mjs";
-export type { DiagnosticFormatOptions } from "./DiagnosticFormat.mjs";
+export type { DiagnosticFormatOptions } from "./NodeDiagnosticFormat.mjs";
 export {
   createSourceMap,
   mapPosition,

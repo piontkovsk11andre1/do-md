@@ -36,6 +36,20 @@ test("exportDoc overwrites an existing JSON save path", async () => {
   );
 });
 
+test("exportDoc without savePath returns context without requiring a write-capable adapter", async () => {
+  const io = {
+    readFileAsync: async (path) => (path === "doc" ? INPUT : TEMPLATE),
+    resolvePath: (_cwd, path) => path,
+  };
+  const result = await exportDoc({ io, file: "doc", template: "template" });
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.context, { title: "Hello" });
+  assert.equal(result.output, null);
+  await assert.rejects(exportDoc({ io, file: "doc", template: "template", savePath: "" }), {
+    code: ERROR_CODES.DO_MD_USER_ERROR,
+  });
+});
+
 test("exportDoc parse failure does not write or overwrite savePath", async () => {
   const io = new Virtual({
     "/doc.md": "not a heading\n",
@@ -65,7 +79,7 @@ test("exportDoc rejects missing arguments with DO_MD_USER_ERROR", async () => {
     (err) => err.code === ERROR_CODES.DO_MD_USER_ERROR,
   );
   await assert.rejects(
-    () => exportDoc({ io: new Virtual(), file: "/doc.md", template: "/tpl.md" }),
+    () => exportDoc({ io: new Virtual(), file: "/doc.md" }),
     (err) => err.code === ERROR_CODES.DO_MD_USER_ERROR,
   );
 });

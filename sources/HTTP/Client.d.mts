@@ -22,7 +22,7 @@ export class Client {
   request(
     path: string,
     options?: { body?: unknown; signal?: AbortSignal },
-  ): Promise<{ status: number; result: any }>;
-  connect(): Promise<Record<string, any>>;
+  ): Promise<{ status: number; result: unknown }>;
+  connect(): Promise<Record<string, unknown>>;
   call(name: string, params: Record<string, unknown>, signal?: AbortSignal): Promise<McpResult>;
 }

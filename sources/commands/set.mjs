@@ -1,11 +1,14 @@
 import { Editor } from "../Editor.mjs";
-import { ERROR_CODES, makeUserError } from "../DoMdError.mjs";
+import { ERROR_CODES, makeUserError, isDiagnosticError } from "../DoMdError.mjs";
 import { failure, requireArg, requireIo, resolvePath, success } from "./helpers.mjs";
 
+/** @param {unknown} key @returns {key is string} */
 function hasKey(key) {
-  return key != null && key !== "";
+  return typeof key === "string" && key !== "";
 }
 
+/** @overload @param {import('../types.d.mts').SetOptions} input @returns {Promise<import('../types.d.mts').CommandResult>} */
+/** @param {Partial<import('../types.d.mts').SetOptions>} [input] */
 export async function set({ io, file, template, key, value, patch, out, cwd, options } = {}) {
   if (!hasKey(key) && patch == null) {
     return failure(1, makeUserError("set requires a key or patch"));
@@ -26,7 +29,7 @@ export async function set({ io, file, template, key, value, patch, out, cwd, opt
   try {
     editor = await Editor.open({ io, file: filePath, template: templatePath, options });
   } catch (error) {
-    if (error?.code === ERROR_CODES.DO_MD_PARSE_ERROR) {
+    if (isDiagnosticError(error) && error.code === ERROR_CODES.DO_MD_PARSE_ERROR) {
       return failure(2, error.errors ?? error);
     }
     throw error;

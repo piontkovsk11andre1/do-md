@@ -1,34 +1,14 @@
-import { Slot } from "./Slot.mjs";
-import { DoMdError } from "./DoMdError.mjs";
-import type { CursorSnapshot, ReaderOptions } from "./types.d.mts";
-export class Parser<TContext extends Record<string, unknown> = Record<string, unknown>> {
-  readonly mode: "reader";
-  constructor(source?: unknown, options?: ReaderOptions);
-  inputSourceText: string;
-  source: string;
-  options: ReaderOptions;
-  file: string | null;
-  offset: number;
-  position: number;
-  line: number;
-  char: number;
-  optionalMode: boolean;
-  context: TContext;
-  errors: DoMdError[];
-  reset(): void;
-  remaining(): string;
-  snapshotCursor(): CursorSnapshot;
-  restoreCursor(cursor: CursorSnapshot): this;
-  advanceTo(end: number): this;
+// Generated from checked JSDoc by npm run types. Do not edit.
+import { CursorParser } from "./CursorParser.mjs";
+/** Low-level literal parser. Reader shares the cursor kernel, not this leaf API.
+ * @template {Record<string, unknown>} [TContext=Record<string, unknown>]
+ * @extends {CursorParser<TContext>}
+ */
+export declare class Parser<
+  TContext extends Record<string, unknown> = Record<string, unknown>,
+> extends CursorParser<TContext> {
+  get line(): number;
   optional(): this;
-  required(): this;
-  error(message: unknown): DoMdError;
-  parse(literal: unknown): this;
-  parseRegExp(re: RegExp | string): Slot<string>;
-  parseUntil(limiter: unknown): Slot<string>;
-  allowWhitespaces(): this;
-  allowNewlines(): this;
-  allowNewlinesAndWhitespaces(): this;
-  parseOneOf(...fns: Array<(parser: this) => unknown>): Slot<string>;
-  repeat(fn: (parser: this) => unknown): Slot<unknown>[];
+  /** @param {(parser: this) => unknown} fn */
+  repeat(fn: (parser: this) => unknown): import("./Slot.mjs").Slot<unknown>[];
 }

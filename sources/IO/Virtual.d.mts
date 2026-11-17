@@ -18,5 +18,5 @@ export class Virtual implements IOAdapter {
     options?: AtomicWriteOptions,
   ): Promise<WriteSnapshot>;
   statAsync(path: string): Promise<FileStat>;
-  resolvePath(cwd: string, path: string): string;
+  resolvePath(cwd: string | null | undefined, path: string): string;
 }

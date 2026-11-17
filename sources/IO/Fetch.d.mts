@@ -15,5 +15,5 @@ export class Fetch implements IOAdapter {
     options?: AtomicWriteOptions,
   ): Promise<never>;
   statAsync(path: string): Promise<never>;
-  resolvePath(cwd: string, path: string): string;
+  resolvePath(cwd: string | null | undefined, path: string): string;
 }

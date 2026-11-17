@@ -49,11 +49,7 @@ test("readFileAsync resolves the response body on HTTP success", async () => {
   const fetchOptions = { headers: { Accept: "text/plain" } };
   globalThis.fetch = async (path, options) => {
     calls.push({ path, options });
-    return {
-      ok: true,
-      status: 200,
-      text: async () => body,
-    };
+    return new Response(body);
   };
   try {
     const text = await io.readFileAsync("https://example.com/tpl.md", fetchOptions);

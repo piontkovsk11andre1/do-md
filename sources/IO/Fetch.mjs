@@ -20,7 +20,8 @@ export class Fetch {
         throw createIoError(`HTTP ${response.status}`, ERROR_CODES.DO_MD_IO_ERROR, { file: path });
       }
 
-      return response.text();
+      // Response.text() consumes a UTF-8 BOM. Exact editing needs to retain it.
+      return new TextDecoder("utf-8", { ignoreBOM: true }).decode(await response.arrayBuffer());
     } catch (error) {
       throw wrapIoError(error, "fetch failed", path);
     }

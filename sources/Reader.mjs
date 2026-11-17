@@ -1,11 +1,16 @@
-import { Parser } from "./Parser.mjs";
+import { CursorParser } from "./CursorParser.mjs";
 import { Slot, registerBinding } from "./Slot.mjs";
-import { attachSource, makeTemplateError, makeUserError } from "./DoMdError.mjs";
+import { attachSource, makeTemplateError, makeUserError, isDiagnosticError } from "./DoMdError.mjs";
+import { schemaFromOptions } from "./Schema.mjs";
 import { IterationState } from "./Reader/IterationState.mjs";
 import * as MarkdownParser from "./Reader/Markdown.mjs";
 
 const MAX_ITERATIONS = 10000;
+/** @typedef {import('./types.d.mts').MarkdownBlockNode} MarkdownBlockNode */
+/** @typedef {import('./types.d.mts').SlotMetadata} SlotMetadata */
+/** @typedef {import('./RuntimeContracts.d.mts').SlotDescription} SlotDescription */
 
+/** @param {string} text @param {number} index */
 function newlineLength(text, index) {
   if (text[index] === "\r" && text[index + 1] === "\n") {
     return 2;
@@ -16,36 +21,41 @@ function newlineLength(text, index) {
   return 0;
 }
 
+/** Clone plain context/AST data. @template T @param {T} value @returns {T} */
 function cloneData(value) {
   if (Array.isArray(value)) {
-    return value.map(cloneData);
+    return /** @type {T} */ (value.map(cloneData));
   }
   if (value && typeof value === "object") {
+    /** @type {Record<string, unknown>} */
     const out = {};
     for (const [key, item] of Object.entries(value)) {
       out[key] = cloneData(item);
     }
-    return out;
+    return /** @type {T} */ (out);
   }
   return value;
 }
 
+/** @template T @param {T} value @returns {T} */
 function stripPositions(value) {
   if (Array.isArray(value)) {
-    return value.map(stripPositions);
+    return /** @type {T} */ (value.map(stripPositions));
   }
   if (value && typeof value === "object") {
+    /** @type {Record<string, unknown>} */
     const out = {};
     for (const [key, item] of Object.entries(value)) {
       if (key !== "position") {
         out[key] = stripPositions(item);
       }
     }
-    return out;
+    return /** @type {T} */ (out);
   }
   return value;
 }
 
+/** @param {import('./types.d.mts').ListNode} node @returns {import('./types.d.mts').ListTreeValue} */
 function listTreeValue(node) {
   return {
     ordered: node.ordered,
@@ -58,10 +68,7 @@ function listTreeValue(node) {
   };
 }
 
-function schemaFromOptions(options) {
-  return options?.schema?.safeParse ? options.schema : options?.safeParse ? options : null;
-}
-
+/** @param {string} text */
 function paragraphEnd(text) {
   const match = /\r?\n[ \t]*\r?\n/.exec(text);
   if (match) {
@@ -80,27 +87,57 @@ function paragraphEnd(text) {
  * Stateful template reader. Slots and regions refer to the untouched input;
  * forks share source ownership but commit their cursor and metadata explicitly.
  * Optional/repeated attempts are transactions over the state snapshotted below.
+ * @template {Record<string, unknown>} [TContext=Record<string, unknown>]
+ * @extends {CursorParser<TContext>}
  */
-export class Reader extends Parser {
+export class Reader extends CursorParser {
+  /** @type {SlotMetadata[]} */
+  slotMap = [];
+  /** @type {import('./types.d.mts').RegionMetadata[]} */
+  regionMap = [];
+  /** @type {import('./types.d.mts').QueryRegionMetadata[]} */
+  queryMap = [];
+  data = null;
+  slotPathPrefix = "";
+  /** @internal */
+  _matchedBinds = 0;
+  /** @internal */
+  _usedAsArray = false;
+  /** @internal */
+  _iteration = new IterationState();
+  /** @internal */
+  _queryActive = false;
+  /** @param {unknown} [source] @param {import('./types.d.mts').ReaderOptions} [options] */
   constructor(source = "", options = {}) {
     super(source, options);
-    this.context = {};
+    this._resetReaderState();
+  }
+
+  /** Reset session-owned data; source/index ownership stays in the cursor kernel. @internal */
+  _resetReaderState() {
     this.data = null;
     this.slotMap = [];
     this.regionMap = [];
     this.queryMap = [];
-    this.bindings = new Map();
     this.slotPathPrefix = "";
     this._matchedBinds = 0;
     this._usedAsArray = false;
     this._iteration = new IterationState();
+    this._queryActive = false;
   }
 
+  reset() {
+    super.reset();
+    this._resetReaderState();
+    return this;
+  }
+
+  /** @param {unknown} [source] @param {import('./types.d.mts').ReaderOptions} [options] */
   static fromMarkdown(source, options = {}) {
     try {
-      return MarkdownParser.parseMarkdown(source, options);
+      return MarkdownParser.parseMarkdown(source);
     } catch (error) {
-      if (options.file) {
+      if (options.file && isDiagnosticError(error)) {
         attachSource(error, options.file);
       }
       throw error;
@@ -111,17 +148,19 @@ export class Reader extends Parser {
     try {
       return MarkdownParser.parseMarkdown(this.inputSourceText);
     } catch (error) {
-      if (this.file) {
+      if (this.file && isDiagnosticError(error)) {
         attachSource(error, this.file);
       }
       throw error;
     }
   }
 
+  /** @param {unknown} text */
   literal(text) {
     return this.parse(text);
   }
 
+  /** @returns {Slot<string>} */
   line() {
     const start = this.offset;
     const remaining = this.remaining();
@@ -130,13 +169,7 @@ export class Reader extends Parser {
       if (!this.optionalMode) {
         this.error("expected line");
       }
-      return new Slot(this, {
-        leafType: "line",
-        value: null,
-        matched: false,
-        sourceOffsetStart: start,
-        sourceOffsetEnd: start,
-      });
+      return this._unmatched("line", start);
     }
 
     let end = 0;
@@ -144,8 +177,7 @@ export class Reader extends Parser {
       end += 1;
     }
 
-    this.offset += end;
-    this.char += end;
+    this.seek(this.offset + end);
     this._noteMatch();
     return new Slot(this, {
       leafType: "line",
@@ -156,14 +188,17 @@ export class Reader extends Parser {
     });
   }
 
+  /** @param {unknown} limiter */
   until(limiter) {
     return this.parseUntil(limiter);
   }
 
+  /** @param {unknown} limiter */
   rawUntil(limiter) {
     return this._rawRange("rawUntil", String(limiter ?? ""));
   }
 
+  /** @param {unknown} type @returns {Slot<string>} */
   rawUntilElement(type) {
     if (type !== "list") {
       throw makeTemplateError('rawUntilElement type must be "list"');
@@ -171,15 +206,9 @@ export class Reader extends Parser {
     const start = this.offset;
     const list = MarkdownParser.findNextListBlock(this.inputSourceText, start);
     const end = list?.position?.start?.offset;
-    if (!list || !Number.isInteger(end) || end < start) {
+    if (!list || end == null || !Number.isInteger(end) || end < start) {
       this._noteMiss();
-      return new Slot(this, {
-        leafType: "rawUntilElement",
-        value: null,
-        matched: false,
-        sourceOffsetStart: start,
-        sourceOffsetEnd: start,
-      });
+      return this._unmatched("rawUntilElement", start);
     }
     if (end !== start) {
       this.advanceTo(end);
@@ -194,6 +223,7 @@ export class Reader extends Parser {
     });
   }
 
+  /** @returns {Slot<string>} */
   rawBlock() {
     const start = this.offset;
     if (!this._atBlockBoundary()) {
@@ -229,10 +259,12 @@ export class Reader extends Parser {
     });
   }
 
+  /** @param {RegExp | string} re */
   regexp(re) {
     return this.parseRegExp(re);
   }
 
+  /** @param {unknown} [limiter] @returns {Slot<string>} */
   text(limiter) {
     const start = this.offset;
     const remaining = this.remaining();
@@ -267,6 +299,7 @@ export class Reader extends Parser {
     });
   }
 
+  /** @param {1 | 2 | 3 | 4 | 5 | 6} [level] */
   heading(level) {
     return this._blockLeaf(
       "heading",
@@ -297,6 +330,9 @@ export class Reader extends Parser {
     return this._blockLeaf("list", "listTree", listTreeValue, "expected list");
   }
 
+  /** @template {Record<string, unknown>} [T=Record<string, unknown>]
+   * @param {import('./types.d.mts').SafeParseSchema<T> | {schema?: import('./types.d.mts').SafeParseSchema<T>}} [options]
+   * @returns {Slot<import('./types.d.mts').FrontmatterValue<T>>} */
   frontmatter(options = {}) {
     const start = this.offset;
     if (start !== 0) {
@@ -306,7 +342,7 @@ export class Reader extends Parser {
     try {
       node = MarkdownParser.parseFrontmatter(this.inputSourceText);
     } catch (error) {
-      if (this.file) {
+      if (this.file && isDiagnosticError(error)) {
         attachSource(error, this.file);
       }
       throw error;
@@ -314,6 +350,7 @@ export class Reader extends Parser {
     if (!node) {
       return this._failSlot("frontmatter", "expected YAML frontmatter", start);
     }
+    /** @type {import('./types.d.mts').SafeParseSchema<T> | null} */
     const schema = schemaFromOptions(options);
     let data = node.data;
     if (schema) {
@@ -330,7 +367,13 @@ export class Reader extends Parser {
       }
       data = result.data;
     }
-    const value = { format: "yaml", raw: node.raw, content: node.content, data };
+    /** @type {import('./types.d.mts').FrontmatterValue<T>} */
+    const value = {
+      format: "yaml",
+      raw: node.raw,
+      content: node.content,
+      data: /** @type {T} */ (data),
+    };
     Object.defineProperty(value, "source", { value: node.source, enumerable: false });
     this.advanceTo(node.position.end.offset);
     this._noteMatch();
@@ -344,6 +387,7 @@ export class Reader extends Parser {
     });
   }
 
+  /** @returns {Slot<import('./types.d.mts').TableValue>} */
   table() {
     const start = this.offset;
     if (!this._atBlockBoundary()) {
@@ -389,6 +433,7 @@ export class Reader extends Parser {
     }));
   }
 
+  /** @returns {Slot<string>} */
   blockQuote() {
     if (this._atBlockBoundary()) {
       return this._blockLeaf("block_quote", "blockQuote", (node) =>
@@ -407,8 +452,7 @@ export class Reader extends Parser {
     while (end < remaining.length && !newlineLength(remaining, end)) {
       end += 1;
     }
-    this.offset += end;
-    this.char += end;
+    this.seek(this.offset + end);
     this._noteMatch();
     return new Slot(this, {
       leafType: "blockQuote",
@@ -419,8 +463,9 @@ export class Reader extends Parser {
     });
   }
 
+  /** @returns {Slot<true>} */
   thematicBreak() {
-    return this._blockLeaf("thematic_break", "thematicBreak", () => true);
+    return this._blockLeaf("thematic_break", "thematicBreak", () => /** @type {true} */ (true));
   }
 
   htmlBlock() {
@@ -451,6 +496,7 @@ export class Reader extends Parser {
     return this._inlineLeaf("codeSpan", "codeSpan", (node) => node.value);
   }
 
+  /** @returns {Slot<boolean>} */
   checkbox() {
     const start = this.offset;
     const parsed = MarkdownParser.parseCheckboxAt(this.inputSourceText, this.offset);
@@ -468,6 +514,7 @@ export class Reader extends Parser {
     });
   }
 
+  /** @param {(reader: this) => void} fn */
   query(fn) {
     if (typeof fn !== "function") {
       throw makeTemplateError("query requires a callback");
@@ -478,7 +525,7 @@ export class Reader extends Parser {
     const start = this.offset;
     this._queryActive = true;
     try {
-      fn(this);
+      this._withCallback(fn, this);
     } finally {
       this._queryActive = false;
     }
@@ -490,6 +537,9 @@ export class Reader extends Parser {
   }
 
   /** Commit a callback only if it binds data without a first miss or required error. */
+  /** @overload @returns {this} */
+  /** @overload @param {(reader: this) => void} fn @returns {boolean} */
+  /** @param {((reader: this) => void)} [fn] @returns {this | boolean} */
   optional(fn) {
     if (typeof fn !== "function") {
       this.optionalMode = true;
@@ -500,7 +550,7 @@ export class Reader extends Parser {
     this.optionalMode = true;
     this._iteration.begin(false);
     try {
-      fn(this);
+      this._withCallback(fn, this);
     } catch (error) {
       this._restoreState(snap);
       throw error;
@@ -519,24 +569,28 @@ export class Reader extends Parser {
   }
 
   /** Parse independent child contexts, adopting metadata only for a complete child. */
+  /** @param {string} key @param {(reader: Reader, index: number) => void} fn */
   scope(key, fn) {
     registerBinding(this, key, "as");
-    this.context[key] = [];
+    /** @type {Record<string, unknown>[]} */
+    const contexts = [];
+    this._setContextValue(key, contexts);
     const path = this.slotPathPrefix ? `${this.slotPathPrefix}.${key}` : String(key);
     const start = this.offset;
+    /** @type {import('./types.d.mts').RegionElement[]} */
     const elements = [];
     for (let index = 0; index < MAX_ITERATIONS; index++) {
       const child = this.fork();
       child.slotPathPrefix = `${path}[${index}]`;
       child._beginIteration();
-      fn(child, index);
+      this._withCallback(() => child._withCallback(fn, child, index));
       if (!child._shouldCommit()) {
         break;
       }
       if (child.offset === this.offset) {
         throw makeTemplateError("scope iteration must consume input");
       }
-      this.context[key].push(child.context);
+      contexts.push(child.context);
       elements.push({
         path: child.slotPathPrefix,
         sourceOffsetStart: this.offset,
@@ -546,10 +600,10 @@ export class Reader extends Parser {
       this.slotMap.push(...child.slotMap);
       this.regionMap.push(...child.regionMap);
     }
-    if (this.context[key].length >= MAX_ITERATIONS) {
+    if (contexts.length >= MAX_ITERATIONS) {
       throw makeTemplateError("max scope iterations exceeded");
     }
-    if (this.context[key].length > 0) {
+    if (contexts.length > 0) {
       this._matchedBinds = (this._matchedBinds ?? 0) + 1;
       this._noteMatch();
     }
@@ -563,6 +617,7 @@ export class Reader extends Parser {
   }
 
   /** Roll back a rejected attempt; always restore the enclosing iteration policy. */
+  /** @param {(reader: this, index: number) => unknown} fn @returns {TContext[]} */
   repeat(fn) {
     const committed = [];
     const parentMode = this.optionalMode;
@@ -573,7 +628,7 @@ export class Reader extends Parser {
         this._beginIteration();
         let result;
         try {
-          result = fn(this, index);
+          result = this._withCallback(fn, this, index);
         } catch (error) {
           this._restoreState(snap);
           throw error;
@@ -602,6 +657,7 @@ export class Reader extends Parser {
     return committed;
   }
 
+  /** @param {string | ((heading: {level: number, text: string, node: import('./types.d.mts').HeadingNode}) => boolean)} [predicate] */
   skipUntilHeading(predicate) {
     const start = this.snapshotCursor();
     const headings = MarkdownParser.collectHeadings(this.parseDocument());
@@ -644,6 +700,7 @@ export class Reader extends Parser {
     return false;
   }
 
+  /** @param {SlotDescription} slot @param {import('./RuntimeContracts.d.mts').BindingMode} mode */
   recordSlotBinding(slot, mode) {
     const prefix = this.slotPathPrefix ?? "";
     const name = String(slot.path ?? "");
@@ -655,6 +712,7 @@ export class Reader extends Parser {
     } else {
       key = prefix ? `${prefix}.${name}` : name;
     }
+    /** @type {SlotMetadata} */
     const entry = {
       key,
       leafType: slot.leafType,
@@ -663,15 +721,21 @@ export class Reader extends Parser {
       isArrayElement: mode === "asArray",
     };
     if (slot.leafType === "heading") {
-      const level = slot.headingLevel ?? slot.node?.level;
+      const level =
+        slot.headingLevel ?? (slot.node?.type === "heading" ? slot.node.level : undefined);
       if (level != null) {
         entry.headingLevel = Number(level);
       }
     }
     if (slot.leafType === "listTree" && slot.node?.type === "list") {
+      /** @type {SlotMetadata[]} */
       const checkboxSlots = [];
-      entry.items = [];
+      /** @type {import('./types.d.mts').ListTreeItemMetadata[]} */
+      const items = [];
+      entry.items = items;
+      /** @param {import('./types.d.mts').ListItemNode} item @param {string} itemKey */
       const visitItem = (item, itemKey) => {
+        /** @type {import('./types.d.mts').ListTreeItemMetadata} */
         const metadata = {
           key: itemKey,
           sourceOffsetStart: Number(item.position?.start?.offset ?? slot.sourceOffsetStart ?? 0),
@@ -690,7 +754,7 @@ export class Reader extends Parser {
             isArrayElement: false,
           });
         }
-        entry.items.push(metadata);
+        items.push(metadata);
         for (const [childIndex, child] of (item.children ?? []).entries()) {
           if (child.type !== "list") {
             continue;
@@ -715,15 +779,13 @@ export class Reader extends Parser {
     }
   }
 
+  /** @returns {Reader} */
   fork() {
     const child = new Reader(this.inputSourceText, {
       ...this.options,
       sourceText: this.sourceText,
     });
-    child.offset = this.offset;
-    child._line = this._line;
-    child.char = this.char;
-    child.file = this.file;
+    child.seek(this.offset);
     child.diagnosticSource = this.diagnosticSource;
     child.diagnosticOffsetBase = this.diagnosticOffsetBase;
     child.data = null;
@@ -731,26 +793,31 @@ export class Reader extends Parser {
     return child;
   }
 
+  /** @internal */
   _beginIteration() {
     this.optionalMode = true;
     this._iteration.begin();
     this._usedAsArray = false;
   }
 
+  /** @internal */
   _shouldCommit() {
     return !this._iteration.firstFailed && this._matchedBinds > 0 && this.errors.length === 0;
   }
 
+  /** @internal */
   _noteMatch() {
     if (this._iteration.match()) {
       this.optionalMode = false;
     }
   }
 
+  /** @internal */
   _noteMiss() {
     this._iteration.miss();
   }
 
+  /** @internal */
   _atBlockBoundary() {
     if (this.offset === 0) {
       return true;
@@ -759,6 +826,7 @@ export class Reader extends Parser {
     return prev === "\n" || prev === "\r";
   }
 
+  /** @internal */
   _afterQuoteMarker() {
     let index = this.offset - 1;
     const text = this.inputSourceText;
@@ -768,20 +836,29 @@ export class Reader extends Parser {
     return index >= 0 && text[index] === ">";
   }
 
+  /** @internal @template T @param {import('./types.d.mts').LeafType} leafType @param {string} message @param {number} start @returns {Slot<T>} */
   _failSlot(leafType, message, start) {
     this._noteMiss();
     if (!this.optionalMode) {
       this.error(message);
     }
-    return new Slot(this, {
+    return this._unmatched(leafType, start);
+  }
+
+  /** @internal @template T @param {import('./types.d.mts').LeafType} leafType @param {number} start @returns {Slot<T>} */
+  _unmatched(leafType, start) {
+    /** @type {import('./RuntimeContracts.d.mts').SlotOptions<T>} */
+    const options = {
       leafType,
       value: null,
       matched: false,
       sourceOffsetStart: start,
       sourceOffsetEnd: start,
-    });
+    };
+    return new Slot(this, options);
   }
 
+  /** @internal @param {import('./types.d.mts').LeafType} leafType @param {string} limiter @returns {Slot<string>} */
   _rawRange(leafType, limiter) {
     const start = this.offset;
     const index = this.remaining().indexOf(limiter);
@@ -799,6 +876,9 @@ export class Reader extends Parser {
     });
   }
 
+  /** @internal @template {MarkdownBlockNode['type']} K @template T
+   * @param {K} nodeType @param {import('./types.d.mts').LeafType} leafType
+   * @param {(node: Extract<MarkdownBlockNode, {type: K}>) => T | null} unwrap @param {string} [message] @returns {Slot<T>} */
   _blockLeaf(nodeType, leafType, unwrap, message = `expected ${leafType}`) {
     const start = this.offset;
     if (!this._atBlockBoundary()) {
@@ -808,7 +888,7 @@ export class Reader extends Parser {
     if (!block || block.type !== nodeType) {
       return this._failSlot(leafType, message, start);
     }
-    const value = unwrap(block);
+    const value = unwrap(/** @type {Extract<MarkdownBlockNode, {type: K}>} */ (block));
     if (value == null) {
       return this._failSlot(leafType, message, start);
     }
@@ -824,6 +904,9 @@ export class Reader extends Parser {
     });
   }
 
+  /** @internal @template {keyof import('./Reader/Markdown.mjs').InlineLeafNodes} K @template T
+   * @param {K} kind @param {import('./types.d.mts').LeafType} leafType
+   * @param {(node: import('./Reader/Markdown.mjs').InlineLeafNodes[K]) => T} unwrap @returns {Slot<T>} */
   _inlineLeaf(kind, leafType, unwrap) {
     const start = this.offset;
     const node = MarkdownParser.parseInlineLeaf(
@@ -848,12 +931,12 @@ export class Reader extends Parser {
     });
   }
 
+  /** @internal @param {Reader} child */
   _adoptCursor(child) {
-    this.offset = child.offset;
-    this._line = child._line;
-    this.char = child.char;
+    this.seek(child.offset);
   }
 
+  /** @internal @returns {import('./ReaderState.d.mts').ReaderState<TContext>} */
   _snapshotState() {
     return {
       cursor: this.snapshotCursor(),
@@ -870,6 +953,7 @@ export class Reader extends Parser {
     };
   }
 
+  /** @internal @param {import('./ReaderState.d.mts').ReaderState<TContext>} snap */
   _restoreState(snap) {
     this.restoreCursor(snap.cursor);
     this.optionalMode = snap.optionalMode;

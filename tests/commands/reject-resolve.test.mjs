@@ -361,7 +361,7 @@ test("bad library-call arguments reject DO_MD_USER_ERROR", async () => {
     },
   );
   await assert.rejects(
-    () => exportDoc({ io, file: "/doc.md", template: "/tpl.md" }),
+    () => exportDoc({ io, file: "/doc.md" }),
     (err) => {
       assertRejectedError(err, ERROR_CODES.DO_MD_USER_ERROR);
       return true;

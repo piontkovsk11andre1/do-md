@@ -1,4 +1,5 @@
 import type { SourceText } from "./SourceText.mjs";
+export function captureDiagnosticStack(error: Error, constructor: Function): void;
 export function generatedOffset(
   stack: string | null | undefined,
   source: SourceText,

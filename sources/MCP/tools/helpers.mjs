@@ -6,7 +6,6 @@ import { resolveScopedPath, scopeError } from "../Scoping.mjs";
 
 const DEFAULT_MAX_INPUT_BYTES = 1_048_576;
 export const INLINE_OUTPUT = "__do_md_mcp_inline__";
-export const INLINE_EXPORT = "__do_md_mcp_export__.json";
 
 export function ioOf(context = {}) {
   return context.io ?? new NodeFilesystem();

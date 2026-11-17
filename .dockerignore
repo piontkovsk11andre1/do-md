@@ -4,3 +4,9 @@ tests
 .env
 .env.*
 *.tgz
+.browser
+.types
+coverage
+playwright-report
+test-results
+.release

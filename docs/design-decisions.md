@@ -5,8 +5,8 @@
 Acorn locates syntax errors only after the engine rejects a template body. A
 function wrapper reproduces parameter/return grammar, and its prefix is removed
 before mapping. Native causes are preserved. `error-stack-parser` handles stack
-syntax; the Node adapter then selects an exact generated identity and subtracts
-V8's two Function-constructor wrapper lines. Runtime matrix tests cover this ABI.
+syntax; the adapter selects an exact generated identity and calibrates the engine's
+Function-constructor wrapper lines. The browser matrix covers the different engines.
 
 ## Source maps
 
@@ -20,13 +20,22 @@ to discard the richer internal representation.
 
 ## Error rendering
 
-Chalk owns ANSI styling; string-width owns terminal cell measurement and
+The Node presenter uses Chalk for ANSI styling; string-width owns cell measurement and
 Intl.Segmenter keeps graphemes intact. do-md owns the small layout policy because
 its diagnostics may contain only one snippet, distinguish context from exact
 positions, and carry several provenance frames. General code-frame libraries
 normally expect a full source string and conventional point diagnostics. A new
 renderer dependency should prove equivalence against these cases before replacing
 the existing presentation tests. No renderer is used for JSON serialization.
+
+## Portable content and equality
+
+`@noble/hashes` supplies synchronous SHA-256 with the same UTF-8/byte contract as
+Node's former createHash path. Web Crypto's asynchronous digest would introduce an
+await into Virtual's atomic compare-and-swap, so it is not used here. Writer uses
+fast-equals for supported YAML data, retaining Object.is semantics for nested
+signed zero and NaN. This is data equality, not a promise to compare arbitrary
+JavaScript descriptors or non-serializable properties.
 
 ## JSON, YAML, discovery and MCP
 

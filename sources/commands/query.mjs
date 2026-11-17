@@ -10,6 +10,8 @@ import {
   wrapTemplate,
 } from "./helpers.mjs";
 
+/** @template {Record<string, unknown>} [T=Record<string, unknown>] @overload @param {import('../types.d.mts').QueryOptions} input @returns {Promise<import('../types.d.mts').CommandResult<import('../types.d.mts').QueryContext<T>>>} */
+/** @template {Record<string, unknown>} T @param {Partial<import('../types.d.mts').QueryOptions>} [input] */
 export async function query({ io, file, template, all = false, cwd, options } = {}) {
   requireIo(io);
   requireArg(file, "file");
@@ -19,6 +21,7 @@ export async function query({ io, file, template, all = false, cwd, options } = 
   const templatePath = resolvePath(io, cwd, template);
   const source = await readText(io, filePath, options);
   const templateSource = await readText(io, templatePath, options);
+  /** @type {import('../types.d.mts').TemplateFunction<T>} */
   const fn = wrapTemplate(templateSource, templatePath);
   const matches = [];
   let shift = 0;

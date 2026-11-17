@@ -1,5 +1,5 @@
-import { createHash } from "node:crypto";
-
+import { createContentRevision } from "./ContentRevision.mjs";
+export { createContentRevision } from "./ContentRevision.mjs";
 import { makeNotImplementedError } from "./DoMdError.mjs";
 
 export { createConflictError, createIoError } from "./DoMdError.mjs";
@@ -14,10 +14,6 @@ export { createConflictError, createIoError } from "./DoMdError.mjs";
  * @property {(pattern: string, options?: { cwd?: string }) => Promise<string[]>} globAsync
  * @property {(cwd: string, path: string) => string} resolvePath
  */
-
-export function createContentRevision(content) {
-  return `sha256:${createHash("sha256").update(content).digest("hex")}`;
-}
 
 export function normalizeIoPath(path) {
   const raw = String(path ?? "").replace(/\\/g, "/");

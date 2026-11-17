@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>do-md browser playground</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script type="module" src="./bundle.js"></script>
+  </head>
+  <body>
+    <main>
+      <h1>do-md in the browser</h1>
+      <p>
+        Load Markdown over Fetch, parse it, edit a field in memory, and generate a document.
+        Templates execute trusted JavaScript in this page.
+      </p>
+      <div class="toolbar">
+        <button id="load" type="button">Load example</button>
+        <button id="parse" type="button">Parse document</button>
+        <button id="render" type="button">Render JSON</button>
+        <button id="download" type="button" disabled>Download Markdown</button>
+      </div>
+      <p id="status" role="status" aria-live="polite">Loading example…</p>
+      <div class="columns">
+        <label>Document<textarea id="document" rows="13" spellcheck="false"></textarea></label>
+        <label>Template<textarea id="template" rows="13" spellcheck="false"></textarea></label>
+      </div>
+      <div class="toolbar">
+        <label>Title <input id="title" value="Updated in the browser" /></label>
+        <button id="edit" type="button">Apply precise title edit</button>
+      </div>
+      <div class="columns">
+        <label
+          >Parsed / editable JSON<textarea id="data" rows="12" spellcheck="false"></textarea>
+        </label>
+        <section>
+          <h2>Markdown output</h2>
+          <pre id="output"></pre>
+        </section>
+      </div>
+      <section aria-labelledby="diagnostics-heading">
+        <h2 id="diagnostics-heading">Diagnostics</h2>
+        <pre id="diagnostic"></pre>
+        <details>
+          <summary>Location chain</summary>
+          <pre id="locations"></pre>
+        </details>
+      </section>
+      <p>
+        All edits stay in this tab. Fetch is read-only. Title edits preserve the original line
+        endings; manually editing a textarea uses the browser's LF-normalized text.
+      </p>
+    </main>
+  </body>
+</html>

@@ -2,3 +2,7 @@ node_modules/
 *.tgz
 .types/
 coverage/
+.browser/
+playwright-report/
+test-results/
+.release/

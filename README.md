@@ -6,12 +6,13 @@ do-md combines literal Markdown with small JavaScript blocks. The same template
 can read a document into data or write a document from that data. Editing uses
 recorded source ranges to preserve unrelated text.
 
-This checkout prepares **2.0.0-rc.1**. See the [changelog](CHANGELOG.md) and
+This checkout prepares **2.0.0-rc.2**. See the [changelog](CHANGELOG.md) and
 [migration guide](docs/migration-2.md) for breaking changes.
 
 ## Install
 
-Requires **Node.js 22.13+**. The package is ESM-only.
+Node integrations require **Node.js 22.13+**. The package is ESM-only; modern
+browsers use `@p10i/do-md/browser` without Node polyfills.
 
 ```sh
 npm install @p10i/do-md
@@ -116,6 +117,25 @@ element can be normalized; for example, a changed table may be reserialized.
 with `DO_MD_CONFLICT`; `force: true` is an explicit overwrite. The supplied
 filesystem and in-memory adapters support snapshots and atomic writes.
 
+## Browser slice
+
+```js
+import { Fetch, Virtual, Editor, exportDoc } from "@p10i/do-md/browser";
+
+const result = await exportDoc({
+  io: new Fetch(),
+  cwd: "https://example.com/documents/",
+  file: "release.md",
+  template: "release.md.template",
+});
+```
+
+Omitted `savePath` returns data without writing. Fetch and Virtual use the same
+portable core as Node. `npm run browser:serve` starts the interactive example;
+`browser:pack` checks a polyfill-free tarball build, and `test:browser` runs real
+Chromium/Firefox/WebKit checks. Compilation needs CSP permission for `new Function()`.
+See [browser documentation](docs/browser.md) for API and verification details.
+
 ## MCP and HTTP
 
 Configure an MCP client to launch:
@@ -147,9 +167,11 @@ JavaScript sandbox.
 - [Template-language reference](docs/template-language.md)
 - [Five executable walkthroughs](examples/README.md)
 - [Diagnostics and source mapping](docs/diagnostics.md)
+- [Browser entry and playground](docs/browser.md)
 - [Architecture and ownership](docs/architecture.md)
 - [Dependency decisions and Markdown dialect](docs/design-decisions.md)
 - [Migration from 1.x](docs/migration-2.md)
+- [Candidate API contract](docs/api-contract.md)
 - [Contributing](CONTRIBUTING.md) · [Release procedure](docs/releasing.md)
 
 ## Development
@@ -162,8 +184,9 @@ npm run bench
 
 Checks cover formatting, lint, generated declarations/reference, strict consumer
 types, behavioral tests and isolated packed installs. Benchmarks report timings
-without machine-dependent pass/fail thresholds. CI also exercises Windows and
-supported Node release lines.
+without machine-dependent pass/fail thresholds. Linux CI exercises supported Node
+release lines and the Docker runtime. Windows and real-browser jobs are manual
+and deferred; they are not claimed as verified by local checks.
 
 MIT licensed. Report reproducible issues through the
 [issue tracker](https://github.com/piontkovsk11andre1/do-md/issues).

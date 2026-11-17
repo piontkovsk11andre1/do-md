@@ -119,7 +119,7 @@ test("terminal controls are escaped and ANSI is explicit", () => {
   const colored = formatDiagnostic(error, { colors: true });
   assert.match(colored, /\x1b\[/);
   assert.equal(inspect(error, { colors: false }), plain);
-  assert.equal(inspect(error, { colors: true }), colored);
+  assert.equal(inspect(error, { colors: true }), plain);
 });
 
 test("console.error uses the formatter without changing stacks, causes or JSON diagnostics", () => {

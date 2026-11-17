@@ -281,10 +281,11 @@ export interface IOAdapter {
     options?: AtomicWriteOptions,
   ): Promise<WriteSnapshot>;
   statAsync(path: string): Promise<FileStat>;
-  resolvePath(cwd: string, path: string): string;
+  resolvePath(cwd: string | null | undefined, path: string): string;
 }
 
 export interface ReaderOptions {
+  sourceText?: import("./SourceText.mjs").SourceText;
   file?: string;
   path?: string;
   [option: string]: unknown;
@@ -390,7 +391,7 @@ export type TemplateFunction<TContext extends Record<string, unknown> = Record<s
   data: TContext | null,
   options: Record<string, unknown>,
   io?: IOAdapter,
-) => void;
+) => unknown;
 
 export interface CommandOptions {
   maxInputBytes?: number | false;
@@ -418,7 +419,7 @@ export interface CreateOptions<
 }
 
 export interface ExportOptions extends ValidateOptions {
-  savePath: string;
+  savePath?: string;
 }
 
 export interface SetOptions extends ValidateOptions {

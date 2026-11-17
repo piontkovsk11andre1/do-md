@@ -1,4 +1,4 @@
-import type { CommandResult, SetOptions } from "../types.d.mts";
-export function set<TContext extends Record<string, unknown> = Record<string, unknown>>(
-  options: SetOptions,
-): Promise<CommandResult<TContext>>;
+// Generated from checked JSDoc by npm run types. Do not edit.
+export declare function set(
+  input: import("../types.d.mts").SetOptions,
+): Promise<import("../types.d.mts").CommandResult>;

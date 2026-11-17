@@ -12,6 +12,8 @@ import {
   wrapTemplate,
 } from "./helpers.mjs";
 
+/** @overload @param {import('../types.d.mts').RenderOptions} input @returns {Promise<import('../types.d.mts').CommandResult>} */
+/** @param {Partial<import('../types.d.mts').RenderOptions>} [input] */
 export async function render({
   io,
   file,

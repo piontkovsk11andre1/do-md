@@ -17,6 +17,7 @@ test("declaration generation bootstraps stale types and check mode never repairs
       join(temporary, "scripts/generate-types.mjs"),
     );
     await cp(join(root, "tsconfig.core.json"), join(temporary, "tsconfig.core.json"));
+    await cp(join(root, ".prettierrc.json"), join(temporary, ".prettierrc.json"));
     await symlink(
       join(root, "node_modules"),
       join(temporary, "node_modules"),

@@ -10,42 +10,29 @@ import type {
   MarkdownInlineNode,
   MarkdownNode,
   CodeSpanNode,
+  SourcePosition,
 } from "../types.d.mts";
-export function parseFrontmatter(source?: unknown): FrontmatterNode | null;
+export type Parsed<T> = T & { position: SourcePosition };
+export function parseFrontmatter(source?: unknown): Parsed<FrontmatterNode> | null;
 export function flattenInlines(nodes?: readonly MarkdownInlineNode[] | null): string;
 export function flattenNode(node?: MarkdownNode | null): string;
 export function parseMarkdown(source?: unknown): DocumentNode;
-export function parseNextBlock(source: unknown, offset?: number): MarkdownBlockNode | null;
-export function findNextListBlock(source: unknown, offset?: number): ListNode | null;
+export function parseNextBlock(source: unknown, offset?: number): Parsed<MarkdownBlockNode> | null;
+export function findNextListBlock(source: unknown, offset?: number): Parsed<ListNode> | null;
 export function collectHeadings(node: MarkdownNode | null, out?: HeadingNode[]): HeadingNode[];
-export function parseInlineLeaf(
+export interface InlineLeafNodes {
+  link: LinkNode;
+  image: ImageNode;
+  autolink: AutolinkNode;
+  codeSpan: CodeSpanNode;
+}
+export function parseInlineLeaf<K extends keyof InlineLeafNodes>(
   source: unknown,
   offset: number,
   line: number,
   column: number,
-  kind: "link",
-): LinkNode | null;
-export function parseInlineLeaf(
-  source: unknown,
-  offset: number,
-  line: number,
-  column: number,
-  kind: "image",
-): ImageNode | null;
-export function parseInlineLeaf(
-  source: unknown,
-  offset: number,
-  line: number,
-  column: number,
-  kind: "autolink",
-): AutolinkNode | null;
-export function parseInlineLeaf(
-  source: unknown,
-  offset: number,
-  line: number,
-  column: number,
-  kind: "codeSpan",
-): CodeSpanNode | null;
+  kind: K,
+): Parsed<InlineLeafNodes[K]> | null;
 export function parseCheckboxAt(
   source: unknown,
   offset: number,
