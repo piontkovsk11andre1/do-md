@@ -1,11 +1,5 @@
 import { render } from "../../commands/render.mjs";
-import {
-  commandIo,
-  commandOptions,
-  cwdOf,
-  ioOf,
-  resolveToolPath,
-} from "./helpers.mjs";
+import { commandIo, commandOptions, cwdOf, ioOf, resolveToolPath } from "./helpers.mjs";
 
 export async function handleRender(params = {}, context = {}) {
   const io = ioOf(context);

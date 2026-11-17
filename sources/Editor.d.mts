@@ -1,10 +1,22 @@
 import { Writer } from "./Writer.mjs";
-import type { EditorChange, EditorOpenOptions, EditorOptions, EditorSaveOptions, IOAdapter, RegionMetadata, SlotMetadata, WriterOptions } from "./types.d.mts";
-export type SlotLookup = { kind: "exact" | "descendant"; slot: SlotMetadata } | { kind: "unknown"; slot: null };
+import type {
+  EditorChange,
+  EditorOpenOptions,
+  EditorOptions,
+  EditorSaveOptions,
+  IOAdapter,
+  RegionMetadata,
+  SlotMetadata,
+  WriterOptions,
+} from "./types.d.mts";
+export type SlotLookup =
+  { kind: "exact" | "descendant"; slot: SlotMetadata } | { kind: "unknown"; slot: null };
 export function lookupSlot(slotMap: readonly SlotMetadata[], path: string): SlotLookup;
 export class Editor<TContext extends Record<string, unknown> = Record<string, unknown>> {
   constructor(options?: EditorOptions<TContext>);
-  static open<TContext extends Record<string, unknown> = Record<string, unknown>>(options: EditorOpenOptions): Promise<Editor<TContext>>;
+  static open<TContext extends Record<string, unknown> = Record<string, unknown>>(
+    options: EditorOpenOptions,
+  ): Promise<Editor<TContext>>;
   io?: IOAdapter;
   file: string;
   template: string;

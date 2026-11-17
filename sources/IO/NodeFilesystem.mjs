@@ -9,9 +9,9 @@ import {
 } from "node:fs/promises";
 import { dirname, resolve as resolvePath } from "node:path";
 import { randomUUID } from "node:crypto";
-import fastGlob from "fast-glob";
+import { glob } from "glob";
 
-import { createConflictError, createIoError, ERROR_CODES } from "../SyntaxError.mjs";
+import { createConflictError, createIoError, ERROR_CODES } from "../DoMdError.mjs";
 import { createContentRevision } from "../IO.mjs";
 
 function wrapIoError(error, fallback, path) {
@@ -59,6 +59,7 @@ async function syncDirectory(path) {
   }
 }
 
+/** Filesystem adapter with deterministic discovery, content revisions and cooperative atomic writes. */
 export class NodeFilesystem {
   async globAsync(pattern, { cwd = process.cwd() } = {}) {
     const input = String(pattern ?? "");
@@ -69,13 +70,16 @@ export class NodeFilesystem {
         return [resolved];
       }
       if (info.isDirectory()) {
-        return (await fastGlob("**/*.md.template", {
-          absolute: true,
-          cwd: resolved,
-          followSymbolicLinks: false,
-          onlyFiles: true,
-          unique: true,
-        })).map((path) => resolvePath(path)).sort();
+        return (
+          await glob("**/*.md.template", {
+            absolute: true,
+            cwd: resolved,
+            follow: false,
+            nodir: true,
+          })
+        )
+          .map((path) => resolvePath(path))
+          .sort();
       }
     } catch (error) {
       if (error?.code !== "ENOENT") {
@@ -83,13 +87,16 @@ export class NodeFilesystem {
       }
     }
     try {
-      return (await fastGlob(input.replace(/\\/g, "/"), {
-        absolute: true,
-        cwd: resolvePath(cwd),
-        followSymbolicLinks: false,
-        onlyFiles: true,
-        unique: true,
-      })).map((path) => resolvePath(path)).sort();
+      return (
+        await glob(input.replace(/\\/g, "/"), {
+          absolute: true,
+          cwd: resolvePath(cwd),
+          follow: false,
+          nodir: true,
+        })
+      )
+        .map((path) => resolvePath(path))
+        .sort();
     } catch (error) {
       throw wrapIoError(error, "candidate discovery failed", input);
     }
@@ -158,7 +165,11 @@ export class NodeFilesystem {
             throw error;
           }
         }
-        if (!force && expectedRevision !== undefined && expectedRevision !== (await currentRevision(path))) {
+        if (
+          !force &&
+          expectedRevision !== undefined &&
+          expectedRevision !== (await currentRevision(path))
+        ) {
           throw conflict(path);
         }
         await renameRaw(temporaryPath, path);

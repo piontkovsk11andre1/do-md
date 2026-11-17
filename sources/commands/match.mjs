@@ -1,4 +1,4 @@
-import { makeParseError, makeUserError } from "../SyntaxError.mjs";
+import { makeParseError, makeUserError } from "../DoMdError.mjs";
 import {
   failure,
   parseSource,

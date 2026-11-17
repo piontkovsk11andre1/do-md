@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { renderBlocks, Template, TEMPLATE_SOURCE_URL } from "../sources/Template.mjs";
-import { ERROR_CODES, SyntaxError } from "../sources/SyntaxError.mjs";
+import { ERROR_CODES, DoMdError } from "../sources/DoMdError.mjs";
 
 test("Template module exports sourceURL constant", () => {
   assert.equal(TEMPLATE_SOURCE_URL, "//# sourceURL=");
@@ -32,8 +32,8 @@ test("renderBlocks unescapes \\{% and \\%} in literals", () => {
 });
 
 test("renderBlocks strips one leading and trailing newline inside blocks", () => {
-  const source = "{%\n    doc.heading(1).as(\"title\")\n%}";
-  assert.equal(renderBlocks(source), "    doc.heading(1).as(\"title\")\n");
+  const source = '{%\n    doc.heading(1).as("title")\n%}';
+  assert.equal(renderBlocks(source), '    doc.heading(1).as("title")\n');
 });
 
 test("renderBlocks keeps multiline block JavaScript verbatim", () => {
@@ -79,13 +79,16 @@ test("Template.wrap returns a function with the documented signature", () => {
 });
 
 test("Template.wrap maps its unique sourceURL back to the template path", () => {
-  const fn = Template.wrap("{% throw new Error(\"boom\") %}", "notes.tpl.md");
+  const fn = Template.wrap('{% throw new Error("boom") %}', "notes.tpl.md");
   assert.match(Template.compilation(fn).sourceMap.generated.source, /^generated:do-md\/template-/);
-  assert.throws(() => fn({}, {}, null, {}, null), (err) => {
-    assert.equal(err.locations.find((l) => l.role === "template").source, "notes.tpl.md");
-    assert.match(String(err.cause.stack), /generated:do-md\/template-/);
-    return true;
-  });
+  assert.throws(
+    () => fn({}, {}, null, {}, null),
+    (err) => {
+      assert.equal(err.locations.find((l) => l.role === "template").source, "notes.tpl.md");
+      assert.match(String(err.cause.stack), /generated:do-md\/template-/);
+      return true;
+    },
+  );
 });
 
 test("Template.wrap passes io through the wrapped function", () => {
@@ -96,13 +99,16 @@ test("Template.wrap passes io through the wrapped function", () => {
 });
 
 test("Template.wrap reports new Function SyntaxError as DO_MD_TEMPLATE_ERROR", () => {
-  assert.throws(() => Template.wrap("{% const %}", "bad.tpl.md"), (err) => {
-    assert.ok(err instanceof SyntaxError);
-    assert.equal(err.code, ERROR_CODES.DO_MD_TEMPLATE_ERROR);
-    const location = err.locations.find((l) => l.role === "template");
-    assert.equal(location.source, "bad.tpl.md");
-    assert.equal(location.range.start.line, 1);
-    assert.ok(location.range.start.column > 1);
-    return true;
-  });
+  assert.throws(
+    () => Template.wrap("{% const %}", "bad.tpl.md"),
+    (err) => {
+      assert.ok(err instanceof DoMdError);
+      assert.equal(err.code, ERROR_CODES.DO_MD_TEMPLATE_ERROR);
+      const location = err.locations.find((l) => l.role === "template");
+      assert.equal(location.source, "bad.tpl.md");
+      assert.equal(location.range.start.line, 1);
+      assert.ok(location.range.start.column > 1);
+      return true;
+    },
+  );
 });

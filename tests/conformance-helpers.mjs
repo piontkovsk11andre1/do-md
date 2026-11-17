@@ -101,12 +101,15 @@ export function mutationReady(spec) {
 }
 
 export function loadMutationFixture(spec) {
-  const defaults = typeof spec === "string"
-    ? MUTATION_FIXTURES.find((entry) => entry.name === spec) ?? { name: spec }
-    : spec;
+  const defaults =
+    typeof spec === "string"
+      ? (MUTATION_FIXTURES.find((entry) => entry.name === spec) ?? { name: spec })
+      : spec;
   const loaded = loadFixture(defaults.name);
   const mutationPath = path.join(fixtureDir(defaults.name), MUTATION_FILE);
-  const mutation = fs.existsSync(mutationPath) ? JSON.parse(fs.readFileSync(mutationPath, "utf8")) : {};
+  const mutation = fs.existsSync(mutationPath)
+    ? JSON.parse(fs.readFileSync(mutationPath, "utf8"))
+    : {};
   const expectedSetPath = path.join(fixtureDir(defaults.name), "expected-set.json");
   const expectedSetOutputPath = path.join(fixtureDir(defaults.name), "expected-set.output.md");
   const expectedSetsPath = path.join(fixtureDir(defaults.name), "expected-sets.json");

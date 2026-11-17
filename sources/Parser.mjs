@@ -1,5 +1,5 @@
-import { makeParseError } from "./SyntaxError.mjs";
-import { sourceLocation } from "./SourceMap.mjs";
+import { makeParseError } from "./DoMdError.mjs";
+import { SourceText } from "./SourceText.mjs";
 import { Slot } from "./Slot.mjs";
 
 function newlineLength(text, index) {
@@ -21,7 +21,6 @@ function tokenizeLiteral(text) {
   let index = 0;
   while (index < text.length) {
     if (isSpace(text[index])) {
-      const start = index;
       while (index < text.length && isSpace(text[index])) {
         index++;
       }
@@ -156,11 +155,24 @@ function slotMatched(slot) {
   return slot.matched === true || slot._matched === true || slot.value != null;
 }
 
+/** Literal cursor parser. Failed probes restore the cursor; required misses record diagnostics. */
 export class Parser {
+  get mode() {
+    return "reader";
+  }
   constructor(source = "", options = {}) {
     this.inputSourceText = String(source);
     this.options = { ...options };
     this.file = options.file ?? options.path ?? null;
+    if (
+      options.sourceText &&
+      (!(options.sourceText instanceof SourceText) ||
+        options.sourceText.text !== this.inputSourceText)
+    ) {
+      throw new TypeError("shared source index must describe the parser input");
+    }
+    this.sourceText = options.sourceText ?? new SourceText(this.inputSourceText, this.file);
+    this.diagnosticSource = this.sourceText;
     this.offset = 0;
     this._line = 1;
     this.char = 1;
@@ -183,6 +195,9 @@ export class Parser {
 
   set source(value) {
     this.inputSourceText = String(value);
+    this.sourceText = new SourceText(this.inputSourceText, this.file);
+    this.diagnosticSource = this.sourceText;
+    this.diagnosticOffsetBase = 0;
   }
 
   get position() {
@@ -230,17 +245,26 @@ export class Parser {
   }
 
   error(msg) {
-    const text = this.diagnosticSourceText ?? this.inputSourceText;
-    const err = makeParseError(msg, { locations: [sourceLocation(this.file, text,
-      (this.diagnosticOffsetBase ?? 0) + this.offset, null,
-      { role: "document", relation: "processing", precision: "context" })] });
+    const err = makeParseError(msg, {
+      locations: [
+        this.diagnosticSource.location((this.diagnosticOffsetBase ?? 0) + this.offset, null, {
+          role: "document",
+          relation: "processing",
+          precision: "context",
+        }),
+      ],
+    });
     this.errors.push(err);
     return err;
   }
 
   parse(literal) {
     const cursor = snapshot(this);
-    const end = matchLiteral(this.inputSourceText, this.offset, tokenizeLiteral(String(literal ?? "")));
+    const end = matchLiteral(
+      this.inputSourceText,
+      this.offset,
+      tokenizeLiteral(String(literal ?? "")),
+    );
     if (end < 0) {
       miss(this, cursor, `expected ${JSON.stringify(String(literal ?? ""))}`);
       return this;

@@ -3,9 +3,10 @@ import assert from "node:assert/strict";
 
 import { handleQuery } from "../../../sources/MCP/tools/query.mjs";
 import { Virtual } from "../../../sources/IO/Virtual.mjs";
-import { ERROR_CODES } from "../../../sources/SyntaxError.mjs";
+import { ERROR_CODES } from "../../../sources/DoMdError.mjs";
 
-const template = '{% doc.rawUntil("target:"); doc.query((match) => { match.literal("target:"); match.line().as("value") }); doc.rawRest() %}';
+const template =
+  '{% doc.rawUntil("target:"); doc.query((match) => { match.literal("target:"); match.line().as("value") }); doc.rawRest() %}';
 const io = new Virtual({
   "/root/doc.md": "target:one\nother\ntarget:two\n",
   "/root/no.md": "nothing here\n",

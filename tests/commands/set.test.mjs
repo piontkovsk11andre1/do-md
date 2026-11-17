@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { set } from "../../sources/commands/set.mjs";
 import { Virtual } from "../../sources/IO/Virtual.mjs";
-import { ERROR_CODES } from "../../sources/SyntaxError.mjs";
+import { ERROR_CODES } from "../../sources/DoMdError.mjs";
 
 const TEMPLATE = '# {% doc.line().as("title") %}\n';
 const INPUT = "# Hello\n";
@@ -207,7 +207,10 @@ test("set applies patch deep merge before key and key wins on overlap", async ()
   assert.equal(result.context.version, "2.0.0");
   assert.equal(result.context.date, "2026-08-22");
   assert.deepEqual(result.context.extra, { from: "patch", nested: { n: 1 } });
-  assert.deepEqual(result.context.changes, ["Added Writer round-trip", "Added conformance fixtures"]);
+  assert.deepEqual(result.context.changes, [
+    "Added Writer round-trip",
+    "Added conformance fixtures",
+  ]);
   assert.match(result.output, /2\.0\.0/);
   assert.doesNotMatch(result.output, /9\.0\.0/);
 });

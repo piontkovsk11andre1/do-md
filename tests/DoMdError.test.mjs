@@ -23,9 +23,9 @@ import {
   makeNotImplementedError,
   makeParseError,
   makeTemplateError,
-  SyntaxError,
+  DoMdError,
   primaryLocation,
-} from "../sources/SyntaxError.mjs";
+} from "../sources/DoMdError.mjs";
 import { Template } from "../sources/Template.mjs";
 import { Writer } from "../sources/Writer.mjs";
 
@@ -93,23 +93,28 @@ async function collectMjs(dir) {
 
 function isCorePackageFile(file) {
   const rel = path.relative(ROOT, file).replaceAll("\\", "/");
-  if (rel.startsWith("sources/MCP/") || rel.startsWith("sources/HTTP/") || rel.startsWith("sources/Service/")
-    || rel === "sources/McpServer.mjs" || rel === "sources/HttpServer.mjs") {
+  if (
+    rel.startsWith("sources/MCP/") ||
+    rel.startsWith("sources/HTTP/") ||
+    rel.startsWith("sources/Service/") ||
+    rel === "sources/McpServer.mjs" ||
+    rel === "sources/HttpServer.mjs"
+  ) {
     return false;
   }
   return rel.startsWith("sources/") || rel === "bin/do-md.mjs";
 }
 
-test("SyntaxError exports contain not implemented helper", () => {
+test("domain errors include a not implemented helper", () => {
   const err = makeNotImplementedError("alpha");
   assert.ok(err instanceof Error);
-  assert.ok(err instanceof SyntaxError);
+  assert.ok(err instanceof DoMdError);
   assert.equal(err.code, ERROR_CODES.DO_MD_USER_ERROR);
   assert.match(err.message, /not implemented/);
 });
 
-test("SyntaxError is a Diagnostic plus a JS Error", () => {
-  const err = new SyntaxError({
+test("DoMdError is a Diagnostic plus a JS Error", () => {
+  const err = new DoMdError({
     code: ERROR_CODES.DO_MD_PARSE_ERROR,
     message: "literal mismatch",
     file: "notes.md",
@@ -122,14 +127,21 @@ test("SyntaxError is a Diagnostic plus a JS Error", () => {
   assert.deepEqual(err.toDiagnostic(), {
     code: ERROR_CODES.DO_MD_PARSE_ERROR,
     message: "literal mismatch",
-    locations: [{ role: "document", relation: "processing", source: "notes.md",
-      range: { start: { offset: null, line: 4, column: 2 }, end: null },
-      precision: "context", snippet: "# Title" }],
+    locations: [
+      {
+        role: "document",
+        relation: "processing",
+        source: "notes.md",
+        range: { start: { offset: null, line: 4, column: 2 }, end: null },
+        precision: "context",
+        snippet: "# Title",
+      },
+    ],
   });
 });
 
 test("path and char aliases populate file and column", () => {
-  const err = new SyntaxError("missing heading", {
+  const err = new DoMdError("missing heading", {
     code: ERROR_CODES.DO_MD_PARSE_ERROR,
     path: "doc.md",
     line: 3,
@@ -142,7 +154,7 @@ test("path and char aliases populate file and column", () => {
 });
 
 test("missing location is represented by an empty chain", () => {
-  const err = new SyntaxError("unknown");
+  const err = new DoMdError("unknown");
   assert.equal(err.code, ERROR_CODES.DO_MD_USER_ERROR);
   assert.deepEqual(err.locations, []);
   assert.equal(primaryLocation(err), null);
@@ -156,8 +168,14 @@ test("library error codes are the only exported codes", () => {
     DO_MD_IO_ERROR: "DO_MD_IO_ERROR",
     DO_MD_CONFLICT: "DO_MD_CONFLICT",
   });
-  assert.equal(makeParseError("no match", { file: "a.md", line: 2, column: 1 }).code, ERROR_CODES.DO_MD_PARSE_ERROR);
-  assert.equal(makeTemplateError("double bind", { file: "a.tpl.md", line: 5, column: 3 }).code, ERROR_CODES.DO_MD_TEMPLATE_ERROR);
+  assert.equal(
+    makeParseError("no match", { file: "a.md", line: 2, column: 1 }).code,
+    ERROR_CODES.DO_MD_PARSE_ERROR,
+  );
+  assert.equal(
+    makeTemplateError("double bind", { file: "a.tpl.md", line: 5, column: 3 }).code,
+    ERROR_CODES.DO_MD_TEMPLATE_ERROR,
+  );
   assert.equal(createIoError("ENOENT").code, ERROR_CODES.DO_MD_IO_ERROR);
   assert.equal(createConflictError("stale", { file: "a.md" }).code, ERROR_CODES.DO_MD_CONFLICT);
 });
@@ -178,7 +196,7 @@ test("locationFromStack prefers the sourceURL template frame", () => {
 });
 
 test("Diagnostic message is a single line and snippet may be null", () => {
-  const err = new SyntaxError({
+  const err = new DoMdError({
     code: ERROR_CODES.DO_MD_PARSE_ERROR,
     message: "first\nsecond",
     file: "doc.md",
@@ -198,7 +216,7 @@ test("fromNativeError reports template path and line", () => {
   ].join("\n");
 
   const err = fromNativeError(native, { path: "notes.tpl.md" });
-  assert.ok(err instanceof SyntaxError);
+  assert.ok(err instanceof DoMdError);
   assert.equal(err.code, ERROR_CODES.DO_MD_TEMPLATE_ERROR);
   assert.equal(primaryLocation(err).source, "notes.tpl.md");
   assert.equal(primaryLocation(err).range.start.line, 2);
@@ -215,15 +233,21 @@ test("MCP-only codes are remapped and absent from ERROR_CODES", () => {
   ]);
   for (const code of MCP_ONLY_CODES) {
     assert.equal(Object.hasOwn(ERROR_CODES, code), false);
-    assert.equal(new SyntaxError({ code, message: "x" }).code, ERROR_CODES.DO_MD_USER_ERROR);
+    assert.equal(new DoMdError({ code, message: "x" }).code, ERROR_CODES.DO_MD_USER_ERROR);
     assert.equal(createIoError("x", code).code, ERROR_CODES.DO_MD_IO_ERROR);
   }
-  assert.equal(new SyntaxError({ code: "DO_MD_STALE_FILE", message: "x" }).code, ERROR_CODES.DO_MD_USER_ERROR);
+  assert.equal(
+    new DoMdError({ code: "DO_MD_STALE_FILE", message: "x" }).code,
+    ERROR_CODES.DO_MD_USER_ERROR,
+  );
   assert.equal(isLibraryCode(ERROR_CODES.DO_MD_USER_ERROR), true);
 });
 
 test("core document sources do not mention service-only error codes", async () => {
-  const files = [...(await collectMjs(path.join(ROOT, "sources"))), path.join(ROOT, "bin/do-md.mjs")];
+  const files = [
+    ...(await collectMjs(path.join(ROOT, "sources"))),
+    path.join(ROOT, "bin/do-md.mjs"),
+  ];
   const hits = [];
   for (const file of files) {
     if (!isCorePackageFile(file)) {
@@ -248,10 +272,13 @@ test("error registry USER sites produce only DO_MD_USER_ERROR", async () => {
     "/list.tpl.md": '{% doc.list().as("items") %}\n',
   });
 
-  await assert.rejects(() => create({}), (err) => {
-    assertLibraryError(err, ERROR_CODES.DO_MD_USER_ERROR);
-    return true;
-  });
+  await assert.rejects(
+    () => create({}),
+    (err) => {
+      assertLibraryError(err, ERROR_CODES.DO_MD_USER_ERROR);
+      return true;
+    },
+  );
 
   const exists = await create({ io, file: "/out.md", template: "/tpl.md", data: { title: "X" } });
   assert.equal(exists.ok, false);
@@ -273,7 +300,11 @@ test("error registry USER sites produce only DO_MD_USER_ERROR", async () => {
 
   const reader = new Reader("nope", { file: "/doc.md" });
   assert.throws(
-    () => reader.line().validate(() => false).as("title"),
+    () =>
+      reader
+        .line()
+        .validate(() => false)
+        .as("title"),
     (err) => {
       assertLibraryError(err, ERROR_CODES.DO_MD_USER_ERROR, { file: "/doc.md" });
       return true;
@@ -392,7 +423,10 @@ test("error registry PARSE sites produce only DO_MD_PARSE_ERROR with location", 
   await assert.rejects(
     () => Editor.open({ io, file: "/doc.md", template: "/tpl.md" }),
     (err) => {
-      assertLibraryError(err, ERROR_CODES.DO_MD_PARSE_ERROR, { file: "/doc.md", snippet: "Goodbye" });
+      assertLibraryError(err, ERROR_CODES.DO_MD_PARSE_ERROR, {
+        file: "/doc.md",
+        snippet: "Goodbye",
+      });
       assert.ok(Array.isArray(err.errors));
       assertLibraryError(err.errors[0], ERROR_CODES.DO_MD_PARSE_ERROR, {
         file: "/doc.md",
@@ -533,40 +567,65 @@ test("error registry TEMPLATE sites produce only DO_MD_TEMPLATE_ERROR", async ()
 
 test("error registry IO sites produce only DO_MD_IO_ERROR", async () => {
   const missingVirtual = new Virtual();
-  await assert.rejects(() => missingVirtual.readFileAsync("/missing.md"), (err) => {
-    assertLibraryError(err, ERROR_CODES.DO_MD_IO_ERROR, { file: "/missing.md" });
-    return true;
-  });
-  await assert.rejects(() => missingVirtual.statAsync("/missing.md"), (err) => {
-    assertLibraryError(err, ERROR_CODES.DO_MD_IO_ERROR, { file: "/missing.md" });
-    return true;
-  });
+  await assert.rejects(
+    () => missingVirtual.readFileAsync("/missing.md"),
+    (err) => {
+      assertLibraryError(err, ERROR_CODES.DO_MD_IO_ERROR, { file: "/missing.md" });
+      return true;
+    },
+  );
+  await assert.rejects(
+    () => missingVirtual.statAsync("/missing.md"),
+    (err) => {
+      assertLibraryError(err, ERROR_CODES.DO_MD_IO_ERROR, { file: "/missing.md" });
+      return true;
+    },
+  );
 
   const disk = new NodeFilesystem();
   const missing = path.join(tmpdir(), `do-md-missing-${process.pid}-${Date.now()}.md`);
-  await assert.rejects(() => disk.readFileAsync(missing), (err) => {
-    assertLibraryError(err, ERROR_CODES.DO_MD_IO_ERROR, { file: missing });
-    return true;
-  });
-  await assert.rejects(() => disk.statAsync(missing), (err) => {
-    assertLibraryError(err, ERROR_CODES.DO_MD_IO_ERROR, { file: missing });
-    return true;
-  });
-  const missingWrite = path.join(tmpdir(), `do-md-missing-dir-${process.pid}-${Date.now()}`, "out.md");
-  await assert.rejects(() => disk.writeFileAsync(missingWrite, "x"), (err) => {
-    assertLibraryError(err, ERROR_CODES.DO_MD_IO_ERROR, { file: missingWrite });
-    return true;
-  });
+  await assert.rejects(
+    () => disk.readFileAsync(missing),
+    (err) => {
+      assertLibraryError(err, ERROR_CODES.DO_MD_IO_ERROR, { file: missing });
+      return true;
+    },
+  );
+  await assert.rejects(
+    () => disk.statAsync(missing),
+    (err) => {
+      assertLibraryError(err, ERROR_CODES.DO_MD_IO_ERROR, { file: missing });
+      return true;
+    },
+  );
+  const missingWrite = path.join(
+    tmpdir(),
+    `do-md-missing-dir-${process.pid}-${Date.now()}`,
+    "out.md",
+  );
+  await assert.rejects(
+    () => disk.writeFileAsync(missingWrite, "x"),
+    (err) => {
+      assertLibraryError(err, ERROR_CODES.DO_MD_IO_ERROR, { file: missingWrite });
+      return true;
+    },
+  );
 
   const remote = new Fetch();
-  await assert.rejects(() => remote.writeFileAsync("https://example.com/out.md", "x"), (err) => {
-    assertLibraryError(err, ERROR_CODES.DO_MD_IO_ERROR, { file: "https://example.com/out.md" });
-    return true;
-  });
-  await assert.rejects(() => remote.statAsync("https://example.com/out.md"), (err) => {
-    assertLibraryError(err, ERROR_CODES.DO_MD_IO_ERROR, { file: "https://example.com/out.md" });
-    return true;
-  });
+  await assert.rejects(
+    () => remote.writeFileAsync("https://example.com/out.md", "x"),
+    (err) => {
+      assertLibraryError(err, ERROR_CODES.DO_MD_IO_ERROR, { file: "https://example.com/out.md" });
+      return true;
+    },
+  );
+  await assert.rejects(
+    () => remote.statAsync("https://example.com/out.md"),
+    (err) => {
+      assertLibraryError(err, ERROR_CODES.DO_MD_IO_ERROR, { file: "https://example.com/out.md" });
+      return true;
+    },
+  );
 
   const io = new Virtual({ "/tpl.md": LINE_TEMPLATE });
   await assert.rejects(

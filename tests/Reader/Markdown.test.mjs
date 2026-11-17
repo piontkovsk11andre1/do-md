@@ -54,7 +54,10 @@ test("YAML frontmatter is parsed only at the document start with positions", () 
   assert.equal(parsed.children[1].type, "paragraph");
 
   const later = parseMarkdown("Body\n\n---\ntitle: no\n---\n");
-  assert.equal(later.children.some((child) => child.type === "frontmatter"), false);
+  assert.equal(
+    later.children.some((child) => child.type === "frontmatter"),
+    false,
+  );
 });
 
 test("Reader.parseDocument returns the same document AST", () => {
@@ -128,13 +131,18 @@ test("every typed AST node carries source positions", () => {
 });
 
 test("ATX headings capture level 1 through 6", () => {
-  const source = ["# One", "## Two", "### Three", "#### Four", "##### Five", "###### Six"].join("\n");
+  const source = ["# One", "## Two", "### Three", "#### Four", "##### Five", "###### Six"].join(
+    "\n",
+  );
   const parsed = parse(source);
   assert.equal(parsed.children.length, 6);
   parsed.children.forEach((node, index) => {
     assert.equal(node.type, "heading");
     assert.equal(node.level, index + 1);
-    assert.equal(flattenInlines(node.children), ["One", "Two", "Three", "Four", "Five", "Six"][index]);
+    assert.equal(
+      flattenInlines(node.children),
+      ["One", "Two", "Three", "Four", "Five", "Six"][index],
+    );
     assert.ok(Array.isArray(node.children));
     assertPosition(node);
     assert.equal(node.position.start.line, index + 1);
@@ -418,7 +426,16 @@ test("a mixed document preserves block order and positions", () => {
   const parsed = new Reader(source).parseDocument();
   assert.deepEqual(
     parsed.children.map((node) => node.type),
-    ["heading", "paragraph", "thematic_break", "block_quote", "list", "code_block", "table", "html_block"],
+    [
+      "heading",
+      "paragraph",
+      "thematic_break",
+      "block_quote",
+      "list",
+      "code_block",
+      "table",
+      "html_block",
+    ],
   );
   let previous = -1;
   for (const node of parsed.children) {
@@ -521,7 +538,7 @@ test("code spans apply the CommonMark space-trim rule", () => {
 });
 
 test("links capture url, optional title, and inline children", () => {
-  const children = inlinesOf("[text](https://ex.com) and [t](u \"title\") and [*em*](u)");
+  const children = inlinesOf('[text](https://ex.com) and [t](u "title") and [*em*](u)');
   assert.equal(children[0].type, "link");
   assert.equal(children[0].url, "https://ex.com");
   assert.equal(children[0].title, null);
@@ -536,7 +553,7 @@ test("links capture url, optional title, and inline children", () => {
 });
 
 test("images flatten alt and keep url and title", () => {
-  const children = inlinesOf("![alt](img.png \"cap\") and ![*x*](u)");
+  const children = inlinesOf('![alt](img.png "cap") and ![*x*](u)');
   assert.equal(children[0].type, "image");
   assert.equal(children[0].url, "img.png");
   assert.equal(children[0].title, "cap");
@@ -594,28 +611,41 @@ test("soft breaks preserve a single newline inside a paragraph", () => {
 });
 
 test("inline HTML is captured as raw data and never interpreted", () => {
-  const children = inlinesOf("a <span onclick=\"alert(1)\">x</span> <!--c--> <?pi?> b");
+  const children = inlinesOf('a <span onclick="alert(1)">x</span> <!--c--> <?pi?> b');
   const html = children.filter((node) => node.type === "html_inline");
   assert.deepEqual(
     html.map((node) => node.value),
-    ["<span onclick=\"alert(1)\">", "</span>", "<!--c-->", "<?pi?>"],
+    ['<span onclick="alert(1)">', "</span>", "<!--c-->", "<?pi?>"],
   );
   for (const node of html) {
     assert.equal(typeof node.value, "string");
     assertPosition(node);
   }
-  assert.equal(flattenInlines(children), "a <span onclick=\"alert(1)\">x</span> <!--c--> <?pi?> b");
+  assert.equal(flattenInlines(children), 'a <span onclick="alert(1)">x</span> <!--c--> <?pi?> b');
 });
 
 test("every inline node type carries source positions", () => {
-  const children = inlinesOf("A *em* **strong** `code` [t](u) ![a](i) <https://ex.com> x  \ny\nz <em>w</em>");
+  const children = inlinesOf(
+    "A *em* **strong** `code` [t](u) ![a](i) <https://ex.com> x  \ny\nz <em>w</em>",
+  );
   const seen = new Set();
   walkInlines(children, (node) => {
     assert.equal(typeof node.type, "string");
     assertPosition(node);
     seen.add(node.type);
   });
-  for (const type of ["text", "emphasis", "strong", "code_span", "link", "image", "autolink", "hard_break", "soft_break", "html_inline"]) {
+  for (const type of [
+    "text",
+    "emphasis",
+    "strong",
+    "code_span",
+    "link",
+    "image",
+    "autolink",
+    "hard_break",
+    "soft_break",
+    "html_inline",
+  ]) {
     assert.ok(seen.has(type), type);
   }
 });
@@ -677,7 +707,7 @@ function catalogSource() {
     "",
     "Hello *em* and **strong** and `code` and a",
     "soft break. Hard  ",
-    "break. [link](u \"t\") ![alt](img) <https://ex.com> <span>x</span>",
+    'break. [link](u "t") ![alt](img) <https://ex.com> <span>x</span>',
     "",
     "---",
     "",

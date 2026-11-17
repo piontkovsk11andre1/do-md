@@ -4,7 +4,9 @@ export { parseArgv };
 
 export async function run(argv = process.argv.slice(2)) {
   if (argv.includes("--help") || argv.includes("-h")) {
-    process.stdout.write("do-md-mcp --root <dir> [--host <host> --port 8080 | --url <http(s)://host/prefix>]\nOptions: --max-input-bytes --timeout-ms --max-response-bytes --no-snippets\nRemote roots are server-side directories.\n");
+    process.stdout.write(
+      "do-md-mcp --root <dir> [--host <host> --port 8080 | --url <http(s)://host/prefix>]\nOptions: --max-input-bytes --timeout-ms --max-response-bytes --no-snippets\nRemote roots are server-side directories.\n",
+    );
     return 0;
   }
   try {

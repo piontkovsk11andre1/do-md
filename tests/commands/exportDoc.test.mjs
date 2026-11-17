@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { exportDoc } from "../../sources/commands/exportDoc.mjs";
 import { Virtual } from "../../sources/IO/Virtual.mjs";
-import { ERROR_CODES } from "../../sources/SyntaxError.mjs";
+import { ERROR_CODES } from "../../sources/DoMdError.mjs";
 
 const TEMPLATE = '# {% doc.line().as("title") %}\n';
 const INPUT = "# Hello\n";
@@ -30,7 +30,10 @@ test("exportDoc overwrites an existing JSON save path", async () => {
   assert.equal(result.output, null);
   assert.deepEqual(result.context, { title: "Hello" });
   assert.deepEqual(result.errors, []);
-  assert.equal(await io.readFileAsync("/out.json"), `${JSON.stringify({ title: "Hello" }, null, 2)}\n`);
+  assert.equal(
+    await io.readFileAsync("/out.json"),
+    `${JSON.stringify({ title: "Hello" }, null, 2)}\n`,
+  );
 });
 
 test("exportDoc parse failure does not write or overwrite savePath", async () => {
@@ -57,7 +60,10 @@ test("exportDoc parse failure does not write or overwrite savePath", async () =>
 });
 
 test("exportDoc rejects missing arguments with DO_MD_USER_ERROR", async () => {
-  await assert.rejects(() => exportDoc({}), (err) => err.code === ERROR_CODES.DO_MD_USER_ERROR);
+  await assert.rejects(
+    () => exportDoc({}),
+    (err) => err.code === ERROR_CODES.DO_MD_USER_ERROR,
+  );
   await assert.rejects(
     () => exportDoc({ io: new Virtual(), file: "/doc.md", template: "/tpl.md" }),
     (err) => err.code === ERROR_CODES.DO_MD_USER_ERROR,

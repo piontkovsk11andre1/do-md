@@ -2,12 +2,20 @@ import path from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync, readFileSync, rmSync, cpSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  writeFileSync,
+  readFileSync,
+  rmSync,
+  cpSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 
 import { coerceValue, exitFromResult, formatUsage, toExitCode, USAGE } from "../sources/Shell.mjs";
-import { ERROR_CODES } from "../sources/SyntaxError.mjs";
+import { ERROR_CODES } from "../sources/DoMdError.mjs";
 
 const EXIT_BY_CODE = {
   [ERROR_CODES.DO_MD_USER_ERROR]: 1,
@@ -17,7 +25,8 @@ const EXIT_BY_CODE = {
   [ERROR_CODES.DO_MD_CONFLICT]: 4,
 };
 
-const V1_USAGE = "Usage: do-md <validate|create|export|set|render|match|query|reference|skill> ...\n";
+const V1_USAGE =
+  "Usage: do-md <validate|create|export|set|render|match|query|reference|skill> ...\n";
 const POST_V1_COMMANDS = [
   "diff",
   "schema",
@@ -67,16 +76,22 @@ function writeSimpleProject(dir, extras = {}) {
 }
 
 function fileEndsWith(file, suffix) {
-  return String(file ?? "").replaceAll("\\", "/").endsWith(suffix);
+  return String(file ?? "")
+    .replaceAll("\\", "/")
+    .endsWith(suffix);
 }
 
 function assertDiagnostic(error, expected = {}) {
   assert.equal(typeof error, "object");
   assert.equal(error.code, expected.code);
   assert.ok(Array.isArray(error.locations));
-  const location = error.locations.find((l) => expected.fileSuffix && fileEndsWith(l.source, expected.fileSuffix))
-    ?? error.locations.find((l) => expected.file && l.source === expected.file)
-    ?? error.locations.find((l) => l.relation === "processing") ?? error.locations.at(-1);
+  const location =
+    error.locations.find(
+      (l) => expected.fileSuffix && fileEndsWith(l.source, expected.fileSuffix),
+    ) ??
+    error.locations.find((l) => expected.file && l.source === expected.file) ??
+    error.locations.find((l) => l.relation === "processing") ??
+    error.locations.at(-1);
   for (const l of error.locations) {
     assert.ok(Number.isInteger(l.range.start.line) && l.range.start.line >= 1);
     assert.ok(Number.isInteger(l.range.start.column) && l.range.start.column >= 1);
@@ -123,7 +138,10 @@ test("missing command prints usage and exits with code 1", () => {
 });
 
 test("CLI help lists the supported commands", () => {
-  assert.equal(USAGE, "Usage: do-md <validate|create|export|set|render|match|query|reference|skill> ...");
+  assert.equal(
+    USAGE,
+    "Usage: do-md <validate|create|export|set|render|match|query|reference|skill> ...",
+  );
   assert.equal(formatUsage(), V1_USAGE);
   for (const args of [[], ["not-a-command"]]) {
     const result = runCli(args);
@@ -207,19 +225,13 @@ test("toExitCode maps all library error codes to documented process exits", () =
 test("exitFromResult maps the first resolved Result error code", () => {
   assert.equal(exitFromResult({ ok: true, exitCode: 0, errors: [] }), 0);
   for (const [code, exitCode] of Object.entries(EXIT_BY_CODE)) {
-    assert.equal(
-      exitFromResult({ ok: false, exitCode: 99, errors: [{ code }] }),
-      exitCode,
-    );
+    assert.equal(exitFromResult({ ok: false, exitCode: 99, errors: [{ code }] }), exitCode);
   }
   assert.equal(
     exitFromResult({
       ok: false,
       exitCode: 1,
-      errors: [
-        { code: ERROR_CODES.DO_MD_PARSE_ERROR },
-        { code: ERROR_CODES.DO_MD_USER_ERROR },
-      ],
+      errors: [{ code: ERROR_CODES.DO_MD_PARSE_ERROR }, { code: ERROR_CODES.DO_MD_USER_ERROR }],
     }),
     2,
   );
@@ -251,7 +263,13 @@ test("match prints the first template or all matches", () => {
 
     const all = runCli(["match", "doc.md", "templates/**/*.md.template", "--all"], { cwd: dir });
     assert.equal(all.status, 0);
-    assert.deepEqual(all.stdout.trim().split(/\r?\n/).map((file) => path.basename(file)), ["a.md.template", "b.md.template"]);
+    assert.deepEqual(
+      all.stdout
+        .trim()
+        .split(/\r?\n/)
+        .map((file) => path.basename(file)),
+      ["a.md.template", "b.md.template"],
+    );
 
     const none = runCli(["match", "doc.md", "templates/broken.md.template"], { cwd: dir });
     assert.equal(none.status, 2);
@@ -295,7 +313,10 @@ test("CLI displays mapped code frames and keeps JSON diagnostics structured", ()
     const result = runCli(["validate", "doc.md", "tpl.md"], { cwd: dir });
     assert.equal(result.status, 3);
     assert.equal(result.stdout, "");
-    assert.match(result.stderr, /tpl\.md:2:7: Unexpected token\n\n2 \| const = 1;\n  \|       \^\n$/);
+    assert.match(
+      result.stderr,
+      /tpl\.md:2:7: Unexpected token\n\n2 \| const = 1;\n  \|       \^\n$/,
+    );
     assert.doesNotMatch(result.stderr, /\x1b|generated:|sources\/Template/);
     const json = runCli(["validate", "doc.md", "tpl.md", "--json"], { cwd: dir });
     assert.equal(json.status, 3);
@@ -420,7 +441,7 @@ test("render takes two templates and writes only the output file", () => {
   withTempDir((dir) => {
     writeFileSync(path.join(dir, "doc.md"), "# Hello\n");
     writeFileSync(path.join(dir, "parse.tpl.md"), '# {% doc.line().as("title") %}\n');
-    writeFileSync(path.join(dir, "render.tpl.md"), "Title: {% doc.line().as(\"title\") %}\n");
+    writeFileSync(path.join(dir, "render.tpl.md"), 'Title: {% doc.line().as("title") %}\n');
     const result = runCli(["render", "doc.md", "parse.tpl.md", "render.tpl.md", "out.txt"], {
       cwd: dir,
     });
@@ -456,10 +477,15 @@ test("global --cwd resolves positional paths against --cwd, not process.cwd()", 
     );
     assert.equal(exported.status, 0);
     assert.equal(JSON.parse(exported.stdout).context.title, "Hello");
-    assert.deepEqual(JSON.parse(readFileSync(path.join(work, "out.json"), "utf8")), { title: "Hello" });
+    assert.deepEqual(JSON.parse(readFileSync(path.join(work, "out.json"), "utf8")), {
+      title: "Hello",
+    });
     assert.equal(existsSync(path.join(decoy, "out.json")), false);
 
-    const created = runCli(["create", "out.md", "tpl.md", "--data", "data.json", "--cwd", work], spawn);
+    const created = runCli(
+      ["create", "out.md", "tpl.md", "--data", "data.json", "--cwd", work],
+      spawn,
+    );
     assert.equal(created.status, 0);
     assert.match(readFileSync(path.join(work, "out.md"), "utf8"), /FromCwd/);
     assert.equal(existsSync(path.join(decoy, "out.md")), false);
@@ -651,11 +677,14 @@ test("global --json --quiet still prints rejected-error JSON", () => {
     });
 
     writeSimpleProject(dir);
-    assertErrorJson(runCli(["validate", "missing.md", "tpl.md", "--json", "--quiet"], { cwd: dir }), {
-      exitCode: 4,
-      code: ERROR_CODES.DO_MD_IO_ERROR,
-      fileSuffix: "missing.md",
-    });
+    assertErrorJson(
+      runCli(["validate", "missing.md", "tpl.md", "--json", "--quiet"], { cwd: dir }),
+      {
+        exitCode: 4,
+        code: ERROR_CODES.DO_MD_IO_ERROR,
+        fileSuffix: "missing.md",
+      },
+    );
   });
 });
 

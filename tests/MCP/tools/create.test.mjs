@@ -4,7 +4,14 @@ import assert from "node:assert/strict";
 import { handleCreate } from "../../../sources/MCP/tools/create.mjs";
 import { create } from "../../../sources/commands/create.mjs";
 import { RUNTIME_FIXTURES, fixtureReady, loadFixture } from "../../conformance-helpers.mjs";
-import { cloneIo, cloneJson, fixtureFiles, snapshot, toolContext, trackWrites } from "./helpers.mjs";
+import {
+  cloneIo,
+  cloneJson,
+  fixtureFiles,
+  snapshot,
+  toolContext,
+  trackWrites,
+} from "./helpers.mjs";
 
 test("MCP create tool module exists", () => {
   assert.equal(typeof handleCreate, "function");
@@ -22,10 +29,7 @@ for (const name of RUNTIME_FIXTURES) {
     const before = snapshot(mcpIo);
     const options = { maxInputBytes: 1_048_576 };
     const data = cloneJson(fixture.expected);
-    const mcp = await handleCreate(
-      { template: "template.tpl.md", data },
-      toolContext(mcpIo),
-    );
+    const mcp = await handleCreate({ template: "template.tpl.md", data }, toolContext(mcpIo));
     const cmd = await create({
       io: cmdIo,
       file: "created.md",
@@ -71,7 +75,10 @@ for (const name of RUNTIME_FIXTURES) {
     assert.equal(mcp.output, cmd.output);
     assert.equal(mcp.output, fixture.expectedOutput);
     assert.equal(mcp.wrote, "created.md");
-    assert.equal(await mcpIo.readFileAsync("/created.md"), await cmdIo.readFileAsync("/created.md"));
+    assert.equal(
+      await mcpIo.readFileAsync("/created.md"),
+      await cmdIo.readFileAsync("/created.md"),
+    );
   });
 }
 
@@ -84,7 +91,11 @@ test("MCP create.force defaults to false", async () => {
   const omittedIo = cloneIo(files);
   const explicitIo = cloneIo(files);
   const cmdIo = cloneIo(files);
-  const args = { template: "template.tpl.md", data: cloneJson(fixture.expected), file: "created.md" };
+  const args = {
+    template: "template.tpl.md",
+    data: cloneJson(fixture.expected),
+    file: "created.md",
+  };
   const omitted = await handleCreate(args, toolContext(omittedIo));
   const explicit = await handleCreate({ ...args, force: false }, toolContext(explicitIo));
   const cmd = await create({

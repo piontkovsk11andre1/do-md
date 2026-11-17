@@ -1,4 +1,4 @@
-import { createConflictError, createIoError, ERROR_CODES } from "../SyntaxError.mjs";
+import { createConflictError, createIoError, ERROR_CODES } from "../DoMdError.mjs";
 import { createContentRevision, normalizeIoPath, resolveIoPath } from "../IO.mjs";
 
 function byteLength(content) {
@@ -85,7 +85,10 @@ export class Virtual {
     const exists = this.entries.has(key);
     const currentRevision = exists ? createContentRevision(this.entries.get(key)) : null;
 
-    if (!force && (ifAbsent ? exists : expectedRevision !== undefined && expectedRevision !== currentRevision)) {
+    if (
+      !force &&
+      (ifAbsent ? exists : expectedRevision !== undefined && expectedRevision !== currentRevision)
+    ) {
       throw createConflictError(`File changed before it could be written: ${key}`, { file: key });
     }
 

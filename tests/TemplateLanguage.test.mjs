@@ -17,16 +17,44 @@ import {
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const AUTHORING_FUNCTIONS = [
-  "literal", "line", "until", "regexp", "text", "rawUntil", "rawUntilElement", "rawBlock", "rawRest",
-  "heading", "paragraph", "list", "listTree", "frontmatter", "table", "codeBlock",
-  "blockQuote", "thematicBreak", "htmlBlock", "link", "image", "autolink", "codeSpan",
-  "checkbox", "optional", "scope", "repeat", "skipUntilHeading", "query",
+  "literal",
+  "line",
+  "until",
+  "regexp",
+  "text",
+  "rawUntil",
+  "rawUntilElement",
+  "rawBlock",
+  "rawRest",
+  "heading",
+  "paragraph",
+  "list",
+  "listTree",
+  "frontmatter",
+  "table",
+  "codeBlock",
+  "blockQuote",
+  "thematicBreak",
+  "htmlBlock",
+  "link",
+  "image",
+  "autolink",
+  "codeSpan",
+  "checkbox",
+  "optional",
+  "scope",
+  "repeat",
+  "skipUntilHeading",
+  "query",
 ];
 const SLOT_MODIFIERS = ["as", "asArray", "trim", "default", "validate", "notEmpty", "exists"];
 
 test("template-language registry covers every supported authoring method", () => {
   assert.deepEqual(listTemplateFunctions(), AUTHORING_FUNCTIONS);
-  assert.deepEqual(templateLanguage.modifiers.map((entry) => entry.name), SLOT_MODIFIERS);
+  assert.deepEqual(
+    templateLanguage.modifiers.map((entry) => entry.name),
+    SLOT_MODIFIERS,
+  );
   for (const name of AUTHORING_FUNCTIONS) {
     assert.equal(typeof Reader.prototype[name], "function", `Reader.${name}`);
     assert.equal(typeof Writer.prototype[name], "function", `Writer.${name}`);
@@ -41,7 +69,10 @@ test("template-language registry covers every supported authoring method", () =>
 
 test("Markdown and JSON references render from the public registry", async () => {
   const json = JSON.parse(renderTemplateReference({ format: "json" }));
-  assert.deepEqual(json.functions.map((entry) => entry.name), AUTHORING_FUNCTIONS);
+  assert.deepEqual(
+    json.functions.map((entry) => entry.name),
+    AUTHORING_FUNCTIONS,
+  );
   assert.match(renderTemplateReference({ topic: "listTree", format: "markdown" }), /ListTreeValue/);
   assert.equal(renderTemplateReference({ topic: "missing" }), null);
   assert.equal(

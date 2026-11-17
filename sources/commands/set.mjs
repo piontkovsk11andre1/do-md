@@ -1,5 +1,5 @@
 import { Editor } from "../Editor.mjs";
-import { ERROR_CODES, makeUserError } from "../SyntaxError.mjs";
+import { ERROR_CODES, makeUserError } from "../DoMdError.mjs";
 import { failure, requireArg, requireIo, resolvePath, success } from "./helpers.mjs";
 
 function hasKey(key) {

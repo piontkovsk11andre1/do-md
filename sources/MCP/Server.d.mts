@@ -1,14 +1,27 @@
 import type { Diagnostic, IOAdapter } from "../types.d.mts";
 export const DEFAULT_MAX_INPUT_BYTES: 1048576;
 export const DEFAULT_TIMEOUT_MS: 30000;
-export const TOOL_NAMES: readonly ["validate", "export", "create", "set", "render", "match", "query", "reference", "skill"];
+export const TOOL_NAMES: readonly [
+  "validate",
+  "export",
+  "create",
+  "set",
+  "render",
+  "match",
+  "query",
+  "reference",
+  "skill",
+];
 export const MCP_CODES: Readonly<{
   DO_MD_USER_ERROR: "DO_MD_USER_ERROR";
   DO_MD_TIMEOUT: "DO_MD_TIMEOUT";
   DO_MD_INTERNAL_ERROR: "DO_MD_INTERNAL_ERROR";
 }>;
-export type ToolName = typeof TOOL_NAMES[number];
-export type ToolHandler = (params: Record<string, unknown>, context: ToolContext) => unknown | Promise<unknown>;
+export type ToolName = (typeof TOOL_NAMES)[number];
+export type ToolHandler = (
+  params: Record<string, unknown>,
+  context: ToolContext,
+) => unknown | Promise<unknown>;
 export interface ToolContext {
   root: string | null;
   maxInputBytes: number;
@@ -38,10 +51,22 @@ export interface McpResult {
   wrote?: string | null;
   errors: Diagnostic[];
 }
-export function parseArgv(argv?: string[]): Required<Pick<ServerOptions, "root" | "maxInputBytes" | "timeoutMs" | "noSnippets">> & Pick<ServerOptions, "host" | "port" | "url">;
-export function mcpDiagnostic(code: string, message: unknown, extra?: Partial<Diagnostic> & { path?: string }): Diagnostic;
-export function stripDiagnosticSnippets(errors: Diagnostic | readonly Diagnostic[] | null): Diagnostic[];
-export function toMcpDiagnostic(error: unknown, options?: { fallbackInternal?: boolean }): Diagnostic;
+export function parseArgv(
+  argv?: string[],
+): Required<Pick<ServerOptions, "root" | "maxInputBytes" | "timeoutMs" | "noSnippets">> &
+  Pick<ServerOptions, "host" | "port" | "url">;
+export function mcpDiagnostic(
+  code: string,
+  message: unknown,
+  extra?: Partial<Diagnostic> & { path?: string },
+): Diagnostic;
+export function stripDiagnosticSnippets(
+  errors: Diagnostic | readonly Diagnostic[] | null,
+): Diagnostic[];
+export function toMcpDiagnostic(
+  error: unknown,
+  options?: { fallbackInternal?: boolean },
+): Diagnostic;
 export function resolveRoot(root: unknown): Promise<string>;
 export class Server {
   constructor(options?: ServerOptions);

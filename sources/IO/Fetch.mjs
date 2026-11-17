@@ -1,5 +1,5 @@
 import { createContentRevision, resolveIoPath } from "../IO.mjs";
-import { createIoError, ERROR_CODES } from "../SyntaxError.mjs";
+import { createIoError, ERROR_CODES } from "../DoMdError.mjs";
 
 function isAbsoluteUrl(value) {
   return /^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(value);

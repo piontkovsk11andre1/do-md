@@ -5,4 +5,11 @@ export { set } from "./set.mjs";
 export { render } from "./render.mjs";
 export { match } from "./match.mjs";
 export { query } from "./query.mjs";
-export type { CommandResult, CreateOptions, ExportOptions, RenderOptions, SetOptions, ValidateOptions } from "../types.d.mts";
+export type {
+  CommandResult,
+  CreateOptions,
+  ExportOptions,
+  RenderOptions,
+  SetOptions,
+  ValidateOptions,
+} from "../types.d.mts";

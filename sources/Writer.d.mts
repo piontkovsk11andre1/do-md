@@ -1,6 +1,19 @@
 import { Slot } from "./Slot.mjs";
-import type { CodeBlockValue, DocumentNode, FrontmatterValue, ImageValue, LinkValue, ListTreeValue, MarkdownNode, OutputRegionMetadata, SafeParseSchema, TableValue, WriterOptions } from "./types.d.mts";
+import type {
+  CodeBlockValue,
+  DocumentNode,
+  FrontmatterValue,
+  ImageValue,
+  LinkValue,
+  ListTreeValue,
+  MarkdownNode,
+  OutputRegionMetadata,
+  SafeParseSchema,
+  TableValue,
+  WriterOptions,
+} from "./types.d.mts";
 export class Writer<TData extends Record<string, unknown> = Record<string, unknown>> {
+  readonly mode: "writer";
   constructor(data?: TData, options?: WriterOptions);
   data: TData;
   context: TData;
@@ -19,7 +32,9 @@ export class Writer<TData extends Record<string, unknown> = Record<string, unkno
   paragraph(): Slot<string>;
   list(): Slot<string[]>;
   listTree(): Slot<ListTreeValue>;
-  frontmatter<T extends Record<string, unknown> = Record<string, unknown>>(options?: SafeParseSchema<T> | { schema?: SafeParseSchema<T> }): Slot<FrontmatterValue<T> | T>;
+  frontmatter<T extends Record<string, unknown> = Record<string, unknown>>(
+    options?: SafeParseSchema<T> | { schema?: SafeParseSchema<T> },
+  ): Slot<FrontmatterValue<T> | T>;
   rawUntil(limiter?: unknown): Slot<string>;
   rawUntilElement(type: unknown): Slot<string>;
   rawBlock(): Slot<string>;
@@ -38,7 +53,10 @@ export class Writer<TData extends Record<string, unknown> = Record<string, unkno
   skipUntilHeading(predicate?: unknown): false;
   optional(): this;
   optional(fn: (writer: this) => void): boolean;
-  scope<K extends keyof TData & string>(key: K, fn: (writer: Writer<Record<string, unknown>>, index: number) => void): void;
+  scope<K extends keyof TData & string>(
+    key: K,
+    fn: (writer: Writer<Record<string, unknown>>, index: number) => void,
+  ): void;
   repeat(fn: (writer: this, index: number) => unknown): void;
   serializeSlotValue(slot: Slot<unknown>, value: unknown): string;
   serializeTableValue(value: TableValue): string;

@@ -1,6 +1,7 @@
 import { Parser } from "./Parser.mjs";
 import { Slot, registerBinding } from "./Slot.mjs";
-import { attachSource, makeTemplateError, makeUserError } from "./SyntaxError.mjs";
+import { attachSource, makeTemplateError, makeUserError } from "./DoMdError.mjs";
+import { IterationState } from "./Reader/IterationState.mjs";
 import * as MarkdownParser from "./Reader/Markdown.mjs";
 
 const MAX_ITERATIONS = 10000;
@@ -75,10 +76,14 @@ function paragraphEnd(text) {
   return text.length;
 }
 
+/**
+ * Stateful template reader. Slots and regions refer to the untouched input;
+ * forks share source ownership but commit their cursor and metadata explicitly.
+ * Optional/repeated attempts are transactions over the state snapshotted below.
+ */
 export class Reader extends Parser {
   constructor(source = "", options = {}) {
     super(source, options);
-    this.source = String(source);
     this.context = {};
     this.data = null;
     this.slotMap = [];
@@ -88,16 +93,16 @@ export class Reader extends Parser {
     this.slotPathPrefix = "";
     this._matchedBinds = 0;
     this._usedAsArray = false;
-    this._switchToRequiredOnMatch = false;
-    this._firstFailed = false;
-    this._seenOp = false;
+    this._iteration = new IterationState();
   }
 
   static fromMarkdown(source, options = {}) {
     try {
       return MarkdownParser.parseMarkdown(source, options);
     } catch (error) {
-      if (options.file) attachSource(error, options.file);
+      if (options.file) {
+        attachSource(error, options.file);
+      }
       throw error;
     }
   }
@@ -106,7 +111,9 @@ export class Reader extends Parser {
     try {
       return MarkdownParser.parseMarkdown(this.inputSourceText);
     } catch (error) {
-      if (this.file) attachSource(error, this.file);
+      if (this.file) {
+        attachSource(error, this.file);
+      }
       throw error;
     }
   }
@@ -261,20 +268,29 @@ export class Reader extends Parser {
   }
 
   heading(level) {
-    return this._blockLeaf("heading", "heading", (node) => {
-      if (level != null && node.level !== level) {
-        return null;
-      }
-      return MarkdownParser.flattenInlines(node.children);
-    }, level == null ? "expected heading" : `expected heading(${level})`);
+    return this._blockLeaf(
+      "heading",
+      "heading",
+      (node) => {
+        if (level != null && node.level !== level) {
+          return null;
+        }
+        return MarkdownParser.flattenInlines(node.children);
+      },
+      level == null ? "expected heading" : `expected heading(${level})`,
+    );
   }
 
   paragraph() {
-    return this._blockLeaf("paragraph", "paragraph", (node) => MarkdownParser.flattenInlines(node.children));
+    return this._blockLeaf("paragraph", "paragraph", (node) =>
+      MarkdownParser.flattenInlines(node.children),
+    );
   }
 
   list() {
-    return this._blockLeaf("list", "list", (node) => (node.children ?? []).map((item) => MarkdownParser.flattenNode(item)));
+    return this._blockLeaf("list", "list", (node) =>
+      (node.children ?? []).map((item) => MarkdownParser.flattenNode(item)),
+    );
   }
 
   listTree() {
@@ -290,7 +306,9 @@ export class Reader extends Parser {
     try {
       node = MarkdownParser.parseFrontmatter(this.inputSourceText);
     } catch (error) {
-      if (this.file) attachSource(error, this.file);
+      if (this.file) {
+        attachSource(error, this.file);
+      }
       throw error;
     }
     if (!node) {
@@ -351,7 +369,9 @@ export class Reader extends Parser {
       leafType: "table",
       value: {
         headers: block.headers.map((cell) => MarkdownParser.flattenInlines(cell.children)),
-        rows: block.rows.map((row) => row.map((cell) => MarkdownParser.flattenInlines(cell.children))),
+        rows: block.rows.map((row) =>
+          row.map((cell) => MarkdownParser.flattenInlines(cell.children)),
+        ),
         align: block.align.slice(),
       },
       matched: true,
@@ -371,7 +391,9 @@ export class Reader extends Parser {
 
   blockQuote() {
     if (this._atBlockBoundary()) {
-      return this._blockLeaf("block_quote", "blockQuote", (node) => MarkdownParser.flattenNode(node));
+      return this._blockLeaf("block_quote", "blockQuote", (node) =>
+        MarkdownParser.flattenNode(node),
+      );
     }
     const start = this.offset;
     if (!this._afterQuoteMarker()) {
@@ -467,6 +489,7 @@ export class Reader extends Parser {
     return this;
   }
 
+  /** Commit a callback only if it binds data without a first miss or required error. */
   optional(fn) {
     if (typeof fn !== "function") {
       this.optionalMode = true;
@@ -475,18 +498,19 @@ export class Reader extends Parser {
     const snap = this._snapshotState();
     const bindsBefore = this._matchedBinds;
     this.optionalMode = true;
-    this._switchToRequiredOnMatch = false;
-    this._firstFailed = false;
-    this._seenOp = false;
-    fn(this);
+    this._iteration.begin(false);
+    try {
+      fn(this);
+    } catch (error) {
+      this._restoreState(snap);
+      throw error;
+    }
     const bound = this._matchedBinds > bindsBefore;
     const requiredError = this.errors.length > snap.errors.length;
-    const firstFailed = this._firstFailed;
+    const firstFailed = this._iteration.firstFailed;
     if (bound && !requiredError && !firstFailed) {
       this.optionalMode = snap.optionalMode;
-      this._switchToRequiredOnMatch = snap.switchToRequiredOnMatch;
-      this._firstFailed = snap.firstFailed;
-      this._seenOp = snap.seenOp;
+      this._iteration = snap.iteration;
       this._noteMatch();
       return true;
     }
@@ -494,6 +518,7 @@ export class Reader extends Parser {
     return false;
   }
 
+  /** Parse independent child contexts, adopting metadata only for a complete child. */
   scope(key, fn) {
     registerBinding(this, key, "as");
     this.context[key] = [];
@@ -507,6 +532,9 @@ export class Reader extends Parser {
       fn(child, index);
       if (!child._shouldCommit()) {
         break;
+      }
+      if (child.offset === this.offset) {
+        throw makeTemplateError("scope iteration must consume input");
       }
       this.context[key].push(child.context);
       elements.push({
@@ -534,27 +562,37 @@ export class Reader extends Parser {
     });
   }
 
+  /** Roll back a rejected attempt; always restore the enclosing iteration policy. */
   repeat(fn) {
     const committed = [];
     const parentMode = this.optionalMode;
-    const parentSwitch = this._switchToRequiredOnMatch;
-    const parentFirst = this._firstFailed;
-    const parentSeen = this._seenOp;
-    for (let index = 0; index < MAX_ITERATIONS; index++) {
-      const snap = this._snapshotState();
-      this._beginIteration();
-      const result = fn(this, index);
-      const requiredError = this.errors.length > snap.errors.length;
-      if (result === false || this._firstFailed || requiredError) {
-        this._restoreState(snap);
-        break;
+    const parentIteration = this._iteration.clone();
+    try {
+      for (let index = 0; index < MAX_ITERATIONS; index++) {
+        const snap = this._snapshotState();
+        this._beginIteration();
+        let result;
+        try {
+          result = fn(this, index);
+        } catch (error) {
+          this._restoreState(snap);
+          throw error;
+        }
+        const requiredError = this.errors.length > snap.errors.length;
+        if (result === false || this._iteration.firstFailed || requiredError) {
+          this._restoreState(snap);
+          break;
+        }
+        if (this.offset === snap.cursor.offset) {
+          this._restoreState(snap);
+          throw makeTemplateError("repeat iteration must consume input");
+        }
+        committed.push(cloneData(this.context));
       }
-      committed.push(cloneData(this.context));
+    } finally {
+      this.optionalMode = parentMode;
+      this._iteration = parentIteration;
     }
-    this.optionalMode = parentMode;
-    this._switchToRequiredOnMatch = parentSwitch;
-    this._firstFailed = parentFirst;
-    this._seenOp = parentSeen;
     if (committed.length >= MAX_ITERATIONS) {
       throw makeTemplateError("max scope iterations exceeded");
     }
@@ -678,12 +716,15 @@ export class Reader extends Parser {
   }
 
   fork() {
-    const child = new Reader(this.inputSourceText, this.options);
+    const child = new Reader(this.inputSourceText, {
+      ...this.options,
+      sourceText: this.sourceText,
+    });
     child.offset = this.offset;
     child._line = this._line;
     child.char = this.char;
     child.file = this.file;
-    child.diagnosticSourceText = this.diagnosticSourceText;
+    child.diagnosticSource = this.diagnosticSource;
     child.diagnosticOffsetBase = this.diagnosticOffsetBase;
     child.data = null;
     child.slotPathPrefix = this.slotPathPrefix;
@@ -692,29 +733,22 @@ export class Reader extends Parser {
 
   _beginIteration() {
     this.optionalMode = true;
-    this._switchToRequiredOnMatch = true;
-    this._firstFailed = false;
-    this._seenOp = false;
+    this._iteration.begin();
     this._usedAsArray = false;
   }
 
   _shouldCommit() {
-    return !this._firstFailed && this._matchedBinds > 0 && this.errors.length === 0;
+    return !this._iteration.firstFailed && this._matchedBinds > 0 && this.errors.length === 0;
   }
 
   _noteMatch() {
-    this._seenOp = true;
-    if (this._switchToRequiredOnMatch) {
+    if (this._iteration.match()) {
       this.optionalMode = false;
-      this._switchToRequiredOnMatch = false;
     }
   }
 
   _noteMiss() {
-    if (!this._seenOp) {
-      this._firstFailed = true;
-    }
-    this._seenOp = true;
+    this._iteration.miss();
   }
 
   _atBlockBoundary() {
@@ -792,7 +826,13 @@ export class Reader extends Parser {
 
   _inlineLeaf(kind, leafType, unwrap) {
     const start = this.offset;
-    const node = MarkdownParser.parseInlineLeaf(this.inputSourceText, this.offset, this._line, this.char, kind);
+    const node = MarkdownParser.parseInlineLeaf(
+      this.inputSourceText,
+      this.offset,
+      this._line,
+      this.char,
+      kind,
+    );
     if (!node) {
       return this._failSlot(leafType, `expected ${leafType}`, start);
     }
@@ -826,9 +866,7 @@ export class Reader extends Parser {
       queryMap: this.queryMap.slice(),
       matchedBinds: this._matchedBinds,
       usedAsArray: this._usedAsArray,
-      switchToRequiredOnMatch: this._switchToRequiredOnMatch,
-      firstFailed: this._firstFailed,
-      seenOp: this._seenOp,
+      iteration: this._iteration.clone(),
     };
   }
 
@@ -843,8 +881,6 @@ export class Reader extends Parser {
     this.queryMap = snap.queryMap;
     this._matchedBinds = snap.matchedBinds;
     this._usedAsArray = snap.usedAsArray;
-    this._switchToRequiredOnMatch = snap.switchToRequiredOnMatch;
-    this._firstFailed = snap.firstFailed;
-    this._seenOp = snap.seenOp;
+    this._iteration = snap.iteration;
   }
 }

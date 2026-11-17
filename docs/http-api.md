@@ -12,14 +12,14 @@ do-md serve --root /workspace --host 0.0.0.0 --port 8080
 `127.0.0.1:8080`; an explicit port `0` requests an OS-assigned port, printed to
 stderr when ready. The service does not start when imported as a library.
 
-| Option | Default | Meaning |
-| --- | --- | --- |
-| `--max-input-bytes` | 1048576 | Per-file UTF-8 input limit |
-| `--timeout-ms` | 30000 | Command deadline; also bounds incomplete HTTP requests |
-| `--max-body-bytes` | 1048576 | Maximum JSON request size |
-| `--max-response-bytes` | 8388608 | Maximum serialized command response |
-| `--max-concurrency` | 4 | Active calls, including requests still sending bodies |
-| `--no-snippets` | off | Omit document snippets from diagnostics |
+| Option                 | Default | Meaning                                                |
+| ---------------------- | ------- | ------------------------------------------------------ |
+| `--max-input-bytes`    | 1048576 | Per-file UTF-8 input limit                             |
+| `--timeout-ms`         | 30000   | Command deadline; also bounds incomplete HTTP requests |
+| `--max-body-bytes`     | 1048576 | Maximum JSON request size                              |
+| `--max-response-bytes` | 8388608 | Maximum serialized command response                    |
+| `--max-concurrency`    | 4       | Active calls, including requests still sending bodies  |
+| `--no-snippets`        | off     | Omit document snippets from diagnostics                |
 
 Diagnostics use `{ code, message, locations }`; all source-map levels survive
 worker, HTTP and remote-MCP boundaries. See [diagnostics](diagnostics.md).
@@ -55,17 +55,17 @@ and must remain within **that directory**, not only the larger server root.
 
 ## Commands
 
-| Name | JSON parameters |
-| --- | --- |
-| `validate` | `file`, `template`, optional `options` |
-| `export` | `file`, `template`, optional `savePath`, `options` |
-| `create` | `template`, `data` object; optional `file`, `force`, `options` |
-| `set` | `file`, `template`, `key`/`value` and/or `patch` object; optional `out`, `dryRun`, `options` |
-| `render` | `file`, `parseTemplate`, `renderTemplate`, `outFile`; optional `dryRun`, `options` |
-| `match` | `file`, `templates` path/directory/glob; optional `all`, `options` |
-| `query` | `file`, `template`; optional `all`, `options` |
-| `reference` | optional `topic`, `format` (`json`, `markdown`, or `text`) |
-| `skill` | no parameters; returns the packaged Agent Skill in `skill` and `output` |
+| Name        | JSON parameters                                                                              |
+| ----------- | -------------------------------------------------------------------------------------------- |
+| `validate`  | `file`, `template`, optional `options`                                                       |
+| `export`    | `file`, `template`, optional `savePath`, `options`                                           |
+| `create`    | `template`, `data` object; optional `file`, `force`, `options`                               |
+| `set`       | `file`, `template`, `key`/`value` and/or `patch` object; optional `out`, `dryRun`, `options` |
+| `render`    | `file`, `parseTemplate`, `renderTemplate`, `outFile`; optional `dryRun`, `options`           |
+| `match`     | `file`, `templates` path/directory/glob; optional `all`, `options`                           |
+| `query`     | `file`, `template`; optional `all`, `options`                                                |
+| `reference` | optional `topic`, `format` (`json`, `markdown`, or `text`)                                   |
+| `skill`     | no parameters; returns the packaged Agent Skill in `skill` and `output`                      |
 
 Data and patch values are inline JSON, corresponding to CLI-loaded data/patch
 files. `export` returns context inline and writes only when `savePath` is given.

@@ -5,4 +5,7 @@ export interface MatchToolParams {
   all?: boolean;
   options?: Record<string, unknown>;
 }
-export function handleMatch(params?: Partial<MatchToolParams>, context?: Partial<ToolContext>): Promise<McpResult & { matches: string[] }>;
+export function handleMatch(
+  params?: Partial<MatchToolParams>,
+  context?: Partial<ToolContext>,
+): Promise<McpResult & { matches: string[] }>;

@@ -1,7 +1,8 @@
 import { Slot } from "./Slot.mjs";
-import { SyntaxError } from "./SyntaxError.mjs";
+import { DoMdError } from "./DoMdError.mjs";
 import type { CursorSnapshot, ReaderOptions } from "./types.d.mts";
 export class Parser<TContext extends Record<string, unknown> = Record<string, unknown>> {
+  readonly mode: "reader";
   constructor(source?: unknown, options?: ReaderOptions);
   inputSourceText: string;
   source: string;
@@ -13,7 +14,7 @@ export class Parser<TContext extends Record<string, unknown> = Record<string, un
   char: number;
   optionalMode: boolean;
   context: TContext;
-  errors: SyntaxError[];
+  errors: DoMdError[];
   reset(): void;
   remaining(): string;
   snapshotCursor(): CursorSnapshot;
@@ -21,7 +22,7 @@ export class Parser<TContext extends Record<string, unknown> = Record<string, un
   advanceTo(end: number): this;
   optional(): this;
   required(): this;
-  error(message: unknown): SyntaxError;
+  error(message: unknown): DoMdError;
   parse(literal: unknown): this;
   parseRegExp(re: RegExp | string): Slot<string>;
   parseUntil(limiter: unknown): Slot<string>;

@@ -12,7 +12,15 @@ import {
   wrapTemplate,
 } from "./helpers.mjs";
 
-export async function render({ io, file, parseTemplate, renderTemplate, outFile, cwd, options } = {}) {
+export async function render({
+  io,
+  file,
+  parseTemplate,
+  renderTemplate,
+  outFile,
+  cwd,
+  options,
+} = {}) {
   requireIo(io);
   requireArg(file, "file");
   requireArg(parseTemplate, "parseTemplate");
@@ -28,7 +36,12 @@ export async function render({ io, file, parseTemplate, renderTemplate, outFile,
   const renderTemplateSource = await readText(io, renderPath, options);
   const parseFn = wrapTemplate(parseTemplateSource, parsePath);
   const renderFn = wrapTemplate(renderTemplateSource, renderPath);
-  const reader = parseSource(source, parseFn, { file: filePath, templatePath: parsePath, options, io });
+  const reader = parseSource(source, parseFn, {
+    file: filePath,
+    templatePath: parsePath,
+    options,
+    io,
+  });
 
   if (reader.errors.length > 0) {
     return failure(2, reader.errors);

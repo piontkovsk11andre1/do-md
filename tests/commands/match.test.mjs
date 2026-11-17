@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { match } from "../../sources/commands/match.mjs";
 import { Virtual } from "../../sources/IO/Virtual.mjs";
-import { ERROR_CODES } from "../../sources/SyntaxError.mjs";
+import { ERROR_CODES } from "../../sources/DoMdError.mjs";
 
 const files = {
   "/doc.md": "# Hello\n",
@@ -50,7 +50,10 @@ test("match returns a parse-style failure when no template matches", async () =>
 });
 
 test("match validates arguments and requires discovery support", async () => {
-  await assert.rejects(() => match({ io: new Virtual(files), templates: "/templates" }), /missing file/);
+  await assert.rejects(
+    () => match({ io: new Virtual(files), templates: "/templates" }),
+    /missing file/,
+  );
   const io = new Virtual(files);
   io.globAsync = undefined;
   await assert.rejects(

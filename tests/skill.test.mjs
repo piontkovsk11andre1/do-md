@@ -22,23 +22,35 @@ test("Agent Skill has portable metadata and one authoritative packaged body", as
   assert.equal(metadata.name, "do-md");
   assert.equal(metadata.license, "MIT");
   assert.match(metadata.description, /Markdown/);
-  assert.match(metadata.compatibility, /Node\.js 20/);
+  assert.match(metadata.compatibility, /Node\.js 22\.13/);
   assert.equal(await readSkill(), text);
   assert.equal((await handleSkill()).skill, text);
   const { stdout, stderr } = await exec(process.execPath, [cli, "skill"]);
   assert.equal(stderr, "");
   assert.equal(stdout, text);
-  assert.equal(createRequire(import.meta.url).resolve("@p10i/do-md/skills/do-md/SKILL.md"), packagedSkill);
+  assert.equal(
+    createRequire(import.meta.url).resolve("@p10i/do-md/skills/do-md/SKILL.md"),
+    packagedSkill,
+  );
 });
 
 for (const topic of [undefined, "listTree"]) {
   for (const format of ["json", "markdown", "text"]) {
     test(`CLI reference matches MCP reference: ${topic ?? "whole registry"}, ${format}`, async () => {
-      const { stdout } = await exec(process.execPath, [cli, "reference", ...(topic ? [topic] : []), "--format", format]);
+      const { stdout } = await exec(process.execPath, [
+        cli,
+        "reference",
+        ...(topic ? [topic] : []),
+        "--format",
+        format,
+      ]);
       const result = await handleReference({ topic, format });
       assert.equal(result.ok, true);
-      if (format === "json") assert.deepEqual(JSON.parse(stdout), result.reference);
-      else assert.equal(stdout.trimEnd(), result.reference.trimEnd());
+      if (format === "json") {
+        assert.deepEqual(JSON.parse(stdout), result.reference);
+      } else {
+        assert.equal(stdout.trimEnd(), result.reference.trimEnd());
+      }
     });
   }
 }
@@ -55,7 +67,16 @@ test("reference defaults to JSON while help describes commands", async () => {
 });
 
 test("reference and skill reject unknown topics, formats and extra arguments", async () => {
-  for (const args of [["reference", "missing"], ["reference", "--format", "invalid"], ["reference", "query", "table"], ["skill", "extra"], ["help", "template"]]) {
-    await assert.rejects(exec(process.execPath, [cli, ...args]), error => error.code === 1 && Boolean(error.stderr));
+  for (const args of [
+    ["reference", "missing"],
+    ["reference", "--format", "invalid"],
+    ["reference", "query", "table"],
+    ["skill", "extra"],
+    ["help", "template"],
+  ]) {
+    await assert.rejects(
+      exec(process.execPath, [cli, ...args]),
+      (error) => error.code === 1 && Boolean(error.stderr),
+    );
   }
 });

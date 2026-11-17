@@ -1,11 +1,27 @@
 {
   "name": "@p10i/do-md",
-  "version": "1.4.1",
+  "version": "2.0.0-rc.1",
   "description": "Markdown template runtime and editing utilities",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/piontkovsk11andre1/do-md.git"
+  },
+  "homepage": "https://github.com/piontkovsk11andre1/do-md#readme",
+  "bugs": {
+    "url": "https://github.com/piontkovsk11andre1/do-md/issues"
+  },
+  "keywords": [
+    "markdown",
+    "templates",
+    "parser",
+    "code-generation",
+    "mcp",
+    "cli"
+  ],
   "type": "module",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.13.0"
   },
   "publishConfig": {
     "access": "public"
@@ -21,9 +37,21 @@
       "types": "./sources/index.d.mts",
       "import": "./sources/index.mjs"
     },
-    "./sources/*.mjs": {
-      "types": "./sources/*.d.mts",
-      "import": "./sources/*.mjs"
+    "./io": {
+      "types": "./sources/IO/index.d.mts",
+      "import": "./sources/IO/index.mjs"
+    },
+    "./http": {
+      "types": "./sources/HTTP/index.d.mts",
+      "import": "./sources/HTTP/index.mjs"
+    },
+    "./mcp": {
+      "types": "./sources/MCP/Server.d.mts",
+      "import": "./sources/MCP/Server.mjs"
+    },
+    "./markdown": {
+      "types": "./sources/Reader/Markdown.d.mts",
+      "import": "./sources/Reader/Markdown.mjs"
     },
     "./skills/do-md/SKILL.md": "./skills/do-md/SKILL.md",
     "./package.json": "./package.json"
@@ -38,23 +66,38 @@
     "compose.example.yaml",
     ".dockerignore",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md"
   ],
   "scripts": {
     "test": "node --test",
-    "docs": "node scripts/generate-reference.mjs"
+    "docs": "node scripts/generate-reference.mjs",
+    "docs:check": "node scripts/generate-reference.mjs --check",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint .",
+    "types": "node scripts/generate-types.mjs",
+    "types:check": "node scripts/generate-types.mjs --check && node --test tests/types.test.mjs",
+    "check": "npm run format:check && npm run lint && npm run types:check && npm run docs:check && npm test",
+    "bench": "node benchmarks/runtime.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.2",
     "acorn": "8.15.0",
     "chalk": "^5.0.0",
-    "fast-glob": "^3.3.3",
+    "error-stack-parser": "2.1.4",
+    "glob": "14.0.6",
     "string-width": "4.2.3",
     "yaml": "^2.9.0",
     "yargs": "^17.0.0",
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "eslint": "10.15.0",
+    "fast-check": "4.3.0",
+    "globals": "16.5.0",
+    "prettier": "3.10.1",
     "typescript": "^7.0.2"
   }
 }

@@ -1,7 +1,23 @@
 import { Slot } from "./Slot.mjs";
-import { SyntaxError } from "./SyntaxError.mjs";
-import type { CodeBlockValue, CursorSnapshot, DocumentNode, FrontmatterValue, HeadingNode, ImageValue, LinkValue, ListTreeValue, QueryRegionMetadata, ReaderOptions, RegionMetadata, SafeParseSchema, SlotMetadata, TableValue } from "./types.d.mts";
+import { DoMdError } from "./DoMdError.mjs";
+import type {
+  CodeBlockValue,
+  CursorSnapshot,
+  DocumentNode,
+  FrontmatterValue,
+  HeadingNode,
+  ImageValue,
+  LinkValue,
+  ListTreeValue,
+  QueryRegionMetadata,
+  ReaderOptions,
+  RegionMetadata,
+  SafeParseSchema,
+  SlotMetadata,
+  TableValue,
+} from "./types.d.mts";
 export class Reader<TContext extends Record<string, unknown> = Record<string, unknown>> {
+  readonly mode: "reader";
   constructor(source?: unknown, options?: ReaderOptions);
   inputSourceText: string;
   source: string;
@@ -12,7 +28,7 @@ export class Reader<TContext extends Record<string, unknown> = Record<string, un
   char: number;
   optionalMode: boolean;
   context: TContext;
-  errors: SyntaxError[];
+  errors: DoMdError[];
   data: null;
   slotMap: SlotMetadata[];
   regionMap: RegionMetadata[];
@@ -25,7 +41,7 @@ export class Reader<TContext extends Record<string, unknown> = Record<string, un
   restoreCursor(cursor: CursorSnapshot): this;
   advanceTo(end: number): this;
   required(): this;
-  error(message: unknown): SyntaxError;
+  error(message: unknown): DoMdError;
   parse(literal: unknown): this;
   parseRegExp(re: RegExp | string): Slot<string>;
   parseUntil(limiter: unknown): Slot<string>;
@@ -47,7 +63,9 @@ export class Reader<TContext extends Record<string, unknown> = Record<string, un
   paragraph(): Slot<string>;
   list(): Slot<string[]>;
   listTree(): Slot<ListTreeValue>;
-  frontmatter<T extends Record<string, unknown> = Record<string, unknown>>(options?: SafeParseSchema<T> | { schema?: SafeParseSchema<T> }): Slot<FrontmatterValue<T>>;
+  frontmatter<T extends Record<string, unknown> = Record<string, unknown>>(
+    options?: SafeParseSchema<T> | { schema?: SafeParseSchema<T> },
+  ): Slot<FrontmatterValue<T>>;
   table(): Slot<TableValue>;
   codeBlock(): Slot<CodeBlockValue>;
   blockQuote(): Slot<string>;
@@ -63,7 +81,9 @@ export class Reader<TContext extends Record<string, unknown> = Record<string, un
   optional(fn: (reader: this) => void): boolean;
   scope(key: string, fn: (reader: Reader<Record<string, unknown>>, index: number) => void): void;
   repeat(fn: (reader: this, index: number) => unknown): TContext[];
-  skipUntilHeading(predicate?: string | ((heading: { level: number; text: string; node: HeadingNode }) => boolean)): boolean;
+  skipUntilHeading(
+    predicate?: string | ((heading: { level: number; text: string; node: HeadingNode }) => boolean),
+  ): boolean;
   assertConsumed(options?: { trailingWhitespace?: boolean }): boolean;
   fork(): Reader<Record<string, unknown>>;
 }

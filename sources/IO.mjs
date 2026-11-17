@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 
-import { makeNotImplementedError } from "./SyntaxError.mjs";
+import { makeNotImplementedError } from "./DoMdError.mjs";
 
-export { createConflictError, createIoError } from "./SyntaxError.mjs";
+export { createConflictError, createIoError } from "./DoMdError.mjs";
 
 /**
  * @typedef {Object} IO

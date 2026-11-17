@@ -5,7 +5,7 @@ import { Editor } from "../sources/Editor.mjs";
 import { Reader } from "../sources/Reader.mjs";
 import { Writer } from "../sources/Writer.mjs";
 import { Virtual } from "../sources/IO/Virtual.mjs";
-import { ERROR_CODES } from "../sources/SyntaxError.mjs";
+import { ERROR_CODES } from "../sources/DoMdError.mjs";
 
 const META = "module id=run-some-script";
 const FENCED = "```js module id=run-some-script\nbody\n```\n";

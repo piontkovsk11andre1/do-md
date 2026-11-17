@@ -1,7 +1,13 @@
 import { Template, runTemplate } from "./Template.mjs";
 import { Writer } from "./Writer.mjs";
-import { ERROR_CODES, makeUserError } from "./SyntaxError.mjs";
-import { parseSource, readText, readTextSnapshot, wrapTemplate, writeText } from "./commands/helpers.mjs";
+import { makeUserError } from "./DoMdError.mjs";
+import {
+  parseSource,
+  readText,
+  readTextSnapshot,
+  wrapTemplate,
+  writeText,
+} from "./commands/helpers.mjs";
 
 const SAFE_KEY = /^[A-Za-z_][A-Za-z0-9_-]*$/;
 
@@ -241,7 +247,11 @@ function matchesTableShape(value) {
   if (!Array.isArray(value.align) || value.align.length !== value.headers.length) {
     return false;
   }
-  if (!value.align.every((item) => item === null || item === "left" || item === "right" || item === "center")) {
+  if (
+    !value.align.every(
+      (item) => item === null || item === "left" || item === "right" || item === "center",
+    )
+  ) {
     return false;
   }
   if (!Array.isArray(value.rows)) {
@@ -262,13 +272,19 @@ function matchesListTreeShape(value) {
   if (!isPlainObject(value) || !Array.isArray(value.items)) {
     return false;
   }
-  if (value.ordered === true && value.start != null && (!Number.isInteger(value.start) || value.start < 0)) {
+  if (
+    value.ordered === true &&
+    value.start != null &&
+    (!Number.isInteger(value.start) || value.start < 0)
+  ) {
     return false;
   }
-  return value.items.every((item) =>
-    isPlainObject(item) &&
-    Array.isArray(item.children) &&
-    (item.checked == null || typeof item.checked === "boolean"));
+  return value.items.every(
+    (item) =>
+      isPlainObject(item) &&
+      Array.isArray(item.children) &&
+      (item.checked == null || typeof item.checked === "boolean"),
+  );
 }
 
 function matchesFrontmatterShape(value) {
@@ -315,14 +331,26 @@ function matchesLeafShape(leafType, value) {
     case "table":
       return matchesTableShape(value);
     case "codeBlock":
-      return isPlainObject(value)
-        && (value.language == null || typeof value.language === "string")
-        && (!Object.hasOwn(value, "meta") || typeof value.meta === "string")
-        && typeof value.value === "string";
+      return (
+        isPlainObject(value) &&
+        (value.language == null || typeof value.language === "string") &&
+        (!Object.hasOwn(value, "meta") || typeof value.meta === "string") &&
+        typeof value.value === "string"
+      );
     case "link":
-      return isPlainObject(value) && typeof value.url === "string" && typeof value.text === "string" && (value.title == null || typeof value.title === "string");
+      return (
+        isPlainObject(value) &&
+        typeof value.url === "string" &&
+        typeof value.text === "string" &&
+        (value.title == null || typeof value.title === "string")
+      );
     case "image":
-      return isPlainObject(value) && typeof value.url === "string" && typeof value.alt === "string" && (value.title == null || typeof value.title === "string");
+      return (
+        isPlainObject(value) &&
+        typeof value.url === "string" &&
+        typeof value.alt === "string" &&
+        (value.title == null || typeof value.title === "string")
+      );
     default:
       return true;
   }
@@ -382,7 +410,8 @@ function assertSafeMergeKeys(value, parts = []) {
     return;
   }
   for (const key of Object.keys(value)) {
-    const next = Array.isArray(value) && /^\d+$/.test(key) ? [...parts, Number(key)] : [...parts, key];
+    const next =
+      Array.isArray(value) && /^\d+$/.test(key) ? [...parts, Number(key)] : [...parts, key];
     if (isUnsafeKey(key)) {
       throw makeUserError(`unsafe patch key: ${formatPath(next)}`);
     }
@@ -436,15 +465,21 @@ function applySplices(source, splices) {
 }
 
 function sourceEol(source, start = 0, end = source.length) {
-  const within = String(source).slice(start, end).match(/\r\n|\r|\n/);
+  const within = String(source)
+    .slice(start, end)
+    .match(/\r\n|\r|\n/);
   if (within) {
     return within[0];
   }
-  const after = String(source).slice(start).match(/\r\n|\r|\n/);
+  const after = String(source)
+    .slice(start)
+    .match(/\r\n|\r|\n/);
   if (after) {
     return after[0];
   }
-  const before = String(source).slice(0, start).match(/\r\n|\r|\n/g);
+  const before = String(source)
+    .slice(0, start)
+    .match(/\r\n|\r|\n/g);
   return before?.at(-1) ?? "\n";
 }
 
@@ -452,6 +487,12 @@ function normalizeEol(text, eol) {
   return String(text).replace(/\r\n|\r|\n/g, eol);
 }
 
+/**
+ * Edit recorded spans against an immutable source snapshot. Parsed slots retain
+ * their offsets; replacements are assembled without reserializing surrounding
+ * Markdown. save() commits with the revision captured by open(), preventing a
+ * stale editor from silently overwriting another writer's successful update.
+ */
 export class Editor {
   constructor({ io, file = "", template = "", context = {}, options = {} } = {}) {
     this.io = io;
@@ -496,11 +537,13 @@ export class Editor {
   }
 
   get changes() {
-    return protect(this._journal.map((entry) => ({
-      path: entry.path,
-      before: entry.before,
-      after: entry.after,
-    })));
+    return protect(
+      this._journal.map((entry) => ({
+        path: entry.path,
+        before: entry.before,
+        after: entry.after,
+      })),
+    );
   }
 
   _recordChange(path, before, after, { structural = false, deleted = false } = {}) {
@@ -575,8 +618,10 @@ export class Editor {
       return true;
     }
     const normalized = formatPath(tokenizePath(path));
-    return lookupSlot(this.slotMap, normalized).kind !== "unknown" ||
-      this.regionMap.some((region) => region.path === normalized);
+    return (
+      lookupSlot(this.slotMap, normalized).kind !== "unknown" ||
+      this.regionMap.some((region) => region.path === normalized)
+    );
   }
 
   keys() {
@@ -738,7 +783,9 @@ export class Editor {
     const text = this.render();
     const samePath = outputPath === this.file;
     const writeOptions = samePath
-      ? force === true ? { force: true } : { expectedRevision: this.revision }
+      ? force === true
+        ? { force: true }
+        : { expectedRevision: this.revision }
       : { force: true };
     const committed = await writeText(this.io, outputPath, text, writeOptions);
     this._rebase(outputPath, text, committed?.revision ?? null);
@@ -780,10 +827,14 @@ export class Editor {
       regions.set(region.path, region);
     }
 
-    const selectedRegions = [...regions.values()].filter((region, _index, all) =>
-      !all.some((parent) => parent !== region && isPathPrefix(parent.path, region.path)));
+    const selectedRegions = [...regions.values()].filter(
+      (region, _index, all) =>
+        !all.some((parent) => parent !== region && isPathPrefix(parent.path, region.path)),
+    );
     for (const { path } of latest.values()) {
-      if (selectedRegions.some((region) => region.path === path || isPathPrefix(region.path, path))) {
+      if (
+        selectedRegions.some((region) => region.path === path || isPathPrefix(region.path, path))
+      ) {
         latest.delete(path);
       }
     }
@@ -811,7 +862,9 @@ export class Editor {
         const rendered = this._renderFull({
           eol: sourceEol(this.originalSource, region.sourceOffsetStart, region.sourceOffsetEnd),
         });
-        const outputRegion = this.writer.regionMap.find((candidate) => candidate.path === region.path);
+        const outputRegion = this.writer.regionMap.find(
+          (candidate) => candidate.path === region.path,
+        );
         if (!outputRegion) {
           return null;
         }
@@ -819,7 +872,11 @@ export class Editor {
         const end = Number(region.sourceOffsetEnd);
         const outputStart = Number(outputRegion.outputOffsetStart);
         const outputEnd = Number(outputRegion.outputOffsetEnd);
-        if (![start, end, outputStart, outputEnd].every(Number.isFinite) || end < start || outputEnd < outputStart) {
+        if (
+          ![start, end, outputStart, outputEnd].every(Number.isFinite) ||
+          end < start ||
+          outputEnd < outputStart
+        ) {
           return null;
         }
         splices.push({ start, end, replacement: rendered.slice(outputStart, outputEnd) });
@@ -828,8 +885,10 @@ export class Editor {
 
     splices.sort((a, b) => b.start - a.start || b.end - a.end);
     for (let i = 1; i < splices.length; i++) {
-      if (splices[i].end > splices[i - 1].start ||
-          (splices[i].start === splices[i].end && splices[i].start === splices[i - 1].start)) {
+      if (
+        splices[i].end > splices[i - 1].start ||
+        (splices[i].start === splices[i].end && splices[i].start === splices[i - 1].start)
+      ) {
         return null;
       }
     }
@@ -852,9 +911,10 @@ export class Editor {
   _renderSlot(slot, value) {
     const eol = sourceEol(this.originalSource, slot.sourceOffsetStart, slot.sourceOffsetEnd);
     const writer = new Writer(this._context, { ...(this.options ?? {}), file: this.template, eol });
-    const prepared = slot.leafType === "heading"
-      ? { ...slot, headingLevel: headingLevelForSlot(slot, this.originalSource) }
-      : slot;
+    const prepared =
+      slot.leafType === "heading"
+        ? { ...slot, headingLevel: headingLevelForSlot(slot, this.originalSource) }
+        : slot;
     const rendered = writer.serializeSlotValue(prepared, value);
     return ["rawUntil", "rawUntilElement", "rawBlock", "rawRest"].includes(slot.leafType)
       ? rendered
@@ -863,7 +923,11 @@ export class Editor {
 
   _renderFull(options = {}) {
     const fn = wrapTemplate(this.templateSource, this.template);
-    const writer = new Writer(this._context, { ...(this.options ?? {}), ...options, file: this.template });
+    const writer = new Writer(this._context, {
+      ...(this.options ?? {}),
+      ...options,
+      file: this.template,
+    });
     runTemplate(fn, writer, this._context, this._context, this.options, this.io, this.template);
     this.writer = writer;
     return writer.toMarkdown();

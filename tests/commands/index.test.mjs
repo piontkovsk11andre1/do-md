@@ -4,7 +4,15 @@ import assert from "node:assert/strict";
 import * as commands from "../../sources/commands/index.mjs";
 
 test("commands index exports functions", () => {
-  assert.deepEqual(Object.keys(commands).sort(), ["create", "exportDoc", "match", "query", "render", "set", "validate"]);
+  assert.deepEqual(Object.keys(commands).sort(), [
+    "create",
+    "exportDoc",
+    "match",
+    "query",
+    "render",
+    "set",
+    "validate",
+  ]);
   assert.equal(typeof commands.validate, "function");
   assert.equal(typeof commands.create, "function");
   assert.equal(typeof commands.exportDoc, "function");

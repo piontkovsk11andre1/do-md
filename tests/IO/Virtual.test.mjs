@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { Virtual } from "../../sources/IO/Virtual.mjs";
-import { ERROR_CODES, SyntaxError } from "../../sources/SyntaxError.mjs";
+import { ERROR_CODES, DoMdError } from "../../sources/DoMdError.mjs";
 
 test("Virtual IO module exists", async () => {
   const io = new Virtual({ "/tmp/a.txt": "value" });
@@ -22,7 +22,7 @@ test("readFileAsync rejects missing files with DO_MD_IO_ERROR", async () => {
   const io = new Virtual();
   await assert.rejects(
     () => io.readFileAsync("missing.md"),
-    (err) => err instanceof SyntaxError && err.code === ERROR_CODES.DO_MD_IO_ERROR,
+    (err) => err instanceof DoMdError && err.code === ERROR_CODES.DO_MD_IO_ERROR,
   );
 });
 
@@ -50,6 +50,8 @@ test("globAsync expands template directories and glob patterns", async () => {
   });
   const expected = ["/templates/a.md.template", "/templates/nested/b.md.template"];
   assert.deepEqual(await io.globAsync("templates", { cwd: "/" }), expected);
-  assert.deepEqual(await io.globAsync("/templates/custom.template"), ["/templates/custom.template"]);
+  assert.deepEqual(await io.globAsync("/templates/custom.template"), [
+    "/templates/custom.template",
+  ]);
   assert.deepEqual(await io.globAsync("templates/**/*.md.template", { cwd: "/" }), expected);
 });

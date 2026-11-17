@@ -19,7 +19,10 @@ export class Client {
   maxInputBytes: number;
   noSnippets: boolean;
   capabilities: Record<string, unknown> | null;
-  request(path: string, options?: { body?: unknown; signal?: AbortSignal }): Promise<{ status: number; result: any }>;
+  request(
+    path: string,
+    options?: { body?: unknown; signal?: AbortSignal },
+  ): Promise<{ status: number; result: any }>;
   connect(): Promise<Record<string, any>>;
   call(name: string, params: Record<string, unknown>, signal?: AbortSignal): Promise<McpResult>;
 }

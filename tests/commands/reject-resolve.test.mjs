@@ -7,7 +7,7 @@ import { render } from "../../sources/commands/render.mjs";
 import { set } from "../../sources/commands/set.mjs";
 import { validate } from "../../sources/commands/validate.mjs";
 import { Virtual } from "../../sources/IO/Virtual.mjs";
-import { ERROR_CODES } from "../../sources/SyntaxError.mjs";
+import { ERROR_CODES } from "../../sources/DoMdError.mjs";
 
 const TEMPLATE = '# {% doc.line().as("title") %}\n';
 const RENDER_TEMPLATE = 'Title: {% doc.line().as("title") %}\n';
@@ -224,7 +224,8 @@ test("template wrap and runtime failures reject DO_MD_TEMPLATE_ERROR", async () 
     },
   );
   await assert.rejects(
-    () => create({ io: runtimeIo, file: "/fresh.md", template: "/tpl.md", data: { title: "Hello" } }),
+    () =>
+      create({ io: runtimeIo, file: "/fresh.md", template: "/tpl.md", data: { title: "Hello" } }),
     (err) => {
       assertRejectedError(err, ERROR_CODES.DO_MD_TEMPLATE_ERROR, "/tpl.md");
       return true;
@@ -239,7 +240,8 @@ test("template wrap and runtime failures reject DO_MD_TEMPLATE_ERROR", async () 
     },
   );
   await assert.rejects(
-    () => set({ io: runtimeIo, file: "/doc.md", template: "/tpl.md", key: "title", value: "World" }),
+    () =>
+      set({ io: runtimeIo, file: "/doc.md", template: "/tpl.md", key: "title", value: "World" }),
     (err) => {
       assertRejectedError(err, ERROR_CODES.DO_MD_TEMPLATE_ERROR, "/tpl.md");
       return true;
@@ -316,22 +318,34 @@ test("I/O failures reject DO_MD_IO_ERROR", async () => {
 test("bad library-call arguments reject DO_MD_USER_ERROR", async () => {
   const io = new Virtual({ "/doc.md": INPUT, "/tpl.md": TEMPLATE, "/parse.tpl.md": TEMPLATE });
 
-  await assert.rejects(() => validate({}), (err) => {
-    assertRejectedError(err, ERROR_CODES.DO_MD_USER_ERROR);
-    return true;
-  });
-  await assert.rejects(() => validate({ io, file: "/doc.md" }), (err) => {
-    assertRejectedError(err, ERROR_CODES.DO_MD_USER_ERROR);
-    return true;
-  });
-  await assert.rejects(() => create({}), (err) => {
-    assertRejectedError(err, ERROR_CODES.DO_MD_USER_ERROR);
-    return true;
-  });
-  await assert.rejects(() => create({ io, file: "/out.md" }), (err) => {
-    assertRejectedError(err, ERROR_CODES.DO_MD_USER_ERROR);
-    return true;
-  });
+  await assert.rejects(
+    () => validate({}),
+    (err) => {
+      assertRejectedError(err, ERROR_CODES.DO_MD_USER_ERROR);
+      return true;
+    },
+  );
+  await assert.rejects(
+    () => validate({ io, file: "/doc.md" }),
+    (err) => {
+      assertRejectedError(err, ERROR_CODES.DO_MD_USER_ERROR);
+      return true;
+    },
+  );
+  await assert.rejects(
+    () => create({}),
+    (err) => {
+      assertRejectedError(err, ERROR_CODES.DO_MD_USER_ERROR);
+      return true;
+    },
+  );
+  await assert.rejects(
+    () => create({ io, file: "/out.md" }),
+    (err) => {
+      assertRejectedError(err, ERROR_CODES.DO_MD_USER_ERROR);
+      return true;
+    },
+  );
   await assert.rejects(
     () => create({ io, file: "/fresh.md", template: "/tpl.md", data: 42 }),
     (err) => {
@@ -339,26 +353,41 @@ test("bad library-call arguments reject DO_MD_USER_ERROR", async () => {
       return true;
     },
   );
-  await assert.rejects(() => exportDoc({}), (err) => {
-    assertRejectedError(err, ERROR_CODES.DO_MD_USER_ERROR);
-    return true;
-  });
-  await assert.rejects(() => exportDoc({ io, file: "/doc.md", template: "/tpl.md" }), (err) => {
-    assertRejectedError(err, ERROR_CODES.DO_MD_USER_ERROR);
-    return true;
-  });
-  await assert.rejects(() => set({ key: "title", value: "World" }), (err) => {
-    assertRejectedError(err, ERROR_CODES.DO_MD_USER_ERROR);
-    return true;
-  });
-  await assert.rejects(() => set({ io, key: "title", value: "World" }), (err) => {
-    assertRejectedError(err, ERROR_CODES.DO_MD_USER_ERROR);
-    return true;
-  });
-  await assert.rejects(() => set({ io, file: "/doc.md", key: "title", value: "World" }), (err) => {
-    assertRejectedError(err, ERROR_CODES.DO_MD_USER_ERROR);
-    return true;
-  });
+  await assert.rejects(
+    () => exportDoc({}),
+    (err) => {
+      assertRejectedError(err, ERROR_CODES.DO_MD_USER_ERROR);
+      return true;
+    },
+  );
+  await assert.rejects(
+    () => exportDoc({ io, file: "/doc.md", template: "/tpl.md" }),
+    (err) => {
+      assertRejectedError(err, ERROR_CODES.DO_MD_USER_ERROR);
+      return true;
+    },
+  );
+  await assert.rejects(
+    () => set({ key: "title", value: "World" }),
+    (err) => {
+      assertRejectedError(err, ERROR_CODES.DO_MD_USER_ERROR);
+      return true;
+    },
+  );
+  await assert.rejects(
+    () => set({ io, key: "title", value: "World" }),
+    (err) => {
+      assertRejectedError(err, ERROR_CODES.DO_MD_USER_ERROR);
+      return true;
+    },
+  );
+  await assert.rejects(
+    () => set({ io, file: "/doc.md", key: "title", value: "World" }),
+    (err) => {
+      assertRejectedError(err, ERROR_CODES.DO_MD_USER_ERROR);
+      return true;
+    },
+  );
   await assert.rejects(
     () => set({ io, file: "/doc.md", template: "/tpl.md", key: "missing", value: "x" }),
     (err) => {
@@ -366,12 +395,16 @@ test("bad library-call arguments reject DO_MD_USER_ERROR", async () => {
       return true;
     },
   );
-  await assert.rejects(() => render({}), (err) => {
-    assertRejectedError(err, ERROR_CODES.DO_MD_USER_ERROR);
-    return true;
-  });
   await assert.rejects(
-    () => render({ io, file: "/doc.md", parseTemplate: "/parse.tpl.md", renderTemplate: "/tpl.md" }),
+    () => render({}),
+    (err) => {
+      assertRejectedError(err, ERROR_CODES.DO_MD_USER_ERROR);
+      return true;
+    },
+  );
+  await assert.rejects(
+    () =>
+      render({ io, file: "/doc.md", parseTemplate: "/parse.tpl.md", renderTemplate: "/tpl.md" }),
     (err) => {
       assertRejectedError(err, ERROR_CODES.DO_MD_USER_ERROR);
       return true;

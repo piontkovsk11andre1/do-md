@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { Reader } from "../sources/Reader.mjs";
 import { parseMarkdown } from "../sources/Reader/Markdown.mjs";
 import { Slot } from "../sources/Slot.mjs";
-import { ERROR_CODES, SyntaxError } from "../sources/SyntaxError.mjs";
+import { ERROR_CODES, DoMdError } from "../sources/DoMdError.mjs";
 import { Template } from "../sources/Template.mjs";
 import { Writer } from "../sources/Writer.mjs";
 
@@ -50,7 +50,7 @@ test("Writer starts with ctx === data and an empty buffer", () => {
 test("primitive data throws DO_MD_USER_ERROR", () => {
   assert.throws(
     () => new Writer(42),
-    (err) => err instanceof SyntaxError && err.code === ERROR_CODES.DO_MD_USER_ERROR,
+    (err) => err instanceof DoMdError && err.code === ERROR_CODES.DO_MD_USER_ERROR,
   );
 });
 
@@ -129,11 +129,11 @@ test("the same template parses to { k } and renders from { k }", () => {
 });
 
 function isTemplateError(err) {
-  return err instanceof SyntaxError && err.code === ERROR_CODES.DO_MD_TEMPLATE_ERROR;
+  return err instanceof DoMdError && err.code === ERROR_CODES.DO_MD_TEMPLATE_ERROR;
 }
 
 function isUserError(err) {
-  return err instanceof SyntaxError && err.code === ERROR_CODES.DO_MD_USER_ERROR;
+  return err instanceof DoMdError && err.code === ERROR_CODES.DO_MD_USER_ERROR;
 }
 
 test("scope iterates data[k] with a shared buffer and ctx === data === element", () => {
@@ -202,17 +202,22 @@ test("scope regionMap records matching output spans and nested prefixes", () => 
   const empty = new Writer({ items: [] });
   empty.literal("prefix");
   empty.scope("items", () => {});
-  assert.deepEqual(empty.regionMap, [{
-    key: "items",
-    path: "items",
-    outputOffsetStart: 6,
-    outputOffsetEnd: 6,
-    elements: [],
-  }]);
+  assert.deepEqual(empty.regionMap, [
+    {
+      key: "items",
+      path: "items",
+      outputOffsetStart: 6,
+      outputOffsetEnd: 6,
+      elements: [],
+    },
+  ]);
   empty.optional(() => {
     empty.scope("discarded", () => {});
   });
-  assert.equal(empty.regionMap.some((region) => region.path === "discarded"), false);
+  assert.equal(
+    empty.regionMap.some((region) => region.path === "discarded"),
+    false,
+  );
 });
 
 test("scope throws DO_MD_TEMPLATE_ERROR when data[k] is a non-array", () => {
@@ -464,7 +469,13 @@ test("scope with 9999 items does not hit the iteration guard", () => {
 test("repeat applies trim, default, validate, and notEmpty in bind order", () => {
   const writer = new Writer({ notes: ["  ok  "] });
   writer.repeat(() => {
-    writer.line().default("x").trim().validate((v) => v === "ok").notEmpty().asArray("notes");
+    writer
+      .line()
+      .default("x")
+      .trim()
+      .validate((v) => v === "ok")
+      .notEmpty()
+      .asArray("notes");
     writer.literal("\n");
   });
   assert.equal(writer.toMarkdown(), "ok\n");
@@ -477,7 +488,10 @@ test("repeat validate returning false throws DO_MD_USER_ERROR and discards the i
     () =>
       writer.repeat(() => {
         writer.literal("-");
-        writer.line().validate(() => false).asArray("notes");
+        writer
+          .line()
+          .validate(() => false)
+          .asArray("notes");
       }),
     isUserError,
   );
@@ -489,7 +503,12 @@ test("scope applies trim, default, validate, and notEmpty on child data", () => 
     chapters: [{ name: "  One  " }],
   });
   writer.scope("chapters", (chapter) => {
-    chapter.line().trim().validate((v) => v === "One").notEmpty().as("name");
+    chapter
+      .line()
+      .trim()
+      .validate((v) => v === "One")
+      .notEmpty()
+      .as("name");
     chapter.literal("|");
     chapter.line().default("none").as("missing");
   });
@@ -503,7 +522,14 @@ test("notEmpty outside optional still throws DO_MD_TEMPLATE_ERROR", () => {
 
 test("validate returning false throws DO_MD_USER_ERROR", () => {
   const writer = new Writer({ k: "x" });
-  assert.throws(() => writer.line().validate(() => false).as("k"), isUserError);
+  assert.throws(
+    () =>
+      writer
+        .line()
+        .validate(() => false)
+        .as("k"),
+    isUserError,
+  );
 });
 
 test("a chapters template renders nested scope from data", () => {
@@ -559,15 +585,25 @@ test("bullet option is used by writeList, list slots, and append", () => {
   writer.writeList(["x", "y"]);
   writer.list().as("items");
   assert.equal(writer.toMarkdown(), "* x\n* y\n\n* a\n* b");
-  const markdown = new Writer({}, { bullet: "+" }).append(parseMarkdown("- one\n- two\n")).toMarkdown();
+  const markdown = new Writer({}, { bullet: "+" })
+    .append(parseMarkdown("- one\n- two\n"))
+    .toMarkdown();
   assert.match(markdown, /^\+ one\n\+ two/);
-  assert.deepEqual(stripPosition(parseMarkdown(markdown)), stripPosition(parseMarkdown("- one\n- two\n")));
+  assert.deepEqual(
+    stripPosition(parseMarkdown(markdown)),
+    stripPosition(parseMarkdown("- one\n- two\n")),
+  );
 });
 
 test("orderedDelim option is used when appending ordered lists", () => {
-  const markdown = new Writer({}, { orderedDelim: ")" }).append(parseMarkdown("1. a\n2. b\n")).toMarkdown();
+  const markdown = new Writer({}, { orderedDelim: ")" })
+    .append(parseMarkdown("1. a\n2. b\n"))
+    .toMarkdown();
   assert.match(markdown, /^1\) a\n2\) b/);
-  assert.deepEqual(stripPosition(parseMarkdown(markdown)), stripPosition(parseMarkdown("1. a\n2. b\n")));
+  assert.deepEqual(
+    stripPosition(parseMarkdown(markdown)),
+    stripPosition(parseMarkdown("1. a\n2. b\n")),
+  );
 });
 
 test("fence option is used by writeCodeBlock, codeBlock slots, and append", () => {
@@ -575,13 +611,21 @@ test("fence option is used by writeCodeBlock, codeBlock slots, and append", () =
   writer.writeCodeBlock("y", "md");
   writer.codeBlock().as("block");
   assert.equal(writer.toMarkdown(), "~~~md\ny\n~~~\n\n~~~js\nx\n~~~");
-  const markdown = new Writer({}, { fence: "~" }).append(parseMarkdown("```js\ncode\n```\n")).toMarkdown();
+  const markdown = new Writer({}, { fence: "~" })
+    .append(parseMarkdown("```js\ncode\n```\n"))
+    .toMarkdown();
   assert.match(markdown, /^~~~js\ncode\n~~~/);
-  assert.deepEqual(stripPosition(parseMarkdown(markdown)), stripPosition(parseMarkdown("```js\ncode\n```\n")));
+  assert.deepEqual(
+    stripPosition(parseMarkdown(markdown)),
+    stripPosition(parseMarkdown("```js\ncode\n```\n")),
+  );
 });
 
 test("headingStyle setext is used for levels 1-2 and ATX for higher levels", () => {
-  const writer = new Writer({ title: "Hello", section: "Two", deep: "Three" }, { headingStyle: "setext" });
+  const writer = new Writer(
+    { title: "Hello", section: "Two", deep: "Three" },
+    { headingStyle: "setext" },
+  );
   writer.heading(1).as("title");
   writer.literal("\n");
   writer.heading(2).as("section");
@@ -605,7 +649,9 @@ test("tightLists false emits loose lists from writeList and list slots", () => {
 });
 
 test("append keeps a tight list tight even when tightLists is false", () => {
-  const markdown = new Writer({}, { tightLists: false }).append(parseMarkdown("- one\n- two\n")).toMarkdown();
+  const markdown = new Writer({}, { tightLists: false })
+    .append(parseMarkdown("- one\n- two\n"))
+    .toMarkdown();
   assert.match(markdown, /^- one\n- two/);
   assert.equal(parseMarkdown(markdown).children[0].tight, true);
 });
@@ -636,7 +682,7 @@ test("append serializes a document AST and reparses modulo position", () => {
     "",
     "Hello *em* and **strong** and `code`",
     "soft. Hard  ",
-    "break. [link](u \"t\") ![alt](img) <https://ex.com> <a@b.co> <span>x</span>",
+    'break. [link](u "t") ![alt](img) <https://ex.com> <a@b.co> <span>x</span>',
     "",
     "---",
     "",
@@ -746,7 +792,7 @@ test("byte-level leaves emit only the value with no implicit block boundary", ()
   writer.literal(" tail");
   assert.equal(
     writer.toMarkdown(),
-    "# L|T|U|R Homepage: [site](https://ex.com) Logo: ![logo](logo.png \"cap\") Repo: <https://git.ex> Binary: `do-md` - [x] tail",
+    '# L|T|U|R Homepage: [site](https://ex.com) Logo: ![logo](logo.png "cap") Repo: <https://git.ex> Binary: `do-md` - [x] tail',
   );
 });
 
@@ -828,7 +874,9 @@ test("frontmatter preserves retained raw source or canonicalizes structured data
   assert.equal(canonical.toMarkdown(), "---\ntitle: Hello\ncount: 2\n---");
   assert.deepEqual(canonical.toAst().children[0].data, { title: "Hello", count: 2 });
 
-  const reservedKeys = new Writer({ meta: { data: { nested: true }, raw: "literal", title: "kept" } });
+  const reservedKeys = new Writer({
+    meta: { data: { nested: true }, raw: "literal", title: "kept" },
+  });
   reservedKeys.frontmatter().as("meta");
   assert.match(reservedKeys.toMarkdown(), /title: kept/);
   assert.deepEqual(reservedKeys.toAst().children[0].data, {
@@ -844,7 +892,10 @@ test("raw slots emit exact strings and record raw AST nodes", () => {
   writer.rawBlock().as("b");
   writer.rawRest().as("c");
   assert.equal(writer.toMarkdown(), "x  \r\n# raw\nend");
-  assert.deepEqual(writer.toAst().children.map((node) => node.type), ["raw", "raw", "raw"]);
+  assert.deepEqual(
+    writer.toAst().children.map((node) => node.type),
+    ["raw", "raw", "raw"],
+  );
 });
 
 test("generated output uses the configured EOL while raw slots remain exact", () => {
@@ -935,7 +986,10 @@ test("table slots pad short rows, reject extra cells, and reject empty headers",
     table: { headers: ["A", "B", "C"], rows: [["1", "2"]], align: [] },
   });
   padded.table().as("table");
-  assert.equal(padded.toMarkdown(), "| A   | B   | C   |\n| --- | --- | --- |\n| 1   | 2   |     |");
+  assert.equal(
+    padded.toMarkdown(),
+    "| A   | B   | C   |\n| --- | --- | --- |\n| 1   | 2   |     |",
+  );
 
   const extra = new Writer({
     table: { headers: ["A", "B"], rows: [["1", "2", "3"]], align: [null, null] },

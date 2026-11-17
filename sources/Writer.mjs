@@ -3,7 +3,7 @@ import { isDeepStrictEqual } from "node:util";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 
 import { Slot, registerBinding } from "./Slot.mjs";
-import { makeTemplateError, makeUserError } from "./SyntaxError.mjs";
+import { makeTemplateError, makeUserError } from "./DoMdError.mjs";
 
 const MAX_ITERATIONS = 10000;
 
@@ -74,7 +74,12 @@ function schemaFromOptions(options) {
 }
 
 function listNodeFromTree(value) {
-  if (value == null || typeof value !== "object" || Array.isArray(value) || !Array.isArray(value.items)) {
+  if (
+    value == null ||
+    typeof value !== "object" ||
+    Array.isArray(value) ||
+    !Array.isArray(value.items)
+  ) {
     throw makeUserError("listTree value must be an object with an items array");
   }
   const ordered = value.ordered === true;
@@ -120,7 +125,9 @@ function frontmatterValue(value, options) {
   if (schema) {
     const result = schema.safeParse(data);
     if (!result?.success) {
-      throw makeUserError(`frontmatter validation failed${result?.error?.message ? `: ${result.error.message}` : ""}`);
+      throw makeUserError(
+        `frontmatter validation failed${result?.error?.message ? `: ${result.error.message}` : ""}`,
+      );
     }
     if (!Object.hasOwn(result, "data")) {
       throw makeUserError("frontmatter validation succeeded without data");
@@ -316,10 +323,13 @@ function serializeCodeBlock(node, options) {
   const ch = fenceChar(options);
   let length = 3;
   const lines = String(value).split("\n");
-  while (lines.some((line) => {
-    const re = ch === "`" ? new RegExp(`^\`{${length},}[ \t]*$`) : new RegExp(`^~{${length},}[ \t]*$`);
-    return re.test(line);
-  })) {
+  while (
+    lines.some((line) => {
+      const re =
+        ch === "`" ? new RegExp(`^\`{${length},}[ \t]*$`) : new RegExp(`^~{${length},}[ \t]*$`);
+      return re.test(line);
+    })
+  ) {
     length += 1;
   }
   const fence = ch.repeat(length);
@@ -393,7 +403,10 @@ function serializeList(node, options, indent = "") {
       if (child.type === "list") {
         return serializeBlock(child, options, { indent: contentIndent, tight: useTight });
       }
-      return indentNonList(serializeBlock(child, options, { indent: contentIndent, tight: useTight }), contentIndent);
+      return indentNonList(
+        serializeBlock(child, options, { indent: contentIndent, tight: useTight }),
+        contentIndent,
+      );
     });
     parts.push([firstChunk, ...restChunks].join(useTight ? "\n" : "\n\n"));
   }
@@ -509,7 +522,13 @@ function serializeBlock(node, options, ctx = {}) {
       return serializeList(node, options, ctx.indent ?? "");
     case "list_item":
       return serializeList(
-        { type: "list", ordered: false, start: null, tight: options.tightLists !== false, children: [node] },
+        {
+          type: "list",
+          ordered: false,
+          start: null,
+          tight: options.tightLists !== false,
+          children: [node],
+        },
         options,
         ctx.indent ?? "",
       );
@@ -620,7 +639,57 @@ function autolinkNode(url) {
   };
 }
 
+/**
+ * One speculative output transaction. Only commit appends chunks and shifts
+ * region offsets into the parent buffer. Rollback also restores bindings and
+ * enclosing optional counters, so failed attempts leave no observable residue.
+ */
+class OutputFrame {
+  constructor(writer) {
+    this.writer = writer;
+    this.buffer = writer.buffer;
+    this.nodes = writer.nodes;
+    this.current = writer.current;
+    this.bindings = new Map(writer.bindings);
+    this.regionStart = writer.regionMap.length;
+    this.outputStart = bufferLength(writer.buffer);
+    this.repeatMissed = writer._repeatMissed;
+    this.optional = writer._optionalFrame;
+    this.optionalState = this.optional ? { ...this.optional } : null;
+    writer.buffer = [];
+    writer.nodes = [];
+    writer.current = null;
+  }
+
+  finish(commit) {
+    const writer = this.writer;
+    if (commit) {
+      shiftRegions(writer.regionMap, this.regionStart, this.outputStart);
+      this.buffer.push(...writer.buffer);
+      this.nodes.push(...writer.nodes);
+    } else {
+      writer.regionMap.length = this.regionStart;
+      writer.bindings = this.bindings;
+      if (this.optional) {
+        Object.assign(this.optional, this.optionalState);
+      }
+    }
+    writer.buffer = this.buffer;
+    writer.nodes = this.nodes;
+    writer.current = this.current;
+    writer._repeatMissed = this.repeatMissed;
+  }
+}
+
+/**
+ * Render data through the same slot protocol as Reader. Bound values emit text;
+ * optional/repeat frames stage buffers and regions before committing output.
+ * Raw slots bypass EOL normalization to preserve retained source bytes.
+ */
 export class Writer {
+  get mode() {
+    return "writer";
+  }
   constructor(data = {}, options = {}) {
     if (!isDataObject(data)) {
       throw makeUserError("data must be an object");
@@ -798,49 +867,35 @@ export class Writer {
     return child;
   }
 
+  /** Stage optional output; commit only a successful branch with bound data. */
   optional(fn) {
     if (typeof fn !== "function") {
       this.optionalMode = true;
       return this;
     }
 
-    const savedBuffer = this.buffer;
-    const savedNodes = this.nodes;
-    const savedCurrent = this.current;
     const savedOptional = this.optionalMode;
     const savedFrame = this._optionalFrame;
-    const regionStart = this.regionMap.length;
-    const outputStart = bufferLength(savedBuffer);
-
-    this.buffer = [];
-    this.nodes = [];
-    this.current = null;
+    const frame = new OutputFrame(this);
     this.optionalMode = true;
     this._optionalFrame = { missed: false, bound: 0 };
-
+    let committed = false;
     try {
       fn(this);
       const ok = !this._optionalFrame.missed && this._optionalFrame.bound > 0;
-      if (ok) {
-        shiftRegions(this.regionMap, regionStart, outputStart);
-        savedBuffer.push(...this.buffer);
-        savedNodes.push(...this.nodes);
-      } else {
-        this.regionMap.length = regionStart;
+      if (ok && savedFrame) {
+        savedFrame.bound += this._optionalFrame.bound;
       }
+      committed = ok;
       return ok;
-    } catch (error) {
-      this.regionMap.length = regionStart;
-      throw error;
     } finally {
-      this.buffer = savedBuffer;
-      this.nodes = savedNodes;
-      this.current = savedCurrent;
+      frame.finish(committed);
       this.optionalMode = savedOptional;
       this._optionalFrame = savedFrame;
     }
   }
 
+  /** Child scopes share committed output but own independent binding registries. */
   scope(key, fn) {
     registerBinding(this, key, "as");
     const items = this.data != null && typeof this.data === "object" ? this.data[key] : undefined;
@@ -848,7 +903,13 @@ export class Writer {
     const start = bufferLength(this.buffer);
     const elements = [];
     if (items === undefined || items === null || (Array.isArray(items) && items.length === 0)) {
-      this.regionMap.push({ key: path, path, outputOffsetStart: start, outputOffsetEnd: start, elements });
+      this.regionMap.push({
+        key: path,
+        path,
+        outputOffsetStart: start,
+        outputOffsetEnd: start,
+        elements,
+      });
       return;
     }
     if (!Array.isArray(items)) {
@@ -877,51 +938,32 @@ export class Writer {
     });
   }
 
+  /** Each array iteration stages output; a missing binding discards only that attempt. */
   repeat(fn) {
     const savedIndex = this.repeatIndex;
+    const savedMissed = this._repeatMissed;
     let stopped = false;
     try {
       for (let index = 0; index < MAX_ITERATIONS; index++) {
-        const savedBuffer = this.buffer;
-        const savedNodes = this.nodes;
-        const savedCurrent = this.current;
-        const regionStart = this.regionMap.length;
-        const outputStart = bufferLength(savedBuffer);
-        this.buffer = [];
-        this.nodes = [];
-        this.current = null;
+        const frame = new OutputFrame(this);
         this.repeatIndex = index;
         this._repeatMissed = false;
 
-        let result;
+        let committed = false;
         try {
-          result = fn(this, index);
-        } catch (error) {
-          this.regionMap.length = regionStart;
-          this.buffer = savedBuffer;
-          this.nodes = savedNodes;
-          this.current = savedCurrent;
-          throw error;
+          const result = fn(this, index);
+          committed = result !== false && !this._repeatMissed;
+          if (!committed) {
+            stopped = true;
+            break;
+          }
+        } finally {
+          frame.finish(committed);
         }
-
-        const missed = this._repeatMissed;
-        const chunks = this.buffer;
-        const newNodes = this.nodes;
-        this.buffer = savedBuffer;
-        this.nodes = savedNodes;
-        this.current = savedCurrent;
-
-        if (result === false || missed) {
-          this.regionMap.length = regionStart;
-          stopped = true;
-          break;
-        }
-        shiftRegions(this.regionMap, regionStart, outputStart);
-        this.buffer.push(...chunks);
-        this.nodes.push(...newNodes);
       }
     } finally {
       this.repeatIndex = savedIndex;
+      this._repeatMissed = savedMissed;
     }
     if (!stopped) {
       throw makeTemplateError("max scope iterations exceeded");
@@ -932,7 +974,10 @@ export class Writer {
     const text = this.serializeSlotValue(slot, value);
     if (text !== "") {
       const retainedFrontmatter = slot.leafType === "frontmatter" && value?.source === text;
-      if (["rawUntil", "rawUntilElement", "rawBlock", "rawRest"].includes(slot.leafType) || retainedFrontmatter) {
+      if (
+        ["rawUntil", "rawUntilElement", "rawBlock", "rawRest"].includes(slot.leafType) ||
+        retainedFrontmatter
+      ) {
         this.writeRaw(text);
       } else {
         this.write(text);
@@ -959,7 +1004,13 @@ export class Writer {
         if (!Array.isArray(value)) {
           throw makeUserError("list value must be an array");
         }
-        return serializeList(listNodeFromItems(value.map((item) => String(item ?? "")), this.options), this.options);
+        return serializeList(
+          listNodeFromItems(
+            value.map((item) => String(item ?? "")),
+            this.options,
+          ),
+          this.options,
+        );
       case "listTree":
         return serializeList(listNodeFromTree(value), this.options);
       case "frontmatter":
@@ -1034,7 +1085,12 @@ export class Writer {
         return;
       case "list":
         this.closeCurrent();
-        this.nodes.push(listNodeFromItems(value.map((item) => String(item ?? "")), this.options));
+        this.nodes.push(
+          listNodeFromItems(
+            value.map((item) => String(item ?? "")),
+            this.options,
+          ),
+        );
         return;
       case "listTree":
         this.closeCurrent();
@@ -1160,7 +1216,10 @@ export class Writer {
     }
     this.closeCurrent();
     this.ensureBlockStart();
-    const node = listNodeFromItems(items.map((item) => String(item ?? "")), this.options);
+    const node = listNodeFromItems(
+      items.map((item) => String(item ?? "")),
+      this.options,
+    );
     this.write(`${serializeList(node, this.options)}\n\n`);
     this.nodes.push(node);
     return this;

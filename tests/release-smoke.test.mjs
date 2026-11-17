@@ -135,57 +135,83 @@ test.after(async () => {
   await Promise.all(cleanupDirs.map((dir) => fs.rm(dir, { recursive: true, force: true })));
 });
 
-test("npm pack + isolated global install exposes do-md and do-md-mcp", { timeout: INSTALL_TIMEOUT_MS }, async () => {
-  const install = await getInstall();
-  for (const relative of [
-    "bin/do-md.mjs",
-    "bin/do-md-mcp.mjs",
-    "sources/index.mjs",
-    "sources/MCP/Server.mjs",
-    "sources/HttpServer.mjs",
-    "skills/do-md/SKILL.md",
-    "Dockerfile",
-    "compose.example.yaml",
-    "README.md",
-    "LICENSE",
-  ]) {
-    assert.equal(await pathExists(path.join(install.installedPkg, relative)), true, relative);
-  }
-  const skill = runInstalled(install.doMd, ["skill"]);
-  assert.equal(skill.status, 0, skill.stderr);
-  assert.equal(skill.stdout, await fs.readFile(path.join(install.installedPkg, "skills/do-md/SKILL.md"), "utf8"));
-  const reference = runInstalled(install.doMd, ["reference", "query"]);
-  assert.equal(reference.status, 0, reference.stderr);
-  assert.equal(JSON.parse(reference.stdout).name, "query");
-});
+test(
+  "npm pack + isolated global install exposes do-md and do-md-mcp",
+  { timeout: INSTALL_TIMEOUT_MS },
+  async () => {
+    const install = await getInstall();
+    for (const relative of [
+      "bin/do-md.mjs",
+      "bin/do-md-mcp.mjs",
+      "sources/index.mjs",
+      "sources/MCP/Server.mjs",
+      "sources/HttpServer.mjs",
+      "skills/do-md/SKILL.md",
+      "Dockerfile",
+      "compose.example.yaml",
+      "README.md",
+      "LICENSE",
+    ]) {
+      assert.equal(await pathExists(path.join(install.installedPkg, relative)), true, relative);
+    }
+    const skill = runInstalled(install.doMd, ["skill"]);
+    assert.equal(skill.status, 0, skill.stderr);
+    assert.equal(
+      skill.stdout,
+      await fs.readFile(path.join(install.installedPkg, "skills/do-md/SKILL.md"), "utf8"),
+    );
+    const reference = runInstalled(install.doMd, ["reference", "query"]);
+    assert.equal(reference.status, 0, reference.stderr);
+    assert.equal(JSON.parse(reference.stdout).name, "query");
+  },
+);
 
-test("installed serve executes HTTP commands and both installed MCP proxies dispatch remotely", { timeout: INSTALL_TIMEOUT_MS }, async () => {
-  const install = await getInstall();
-  await withTempDir("do-md-smoke-http-", async (root) => {
-    await fs.writeFile(path.join(root, "doc.md"), "# Hello\n");
-    await fs.writeFile(path.join(root, "tpl.md"), '# {% doc.line().as("title") %}\n');
-    const service = await startServe(root, install.doMdJs);
-    try {
-      const response = await fetch(`${service.url}/v1/commands/export`, {
-        method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ params: { file: "doc.md", template: "tpl.md" } }),
-      });
-      assert.deepEqual((await response.json()).context, { title: "Hello" });
-      for (const entry of [[install.doMdJs, "mcp"], [install.doMdMcpJs]]) {
-        const transport = new StdioClientTransport({ command: process.execPath, args: [...entry, "--root", ".", "--url", service.url], stderr: "pipe" });
-        const client = new Client({ name: "installed-remote", version: "1" });
-        try {
-          await client.connect(transport);
-          const result = await client.callTool({ name: "validate", arguments: { file: "doc.md", template: "tpl.md" } });
-          assert.equal(result.isError, false);
-          assert.equal(client.getServerVersion().version, "1.4.1");
-          const skill = await client.readResource({ uri: "do-md://skills/do-md" });
-          assert.match(skill.contents[0].text, /name: do-md/);
-        } finally { await client.close(); }
+test(
+  "installed serve executes HTTP commands and both installed MCP proxies dispatch remotely",
+  { timeout: INSTALL_TIMEOUT_MS },
+  async () => {
+    const install = await getInstall();
+    await withTempDir("do-md-smoke-http-", async (root) => {
+      await fs.writeFile(path.join(root, "doc.md"), "# Hello\n");
+      await fs.writeFile(path.join(root, "tpl.md"), '# {% doc.line().as("title") %}\n');
+      const service = await startServe(root, install.doMdJs);
+      try {
+        const response = await fetch(`${service.url}/v1/commands/export`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ params: { file: "doc.md", template: "tpl.md" } }),
+        });
+        assert.deepEqual((await response.json()).context, { title: "Hello" });
+        for (const entry of [[install.doMdJs, "mcp"], [install.doMdMcpJs]]) {
+          const transport = new StdioClientTransport({
+            command: process.execPath,
+            args: [...entry, "--root", ".", "--url", service.url],
+            stderr: "pipe",
+          });
+          const client = new Client({ name: "installed-remote", version: "1" });
+          try {
+            await client.connect(transport);
+            const result = await client.callTool({
+              name: "validate",
+              arguments: { file: "doc.md", template: "tpl.md" },
+            });
+            assert.equal(result.isError, false);
+            assert.equal(
+              client.getServerVersion().version,
+              JSON.parse(await fs.readFile(path.join(ROOT, "package.json"), "utf8")).version,
+            );
+            const skill = await client.readResource({ uri: "do-md://skills/do-md" });
+            assert.match(skill.contents[0].text, /name: do-md/);
+          } finally {
+            await client.close();
+          }
+        }
+      } finally {
+        await service.close();
       }
-    } finally { await service.close(); }
-  });
-});
+    });
+  },
+);
 
 test(
   "installed do-md runs validate, export, create, set, render, match, and query from a clean temp project",
@@ -216,21 +242,32 @@ Released on 2026-05-02.
 - Removed dual-compile
 `,
       );
-      await fs.writeFile(path.join(dir, "other.md.template"), 'Version: {% doc.line().as("version") %}\n');
+      await fs.writeFile(
+        path.join(dir, "other.md.template"),
+        'Version: {% doc.line().as("version") %}\n',
+      );
       await fs.writeFile(
         path.join(dir, "z-query.md.template"),
         '{% doc.rawUntil("## Changes"); doc.query((match) => { match.literal("## Changes\\n\\n"); match.list().as("changes") }); doc.rawRest() %}',
       );
 
-      const validated = runInstalled(install.doMd, ["validate", "release.md", "release.md.template"], { cwd: dir });
+      const validated = runInstalled(
+        install.doMd,
+        ["validate", "release.md", "release.md.template"],
+        { cwd: dir },
+      );
       assert.equal(validated.status, 0, validated.stderr);
       assert.equal(validated.stderr, "");
 
-      const matched = runInstalled(install.doMd, ["match", "release.md", "*.md.template"], { cwd: dir });
+      const matched = runInstalled(install.doMd, ["match", "release.md", "*.md.template"], {
+        cwd: dir,
+      });
       assert.equal(matched.status, 0, matched.stderr);
       assert.match(matched.stdout.replaceAll("\\", "/"), /\/release\.md\.template\s*$/);
 
-      const queried = runInstalled(install.doMd, ["query", "release.md", "z-query.md.template"], { cwd: dir });
+      const queried = runInstalled(install.doMd, ["query", "release.md", "z-query.md.template"], {
+        cwd: dir,
+      });
       assert.equal(queried.status, 0, queried.stderr);
       assert.deepEqual(JSON.parse(queried.stdout).context, {
         changes: ["Added Doc interface", "Removed dual-compile"],

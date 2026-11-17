@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { Reader } from "../sources/Reader.mjs";
 import { Slot } from "../sources/Slot.mjs";
 import { Template } from "../sources/Template.mjs";
-import { ERROR_CODES, SyntaxError } from "../sources/SyntaxError.mjs";
+import { ERROR_CODES, DoMdError } from "../sources/DoMdError.mjs";
 
 test("Reader module exists", () => {
   assert.equal(typeof Reader, "function");
@@ -41,7 +41,7 @@ test("required literal mismatch records a parse error and leaves the cursor", ()
   assert.equal(reader.offset, 6);
   assert.equal(reader.errors.length, 1);
   const err = reader.errors[0];
-  assert.ok(err instanceof SyntaxError);
+  assert.ok(err instanceof DoMdError);
   assert.equal(err.code, ERROR_CODES.DO_MD_PARSE_ERROR);
   assert.equal(err.locations[0].source, "doc.md");
   assert.equal(err.locations[0].range.start.line, 2);
@@ -189,7 +189,7 @@ test("notEmpty records DO_MD_PARSE_ERROR with file, line, and column", () => {
   assert.throws(
     () => reader.line().notEmpty().as("k"),
     (err) => {
-      assert.ok(err instanceof SyntaxError);
+      assert.ok(err instanceof DoMdError);
       assert.equal(err.code, ERROR_CODES.DO_MD_PARSE_ERROR);
       assert.equal(err.locations[0].source, "doc.md");
       assert.equal(err.locations[0].range.start.line, 1);
@@ -277,11 +277,10 @@ test("listTree returns structured items with position-stripped block children", 
   assert.equal(slot.value.items[0].children[1].children[0].position, undefined);
   assert.deepEqual(reader.context.tree, slot.value);
   const metadata = reader.slotMap.find((entry) => entry.key === "tree");
-  assert.deepEqual(metadata.items.map((item) => item.key), [
-    "tree.items[0]",
-    "tree.items[0].children[1].children[0]",
-    "tree.items[1]",
-  ]);
+  assert.deepEqual(
+    metadata.items.map((item) => item.key),
+    ["tree.items[0]", "tree.items[0].children[1].children[0]", "tree.items[1]"],
+  );
   assert.equal(metadata.items[0].sourceOffsetStart, 0);
   assert.equal(metadata.items[0].checked.sourceOffsetStart, 3);
   assert.equal(metadata.items[0].checked.sourceOffsetEnd, 6);
@@ -303,7 +302,9 @@ test("frontmatter returns raw YAML and structured data and accepts safeParse sch
   const source = "---\r\ntitle: Hello\r\ncount: 2\r\n---\r\nBody";
   const schema = {
     safeParse(data) {
-      return data.count === 2 ? { success: true, data: { ...data, valid: true } } : { success: false };
+      return data.count === 2
+        ? { success: true, data: { ...data, valid: true } }
+        : { success: false };
     },
   };
   const reader = new Reader(source);
@@ -353,7 +354,9 @@ test("raw slots capture exact source ranges and assertConsumed reports the curso
 });
 
 test("table returns headers, rows, and align", () => {
-  const reader = new Reader("| A | B | C | D |\n| :--- | ---: | :---: | --- |\n| 1 | 2 | 3 | 4 |\n");
+  const reader = new Reader(
+    "| A | B | C | D |\n| :--- | ---: | :---: | --- |\n| 1 | 2 | 3 | 4 |\n",
+  );
   const slot = reader.table();
   assert.equal(slot.leafType, "table");
   assert.deepEqual(slot.value, {
@@ -378,19 +381,19 @@ test("table extra cells throw DO_MD_USER_ERROR", () => {
   assert.throws(
     () => reader.table(),
     (err) => {
-      assert.ok(err instanceof SyntaxError);
+      assert.ok(err instanceof DoMdError);
       assert.equal(err.code, ERROR_CODES.DO_MD_USER_ERROR);
       return true;
     },
   );
 });
 
-test("a table with zero headers records a SyntaxError", () => {
+test("a table with zero headers records a domain error", () => {
   const reader = new Reader("hello\n");
   const slot = reader.table();
   assert.equal(slot.value, null);
   assert.equal(reader.errors.length, 1);
-  assert.ok(reader.errors[0] instanceof SyntaxError);
+  assert.ok(reader.errors[0] instanceof DoMdError);
   assert.equal(reader.errors[0].code, ERROR_CODES.DO_MD_PARSE_ERROR);
 });
 
@@ -458,7 +461,7 @@ test("block-level leaves cannot be used inside a single line", () => {
   assert.equal(reader.errors[0].code, ERROR_CODES.DO_MD_PARSE_ERROR);
 });
 
-  test("a template can bind heading paragraph list and codeBlock leaves", () => {
+test("a template can bind heading paragraph list and codeBlock leaves", () => {
   const fn = Template.wrap(
     '{% doc.heading(1).as("title") %}\n\n{% doc.paragraph().as("body") %}\n\n{% doc.list().as("items") %}\n\n{% doc.codeBlock().as("sample") %}\n',
     "t.tpl.md",
@@ -524,7 +527,7 @@ test("required text mismatches record a parse error; optional mismatches rewind"
 });
 
 test("link returns url, flattened text, title, and the AST node", () => {
-  const reader = new Reader("[Hello *world*](https://ex.com \"t\") tail");
+  const reader = new Reader('[Hello *world*](https://ex.com "t") tail');
   const slot = reader.link();
   assert.equal(slot.leafType, "link");
   assert.deepEqual(slot.value, { url: "https://ex.com", text: "Hello world", title: "t" });
@@ -542,7 +545,7 @@ test("link title is null when omitted", () => {
 });
 
 test("image returns url, flattened alt, title, and the AST node", () => {
-  const reader = new Reader("![*alt*](img.png \"cap\") tail");
+  const reader = new Reader('![*alt*](img.png "cap") tail');
   const slot = reader.image();
   assert.equal(slot.leafType, "image");
   assert.deepEqual(slot.value, { url: "img.png", alt: "alt", title: "cap" });
@@ -623,9 +626,15 @@ test("byte-level leaves compose with same-line literals", () => {
   assert.equal(item.line().as("text").value, "ship it");
   assert.deepEqual(item.context, { done: true, text: "ship it" });
 
-  const catalog = new Reader("Homepage: [site](https://ex.com) — Logo: ![logo](logo.png) — Repo: <https://git.ex> — Binary: `do-md`\n");
+  const catalog = new Reader(
+    "Homepage: [site](https://ex.com) — Logo: ![logo](logo.png) — Repo: <https://git.ex> — Binary: `do-md`\n",
+  );
   catalog.literal("Homepage: ");
-  assert.deepEqual(catalog.link().as("homepage").value, { url: "https://ex.com", text: "site", title: null });
+  assert.deepEqual(catalog.link().as("homepage").value, {
+    url: "https://ex.com",
+    text: "site",
+    title: null,
+  });
   catalog.literal(" — Logo: ");
   assert.deepEqual(catalog.image().as("logo").value, { url: "logo.png", alt: "logo", title: null });
   catalog.literal(" — Repo: ");
@@ -677,7 +686,11 @@ test("scope regionMap records total, element, empty, and nested source spans", (
   const chapters = reader.regionMap.find((region) => region.path === "chapters");
   const sections = reader.regionMap.find((region) => region.path === "chapters[0].sections");
   assert.deepEqual(
-    { start: chapters.sourceOffsetStart, end: chapters.sourceOffsetEnd, elements: chapters.elements },
+    {
+      start: chapters.sourceOffsetStart,
+      end: chapters.sourceOffsetEnd,
+      elements: chapters.elements,
+    },
     {
       start: 0,
       end: 19,
@@ -691,17 +704,22 @@ test("scope regionMap records total, element, empty, and nested source spans", (
 
   const empty = new Reader("tail");
   empty.scope("items", (item) => item.heading(2).as("name"));
-  assert.deepEqual(empty.regionMap, [{
-    key: "items",
-    path: "items",
-    sourceOffsetStart: 0,
-    sourceOffsetEnd: 0,
-    elements: [],
-  }]);
+  assert.deepEqual(empty.regionMap, [
+    {
+      key: "items",
+      path: "items",
+      sourceOffsetStart: 0,
+      sourceOffsetEnd: 0,
+      elements: [],
+    },
+  ]);
   empty.optional(() => {
     empty.scope("discarded", (item) => item.heading(2).as("name"));
   });
-  assert.equal(empty.regionMap.some((region) => region.path === "discarded"), false);
+  assert.equal(
+    empty.regionMap.some((region) => region.path === "discarded"),
+    false,
+  );
 });
 
 test("scope collides with as at the same level", () => {
@@ -710,7 +728,7 @@ test("scope collides with as at the same level", () => {
   assert.throws(
     () => reader.scope("chapters", () => {}),
     (err) => {
-      assert.ok(err instanceof SyntaxError);
+      assert.ok(err instanceof DoMdError);
       assert.equal(err.code, ERROR_CODES.DO_MD_TEMPLATE_ERROR);
       return true;
     },
@@ -788,7 +806,9 @@ test("optional fn wrapping an empty scope rewinds", () => {
 });
 
 test("optional inside scope rewinds the optional block and keeps required literals", () => {
-  const reader = new Reader("## One\n\nbody\n\n**Consequences:**\n\n## Two\n\nmore\n\n**Consequences:**\n\n");
+  const reader = new Reader(
+    "## One\n\nbody\n\n**Consequences:**\n\n## Two\n\nmore\n\n**Consequences:**\n\n",
+  );
   reader.scope("chapters", (chapter) => {
     chapter.heading(2).as("title");
     chapter.literal("\n\n");
@@ -831,19 +851,20 @@ test("repeat returns false aborts the current iteration", () => {
   assert.equal(reader.context.notes, undefined);
 });
 
-test("repeat without asArray or false hits the 10000-iteration guard", () => {
+test("a successful repeat attempt must consume input", () => {
   const reader = new Reader("x");
   assert.throws(
     () => reader.repeat(() => {}),
     (err) => {
-      assert.ok(err instanceof SyntaxError);
+      assert.ok(err instanceof DoMdError);
       assert.equal(err.code, ERROR_CODES.DO_MD_TEMPLATE_ERROR);
+      assert.match(err.message, /repeat iteration must consume input/);
       return true;
     },
   );
 });
 
-test("scope that never aborts hits the 10000-iteration guard", () => {
+test("a successful scope child must consume input", () => {
   const reader = new Reader("x");
   assert.throws(
     () =>
@@ -851,8 +872,9 @@ test("scope that never aborts hits the 10000-iteration guard", () => {
         child.regexp(/^/).as("mark");
       }),
     (err) => {
-      assert.ok(err instanceof SyntaxError);
+      assert.ok(err instanceof DoMdError);
       assert.equal(err.code, ERROR_CODES.DO_MD_TEMPLATE_ERROR);
+      assert.match(err.message, /scope iteration must consume input/);
       return true;
     },
   );
@@ -860,7 +882,10 @@ test("scope that never aborts hits the 10000-iteration guard", () => {
 
 test("skipUntilHeading leaves the cursor at the matching heading", () => {
   const reader = new Reader("intro\n\n## Details\n\nbody\n");
-  assert.equal(reader.skipUntilHeading((heading) => heading.level === 2 && heading.text === "Details"), true);
+  assert.equal(
+    reader.skipUntilHeading((heading) => heading.level === 2 && heading.text === "Details"),
+    true,
+  );
   assert.equal(reader.heading(2).value, "Details");
 });
 
@@ -903,7 +928,7 @@ test("a template can bind text link image autolink codeSpan and checkbox leaves"
     "t.tpl.md",
   );
   const reader = new Reader(
-    "Author: Ada — 2026-01-01\nHomepage: [site](https://ex.com \"home\") — Logo: ![logo](logo.png) — Repo: <https://git.ex> — Binary: `do-md`\n- [x] ship it\n",
+    'Author: Ada — 2026-01-01\nHomepage: [site](https://ex.com "home") — Logo: ![logo](logo.png) — Repo: <https://git.ex> — Binary: `do-md`\n- [x] ship it\n',
   );
   fn(reader, reader.context, null, {}, null);
   assert.deepEqual(reader.context, {
@@ -982,7 +1007,9 @@ test("slotMap records scoped paths and keeps isArrayElement false", () => {
 });
 
 test("slotMap records nested scope indexes such as chapters[1].sections[0].body", () => {
-  const reader = new Reader("## Ch1\n\n### S1\n\nbody one\n\n### S2\n\nbody two\n\n## Ch2\n\n### S3\n\nbody three\n\n");
+  const reader = new Reader(
+    "## Ch1\n\n### S1\n\nbody one\n\n### S2\n\nbody two\n\n## Ch2\n\n### S3\n\nbody three\n\n",
+  );
   reader.scope("chapters", (chapter) => {
     chapter.heading(2).as("name");
     chapter.literal("\n\n");
@@ -1001,7 +1028,11 @@ test("slotMap records nested scope indexes such as chapters[1].sections[0].body"
         entry.isArrayElement === false,
     ),
   );
-  assert.ok(reader.slotMap.some((entry) => entry.key === "chapters[0].sections[1].name" && entry.isArrayElement === false));
+  assert.ok(
+    reader.slotMap.some(
+      (entry) => entry.key === "chapters[0].sections[1].name" && entry.isArrayElement === false,
+    ),
+  );
 });
 
 test("aborted optional and scope iterations do not leak slotMap entries", () => {
@@ -1071,7 +1102,12 @@ test("every documented block leaf value shape records leafType, offsets, and nod
   assert.equal(table.value.align[1], null);
 
   const fenced = new Reader("```js\nconst x = 1;\n```\n").codeBlock();
-  assertLeaf(fenced, "codeBlock", { language: "js", meta: "", value: "const x = 1;" }, "code_block");
+  assertLeaf(
+    fenced,
+    "codeBlock",
+    { language: "js", meta: "", value: "const x = 1;" },
+    "code_block",
+  );
   const indented = new Reader("    indented\n").codeBlock();
   assertLeaf(indented, "codeBlock", { language: null, meta: "", value: "indented" }, "code_block");
 
@@ -1106,7 +1142,7 @@ test("every documented inline and byte leaf value shape records leafType and off
   assertLeaf(regexp, "text", "v1.2.3");
   assert.equal(typeof regexp.value, "string");
 
-  const link = new Reader("[Hello *world*](https://ex.com \"t\")").link();
+  const link = new Reader('[Hello *world*](https://ex.com "t")').link();
   assertLeaf(link, "link", { url: "https://ex.com", text: "Hello world", title: "t" }, "link");
   assert.equal(typeof link.value.url, "string");
   assert.equal(typeof link.value.text, "string");
@@ -1115,7 +1151,7 @@ test("every documented inline and byte leaf value shape records leafType and off
   const untitled = new Reader("[n](u)").link();
   assertLeaf(untitled, "link", { url: "u", text: "n", title: null }, "link");
 
-  const image = new Reader("![*alt*](img.png \"cap\")").image();
+  const image = new Reader('![*alt*](img.png "cap")').image();
   assertLeaf(image, "image", { url: "img.png", alt: "alt", title: "cap" }, "image");
   assert.equal(typeof image.value.alt, "string");
 
@@ -1157,7 +1193,16 @@ test("heading without a level matches any ATX or Setext heading", () => {
 });
 
 test("every block-level leaf fails inside a single line", () => {
-  for (const method of ["heading", "paragraph", "list", "table", "codeBlock", "blockQuote", "thematicBreak", "htmlBlock"]) {
+  for (const method of [
+    "heading",
+    "paragraph",
+    "list",
+    "table",
+    "codeBlock",
+    "blockQuote",
+    "thematicBreak",
+    "htmlBlock",
+  ]) {
     const reader = new Reader("# Title\n");
     reader.literal("# ");
     const slot = reader[method]();
@@ -1347,7 +1392,10 @@ test("skipUntilHeading does not make scope or repeat commit", () => {
 
 test("required skipUntilHeading miss records DO_MD_PARSE_ERROR at EOF", () => {
   const reader = new Reader("no heading\n", { file: "doc.md" });
-  assert.equal(reader.skipUntilHeading((heading) => heading.text === "Missing"), false);
+  assert.equal(
+    reader.skipUntilHeading((heading) => heading.text === "Missing"),
+    false,
+  );
   assert.equal(reader.offset, reader.source.length);
   assert.equal(reader.errors.length, 1);
   assert.equal(reader.errors[0].code, ERROR_CODES.DO_MD_PARSE_ERROR);

@@ -3,10 +3,11 @@ import assert from "node:assert/strict";
 
 import { query } from "../../sources/commands/query.mjs";
 import { Virtual } from "../../sources/IO/Virtual.mjs";
-import { ERROR_CODES } from "../../sources/SyntaxError.mjs";
+import { ERROR_CODES } from "../../sources/DoMdError.mjs";
 
 const source = "Intro\n\n## Target\n\nFirst\n\nNoise\n\n## Target\n\nSecond\n\nEnd\n";
-const template = '{% doc.rawUntil("## Target"); doc.query((match) => { match.literal("## Target\\n\\n"); match.paragraph().as("content") }); doc.rawRest() %}';
+const template =
+  '{% doc.rawUntil("## Target"); doc.query((match) => { match.literal("## Target\\n\\n"); match.paragraph().as("content") }); doc.rawRest() %}';
 
 function virtual(input = source, queryTemplate = template) {
   return new Virtual({ "/doc.md": input, "/query.tpl.md": queryTemplate });
@@ -39,7 +40,11 @@ test("query all shifts subsequent occurrence offsets into the original document"
 });
 
 test("query returns exit 2 when no occurrence matches", async () => {
-  const result = await query({ io: virtual("No target\n"), file: "/doc.md", template: "/query.tpl.md" });
+  const result = await query({
+    io: virtual("No target\n"),
+    file: "/doc.md",
+    template: "/query.tpl.md",
+  });
   assert.equal(result.ok, false);
   assert.equal(result.exitCode, 2);
   assert.deepEqual(result.context, { matches: [] });
@@ -48,11 +53,21 @@ test("query returns exit 2 when no occurrence matches", async () => {
 
 test("query requires exactly one non-empty query region", async () => {
   await assert.rejects(
-    () => query({ io: virtual("anything", "{% doc.rawRest() %}"), file: "/doc.md", template: "/query.tpl.md" }),
+    () =>
+      query({
+        io: virtual("anything", "{% doc.rawRest() %}"),
+        file: "/doc.md",
+        template: "/query.tpl.md",
+      }),
     /exactly one doc\.query region/,
   );
   await assert.rejects(
-    () => query({ io: virtual("anything", "{% doc.query(() => {}); doc.rawRest() %}"), file: "/doc.md", template: "/query.tpl.md" }),
+    () =>
+      query({
+        io: virtual("anything", "{% doc.query(() => {}); doc.rawRest() %}"),
+        file: "/doc.md",
+        template: "/query.tpl.md",
+      }),
     /must consume content/,
   );
 });

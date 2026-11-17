@@ -20,11 +20,21 @@ import {
   stripDiagnosticSnippets,
   toMcpDiagnostic,
 } from "../../sources/MCP/Server.mjs";
-import { ERROR_CODES, makeParseError, makeUserError } from "../../sources/SyntaxError.mjs";
+import { ERROR_CODES, makeParseError, makeUserError } from "../../sources/DoMdError.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const MCP_BIN = path.join(ROOT, "bin/do-md-mcp.mjs");
-const SUPPORTED_TOOLS = ["validate", "export", "create", "set", "render", "match", "query", "reference", "skill"];
+const SUPPORTED_TOOLS = [
+  "validate",
+  "export",
+  "create",
+  "set",
+  "render",
+  "match",
+  "query",
+  "reference",
+  "skill",
+];
 
 async function withRoot(fn) {
   const root = await fs.mkdtemp(path.join(tmpdir(), "do-md-sdk-"));
@@ -51,7 +61,9 @@ async function withClient(root, fn, args = []) {
   });
   let stderr = "";
   transport.stderr?.setEncoding("utf8");
-  transport.stderr?.on("data", (chunk) => { stderr += chunk; });
+  transport.stderr?.on("data", (chunk) => {
+    stderr += chunk;
+  });
   const client = new Client({ name: "do-md-test", version: "1.0.0" });
   try {
     await client.connect(transport);
@@ -77,12 +89,22 @@ test("MCP uses the official SDK and exposes all supported tools", async () => {
 test("MCP startup options are strict and resource limits cannot be disabled accidentally", () => {
   assert.equal(DEFAULT_MAX_INPUT_BYTES, 1_048_576);
   assert.equal(DEFAULT_TIMEOUT_MS, 30_000);
-  assert.deepEqual(parseArgv(["--root", "/tmp/root", "--max-input-bytes=2048", "--timeout-ms", "10", "--no-snippets"]), {
-    root: "/tmp/root",
-    maxInputBytes: 2048,
-    timeoutMs: 10,
-    noSnippets: true,
-  });
+  assert.deepEqual(
+    parseArgv([
+      "--root",
+      "/tmp/root",
+      "--max-input-bytes=2048",
+      "--timeout-ms",
+      "10",
+      "--no-snippets",
+    ]),
+    {
+      root: "/tmp/root",
+      maxInputBytes: 2048,
+      timeoutMs: 10,
+      noSnippets: true,
+    },
+  );
   for (const args of [
     ["--timeout-ms", "-1"],
     ["--timeout-ms", "1.5"],
@@ -108,7 +130,9 @@ test("diagnostic helpers preserve the MCP result contract", () => {
 
 test("direct tool adapter maps command failures and timeouts", async () => {
   const parsed = new Server({
-    handlers: { validate: async () => ({ ok: false, errors: [makeParseError("bad", { file: "doc.md" })] }) },
+    handlers: {
+      validate: async () => ({ ok: false, errors: [makeParseError("bad", { file: "doc.md" })] }),
+    },
   });
   const result = await parsed.callTool("validate", {});
   assert.equal(result.ok, false);
@@ -121,7 +145,10 @@ test("direct tool adapter maps command failures and timeouts", async () => {
 
 test("root is mandatory, existing, and canonical", async () => {
   await assert.rejects(() => resolveRoot(null), /--root is required/);
-  await assert.rejects(() => resolveRoot(path.join(tmpdir(), `missing-${process.pid}`)), /does not exist/);
+  await assert.rejects(
+    () => resolveRoot(path.join(tmpdir(), `missing-${process.pid}`)),
+    /does not exist/,
+  );
   await withRoot(async (root) => {
     assert.equal(await resolveRoot(root), await fs.realpath(root));
   });
@@ -131,7 +158,10 @@ test("official SDK client negotiates, lists, and invokes tools", async () => {
   await withRoot(async (root) => {
     await withClient(root, async (client, stderr) => {
       const listed = await client.listTools();
-      assert.deepEqual(listed.tools.map((tool) => tool.name), SUPPORTED_TOOLS);
+      assert.deepEqual(
+        listed.tools.map((tool) => tool.name),
+        SUPPORTED_TOOLS,
+      );
       for (const tool of listed.tools) {
         assert.equal(tool.inputSchema.type, "object");
         assert.equal(tool.inputSchema.additionalProperties, false);
@@ -166,16 +196,22 @@ test("official SDK client negotiates, lists, and invokes tools", async () => {
         errors: [],
       });
 
-      const referenced = await client.callTool({ name: "reference", arguments: { topic: "query" } });
+      const referenced = await client.callTool({
+        name: "reference",
+        arguments: { topic: "query" },
+      });
       assert.equal(referenced.isError, false);
       assert.equal(payload(referenced).reference.name, "query");
 
       const resources = await client.listResources();
-      assert.deepEqual(resources.resources.map((resource) => resource.uri), [
-        "do-md://reference/template-language",
-        "do-md://reference/template-language.json",
-        "do-md://skills/do-md",
-      ]);
+      assert.deepEqual(
+        resources.resources.map((resource) => resource.uri),
+        [
+          "do-md://reference/template-language",
+          "do-md://reference/template-language.json",
+          "do-md://skills/do-md",
+        ],
+      );
       const reference = await client.readResource({ uri: "do-md://reference/template-language" });
       assert.match(reference.contents[0].text, /^# do-md Template Language/);
       const skill = await client.callTool({ name: "skill", arguments: {} });
@@ -216,7 +252,10 @@ test("worker isolation keeps template stdout and process.exit out of the MCP tra
       });
       assert.equal(exited.isError, true);
       assert.equal(payload(exited).errors[0].code, MCP_CODES.DO_MD_INTERNAL_ERROR);
-      assert.deepEqual((await client.listTools()).tools.map((tool) => tool.name), SUPPORTED_TOOLS);
+      assert.deepEqual(
+        (await client.listTools()).tools.map((tool) => tool.name),
+        SUPPORTED_TOOLS,
+      );
     });
   });
 });
@@ -224,19 +263,23 @@ test("worker isolation keeps template stdout and process.exit out of the MCP tra
 test("server timeout terminates runaway template execution and remains usable", async () => {
   await withRoot(async (root) => {
     await fs.writeFile(path.join(root, "loop.tpl.md"), "{% while (true) {} %}\n");
-    await withClient(root, async (client) => {
-      const timedOut = await client.callTool({
-        name: "validate",
-        arguments: { file: "ok.md", template: "loop.tpl.md" },
-      });
-      assert.equal(timedOut.isError, true);
-      assert.equal(payload(timedOut).errors[0].code, MCP_CODES.DO_MD_TIMEOUT);
+    await withClient(
+      root,
+      async (client) => {
+        const timedOut = await client.callTool({
+          name: "validate",
+          arguments: { file: "ok.md", template: "loop.tpl.md" },
+        });
+        assert.equal(timedOut.isError, true);
+        assert.equal(payload(timedOut).errors[0].code, MCP_CODES.DO_MD_TIMEOUT);
 
-      const valid = await client.callTool({
-        name: "validate",
-        arguments: { file: "ok.md", template: "tpl.md" },
-      });
-      assert.equal(payload(valid).ok, true);
-    }, ["--timeout-ms", "500"]);
+        const valid = await client.callTool({
+          name: "validate",
+          arguments: { file: "ok.md", template: "tpl.md" },
+        });
+        assert.equal(payload(valid).ok, true);
+      },
+      ["--timeout-ms", "500"],
+    );
   });
 });

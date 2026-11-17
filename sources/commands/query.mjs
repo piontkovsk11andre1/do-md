@@ -1,4 +1,4 @@
-import { makeParseError, makeUserError } from "../SyntaxError.mjs";
+import { makeParseError, makeUserError } from "../DoMdError.mjs";
 import {
   failure,
   parseSource,
@@ -24,13 +24,21 @@ export async function query({ io, file, template, all = false, cwd, options } = 
   let shift = 0;
 
   while (shift <= source.length) {
-    const reader = parseSource(source.slice(shift), fn, { file: filePath, templatePath, options, io,
-      diagnosticSource: source, diagnosticOffset: shift });
+    const reader = parseSource(source.slice(shift), fn, {
+      file: filePath,
+      templatePath,
+      options,
+      io,
+      diagnosticSource: source,
+      diagnosticOffset: shift,
+    });
     if (reader.errors.length > 0) {
       break;
     }
     if (reader.queryMap.length !== 1) {
-      throw makeUserError("query template must define exactly one doc.query region", { file: templatePath });
+      throw makeUserError("query template must define exactly one doc.query region", {
+        file: templatePath,
+      });
     }
     const region = reader.queryMap[0];
     const start = shift + region.sourceOffsetStart;

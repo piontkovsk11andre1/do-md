@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, rm, symlink, writeFile, realpath } from "node:fs/promis
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { ERROR_CODES } from "../../sources/SyntaxError.mjs";
+import { ERROR_CODES } from "../../sources/DoMdError.mjs";
 import {
   ensureWithinRoot,
   isWithinRoot,

@@ -25,17 +25,23 @@ const handlers = {
 
 try {
   const handler = handlers[workerData.name];
-  if (!handler) throw new Error(`unknown tool: ${workerData.name}`);
+  if (!handler) {
+    throw new Error(`unknown tool: ${workerData.name}`);
+  }
   const context = workerData.context;
-  if (context.scoped) context.io = new ScopedFilesystem(context.root, context.maxInputBytes);
+  if (context.scoped) {
+    context.io = new ScopedFilesystem(context.root, context.maxInputBytes);
+  }
   parentPort.postMessage(await handler(workerData.params, context));
 } catch (error) {
   parentPort.postMessage({
     ok: false,
-    errors: [{
-      code: error?.code ?? "DO_MD_INTERNAL_ERROR",
-      message: error?.message ?? String(error),
-       locations: error?.locations ?? [],
-    }],
+    errors: [
+      {
+        code: error?.code ?? "DO_MD_INTERNAL_ERROR",
+        message: error?.message ?? String(error),
+        locations: error?.locations ?? [],
+      },
+    ],
   });
 }

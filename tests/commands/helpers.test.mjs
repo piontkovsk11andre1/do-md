@@ -3,10 +3,17 @@ import assert from "node:assert/strict";
 
 import { create } from "../../sources/commands/create.mjs";
 import { exportDoc } from "../../sources/commands/exportDoc.mjs";
-import { normalizeDocument, parseSource, readText, utf8ByteLength, wrapTemplate, writeText } from "../../sources/commands/helpers.mjs";
+import {
+  normalizeDocument,
+  parseSource,
+  readText,
+  utf8ByteLength,
+  wrapTemplate,
+  writeText,
+} from "../../sources/commands/helpers.mjs";
 import { Editor } from "../../sources/Editor.mjs";
 import { Virtual } from "../../sources/IO/Virtual.mjs";
-import { ERROR_CODES } from "../../sources/SyntaxError.mjs";
+import { ERROR_CODES } from "../../sources/DoMdError.mjs";
 
 const LINE_TPL = '{% doc.line().as("title") %}\n';
 const TWO_LINE_TPL = '{% doc.line().as("a") %}\n{% doc.line().as("b") %}\n';
@@ -196,13 +203,13 @@ test("library reads preserve intra-line whitespace in text, code, and HTML", asy
   assert.equal(codeRound.parsed.context.block.value, "  foo\t  bar  \n    baz  ");
   assert.match(codeRound.rendered.output, /  foo\t  bar  \n    baz  /);
 
-  const html = "<div class=\"x\">  foo\tbar  </div>\n";
+  const html = '<div class="x">  foo\tbar  </div>\n';
   const htmlEditor = await openDoc(html, HTML_TPL);
   assert.equal(htmlEditor.originalSource, html);
-  assert.equal(htmlEditor.get("html"), "<div class=\"x\">  foo\tbar  </div>");
+  assert.equal(htmlEditor.get("html"), '<div class="x">  foo\tbar  </div>');
 
   const htmlRound = await roundtrip2(html, HTML_TPL);
-  assert.equal(htmlRound.parsed.context.html, "<div class=\"x\">  foo\tbar  </div>");
+  assert.equal(htmlRound.parsed.context.html, '<div class="x">  foo\tbar  </div>');
   assert.match(htmlRound.rendered.output, /<div class="x">  foo\tbar  <\/div>/);
 });
 

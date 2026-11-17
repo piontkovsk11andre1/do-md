@@ -13,7 +13,14 @@ const indexPath = path.join(root, "sources/index.mjs");
 
 const EXPECTED_PUBLIC_EXPORTS = [
   "formatDiagnostic",
-  "createSourceMap", "mapPosition", "mapRange", "composeSourceMaps", "mapDiagnostic", "sourcePoint", "sourceOffset", "primaryLocation",
+  "createSourceMap",
+  "mapPosition",
+  "mapRange",
+  "composeSourceMaps",
+  "mapDiagnostic",
+  "sourcePoint",
+  "sourceOffset",
+  "primaryLocation",
   "create",
   "describeTemplateFunction",
   "Editor",
@@ -30,7 +37,10 @@ const EXPECTED_PUBLIC_EXPORTS = [
   "renderTemplateReference",
   "set",
   "Slot",
-  "SyntaxError",
+  "DoMdError",
+  "SourceText",
+  "SourceMap",
+  "CompiledTemplate",
   "Template",
   "templateLanguage",
   "validate",
@@ -106,7 +116,19 @@ test("public API re-exports IO adapters from IO/index.mjs", () => {
 });
 
 test("documented public exports have the expected kinds", () => {
-  for (const name of ["validate", "create", "exportDoc", "set", "render", "match", "query", "describeTemplateFunction", "listTemplateFunctions", "renderTemplateReference", "readSkill"]) {
+  for (const name of [
+    "validate",
+    "create",
+    "exportDoc",
+    "set",
+    "render",
+    "match",
+    "query",
+    "describeTemplateFunction",
+    "listTemplateFunctions",
+    "renderTemplateReference",
+    "readSkill",
+  ]) {
     assert.equal(typeof api[name], "function", name);
   }
   for (const name of [
@@ -116,7 +138,7 @@ test("documented public exports have the expected kinds", () => {
     "Parser",
     "Slot",
     "Editor",
-    "SyntaxError",
+    "DoMdError",
     "NodeFilesystem",
     "Virtual",
     "Fetch",

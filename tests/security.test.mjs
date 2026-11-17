@@ -8,7 +8,7 @@ import { set } from "../sources/commands/set.mjs";
 import { create } from "../sources/commands/create.mjs";
 import { readText, utf8ByteLength } from "../sources/commands/helpers.mjs";
 import { Virtual } from "../sources/IO/Virtual.mjs";
-import { ERROR_CODES } from "../sources/SyntaxError.mjs";
+import { ERROR_CODES } from "../sources/DoMdError.mjs";
 
 const TEMPLATE = '{% doc.line().as("title") %}\n';
 const INPUT = "Hello\n";
@@ -34,7 +34,13 @@ test("maxInputBytes rejects input larger than the raw UTF-8 byte limit", async (
   const io = new Virtual(files());
   const size = utf8ByteLength(INPUT);
   await assert.rejects(
-    () => Editor.open({ io, file: "/doc.md", template: "/tpl.md", options: { maxInputBytes: size - 1 } }),
+    () =>
+      Editor.open({
+        io,
+        file: "/doc.md",
+        template: "/tpl.md",
+        options: { maxInputBytes: size - 1 },
+      }),
     (err) => {
       assert.equal(err.code, ERROR_CODES.DO_MD_USER_ERROR);
       assert.equal(err.locations[0].source, "/doc.md");
@@ -187,7 +193,10 @@ test("Editor.merge rejects __proto__, constructor, and prototype at any depth", 
   const io = new Virtual(files());
   const editor = await Editor.open({ io, file: "/doc.md", template: "/tpl.md" });
   for (const [patch, path] of UNSAFE_PATCHES) {
-    assert.throws(() => editor.merge(patch), (err) => assertUnsafePatch(err, path));
+    assert.throws(
+      () => editor.merge(patch),
+      (err) => assertUnsafePatch(err, path),
+    );
   }
   assert.equal(editor.isDirty, false);
   assert.equal(editor.get("title"), "Hello");
@@ -219,7 +228,7 @@ test("Markdown documents are data and are never executed", async () => {
     '{% doc.line().as("script") %}',
     '{% doc.line().as("block") %}',
   ].join("\n");
-  const htmlTpl = "{% doc.htmlBlock().as(\"html\") %}\n{% doc.rawRest().as(\"remainder\") %}";
+  const htmlTpl = '{% doc.htmlBlock().as("html") %}\n{% doc.rawRest().as("remainder") %}';
   const htmlDoc = "<div>\n<script>alert(1)</script>\n\nAfter\n";
   const io = new Virtual({
     "/doc.md": `${payload}\n`,
@@ -254,7 +263,7 @@ test("Markdown documents are data and are never executed", async () => {
 });
 
 test("trusted templates are unsandboxed and may access process", async () => {
-  const tpl = "{% ctx.hostPid = process.pid\ndoc.line().as(\"title\") %}\n";
+  const tpl = '{% ctx.hostPid = process.pid\ndoc.line().as("title") %}\n';
   const io = new Virtual({ "/doc.md": INPUT, "/tpl.md": tpl });
   const result = await exportDoc({
     io,

@@ -1,5 +1,7 @@
 import type { LeafType, MarkdownNode } from "./types.d.mts";
-export interface SlotOwner { [key: string]: unknown; }
+export interface SlotOwner {
+  readonly mode: "reader" | "writer";
+}
 export interface SlotOptions<T> {
   owner?: SlotOwner | null;
   path?: string;
@@ -10,7 +12,11 @@ export interface SlotOptions<T> {
   sourceOffsetEnd?: number | null;
   node?: MarkdownNode | null;
 }
-export function registerBinding(owner: SlotOwner | null | undefined, key: string, mode: "as" | "asArray"): void;
+export function registerBinding(
+  owner: SlotOwner | null | undefined,
+  key: string,
+  mode: "as" | "asArray",
+): void;
 export class Slot<T = unknown> {
   constructor(pathOrOwner?: string | SlotOwner, options?: SlotOptions<T>);
   path: string;

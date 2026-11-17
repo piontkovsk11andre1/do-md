@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { create } from "../../sources/commands/create.mjs";
 import { Virtual } from "../../sources/IO/Virtual.mjs";
-import { ERROR_CODES } from "../../sources/SyntaxError.mjs";
+import { ERROR_CODES } from "../../sources/DoMdError.mjs";
 
 const TEMPLATE = '# {% doc.line().as("title") %}\n';
 
@@ -94,7 +94,10 @@ test("create uses an atomic ifAbsent write to reject a creation race", async () 
 });
 
 test("create rejects missing arguments with DO_MD_USER_ERROR", async () => {
-  await assert.rejects(() => create({}), (err) => err.code === ERROR_CODES.DO_MD_USER_ERROR);
+  await assert.rejects(
+    () => create({}),
+    (err) => err.code === ERROR_CODES.DO_MD_USER_ERROR,
+  );
   await assert.rejects(
     () => create({ io: new Virtual({ "/tpl.md": TEMPLATE }), file: "/out.md" }),
     (err) => err.code === ERROR_CODES.DO_MD_USER_ERROR,

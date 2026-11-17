@@ -2,7 +2,7 @@
 name: do-md
 description: Create, validate, query, transform, and precisely edit Markdown documents using do-md templates. Use when extracting structured data from Markdown, maintaining reusable document formats, updating checkboxes or tables, or generating another file from parsed Markdown.
 license: MIT
-compatibility: Requires Node.js 20 or newer and the @p10i/do-md package, or a configured do-md MCP server.
+compatibility: Requires Node.js 22.13 or newer and the @p10i/do-md package, or a configured do-md MCP server.
 ---
 
 # do-md

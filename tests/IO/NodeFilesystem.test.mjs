@@ -1,11 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 import { NodeFilesystem } from "../../sources/IO/NodeFilesystem.mjs";
-import { ERROR_CODES, SyntaxError } from "../../sources/SyntaxError.mjs";
+import { ERROR_CODES, DoMdError } from "../../sources/DoMdError.mjs";
 
 test("NodeFilesystem module exists", () => {
   const io = new NodeFilesystem();
@@ -25,12 +25,17 @@ test("globAsync expands template directories and glob patterns", async () => {
     await writeFile(join(dir, "custom.template"), "custom");
     await writeFile(join(dir, "nested", "b.md.template"), "b");
     await writeFile(join(dir, "ignored.md"), "x");
-    assert.deepEqual(await io.globAsync(dir), [join(dir, "a.md.template"), join(dir, "nested", "b.md.template")].sort());
-    assert.deepEqual(await io.globAsync(join(dir, "custom.template")), [join(dir, "custom.template")]);
-    assert.deepEqual(await io.globAsync("**/*.md.template", { cwd: dir }), [
-      join(dir, "a.md.template"),
-      join(dir, "nested", "b.md.template"),
-    ].sort());
+    assert.deepEqual(
+      await io.globAsync(dir),
+      [join(dir, "a.md.template"), join(dir, "nested", "b.md.template")].sort(),
+    );
+    assert.deepEqual(await io.globAsync(join(dir, "custom.template")), [
+      join(dir, "custom.template"),
+    ]);
+    assert.deepEqual(
+      await io.globAsync("**/*.md.template", { cwd: dir }),
+      [join(dir, "a.md.template"), join(dir, "nested", "b.md.template")].sort(),
+    );
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
@@ -42,12 +47,29 @@ test("resolvePath joins relative paths and keeps absolute ones", () => {
   assert.equal(io.resolvePath("/tmp", "/abs/b.txt"), resolve("/tmp", "/abs/b.txt"));
 });
 
+test("template discovery does not recurse into linked directories", async () => {
+  const io = new NodeFilesystem();
+  const base = await mkdtemp(join(tmpdir(), "do-md-glob-links-"));
+  const root = join(base, "root");
+  const outside = join(base, "outside");
+  try {
+    await mkdir(root);
+    await mkdir(outside);
+    await writeFile(join(root, "local.md.template"), "local");
+    await writeFile(join(outside, "external.md.template"), "external");
+    await symlink(outside, join(root, "linked"), process.platform === "win32" ? "junction" : "dir");
+    assert.deepEqual(await io.globAsync(root), [join(root, "local.md.template")]);
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
 test("readFileAsync rejects missing files with DO_MD_IO_ERROR", async () => {
   const io = new NodeFilesystem();
   const missing = join(tmpdir(), `do-md-missing-${process.pid}-${Date.now()}.md`);
   await assert.rejects(
     () => io.readFileAsync(missing),
-    (err) => err instanceof SyntaxError && err.code === ERROR_CODES.DO_MD_IO_ERROR,
+    (err) => err instanceof DoMdError && err.code === ERROR_CODES.DO_MD_IO_ERROR,
   );
 });
 
@@ -56,7 +78,7 @@ test("statAsync rejects missing files with DO_MD_IO_ERROR", async () => {
   const missing = join(tmpdir(), `do-md-missing-${process.pid}-${Date.now()}.md`);
   await assert.rejects(
     () => io.statAsync(missing),
-    (err) => err instanceof SyntaxError && err.code === ERROR_CODES.DO_MD_IO_ERROR,
+    (err) => err instanceof DoMdError && err.code === ERROR_CODES.DO_MD_IO_ERROR,
   );
 });
 

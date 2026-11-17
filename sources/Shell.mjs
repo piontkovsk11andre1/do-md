@@ -1,35 +1,31 @@
 import yargs from "yargs";
 
-import {
-  validate,
-  create,
-  exportDoc,
-  set,
-  render,
-  match,
-  query,
-} from "./commands/index.mjs";
+import { validate, create, exportDoc, set, render, match, query } from "./commands/index.mjs";
 import { NodeFilesystem } from "./IO/NodeFilesystem.mjs";
-import { run as runMcpServer } from "./McpServer.mjs";
-import { run as runHttpServer } from "./HttpServer.mjs";
-import { ERROR_CODES, makeUserError, formatDiagnostic } from "./SyntaxError.mjs";
+import { ERROR_CODES, makeUserError, formatDiagnostic } from "./DoMdError.mjs";
 import { renderTemplateReference } from "./TemplateLanguage.mjs";
 import { readSkill } from "./Skill.mjs";
 
-export const USAGE = "Usage: do-md <validate|create|export|set|render|match|query|reference|skill> ...";
+export const USAGE =
+  "Usage: do-md <validate|create|export|set|render|match|query|reference|skill> ...";
 
 const COMMANDS = new Set(["validate", "create", "export", "set", "render", "match", "query"]);
 const COMMAND_HELP = Object.freeze({
   validate: "do-md validate <file> <template>\nValidate a complete document against one template.",
-  create: "do-md create <file> <template> --data <json> [--force]\nCreate a document from template data.",
+  create:
+    "do-md create <file> <template> --data <json> [--force]\nCreate a document from template data.",
   export: "do-md export <file> <template> --save <json>\nExport a parsed template context.",
   set: "do-md set <file> <template> [--key k --value v] [--patch json] [--out file]\nEdit a parsed document.",
-  render: "do-md render <file> <parse-template> <render-template> <out-file>\nParse with one template and render with another.",
+  render:
+    "do-md render <file> <parse-template> <render-template> <out-file>\nParse with one template and render with another.",
   match: "do-md match <file> <templates> [--all]\nFind templates that fully match a document.",
-  query: "do-md query <file> <template> [--all]\nFind non-overlapping content regions marked by doc.query().",
-  reference: "do-md reference [topic] [--format json|markdown|text]\nRead the template-language reference. JSON is the default, matching MCP reference.",
+  query:
+    "do-md query <file> <template> [--all]\nFind non-overlapping content regions marked by doc.query().",
+  reference:
+    "do-md reference [topic] [--format json|markdown|text]\nRead the template-language reference. JSON is the default, matching MCP reference.",
   skill: "do-md skill\nPrint the bundled Agent Skill as Markdown. This does not install it.",
-  serve: "do-md serve --root <dir> [--host 127.0.0.1] [--port 8080]\nOptions: --max-input-bytes --timeout-ms --max-body-bytes --max-response-bytes --max-concurrency --no-snippets",
+  serve:
+    "do-md serve --root <dir> [--host 127.0.0.1] [--port 8080]\nOptions: --max-input-bytes --timeout-ms --max-body-bytes --max-response-bytes --max-concurrency --no-snippets",
   mcp: "do-md mcp --root <dir> [--host <host> --port 8080 | --url <http(s)://host/prefix>]\nOptions: --max-input-bytes --timeout-ms --max-response-bytes --no-snippets\nWithout host/port/URL, commands execute locally. In remote mode --root is a server-side directory.",
 });
 
@@ -42,24 +38,41 @@ function formatHelp() {
 }
 
 function formatCommandHelp(command) {
-  if (!COMMANDS.has(command)) return `${COMMAND_HELP[command]}\n`;
+  if (!COMMANDS.has(command)) {
+    return `${COMMAND_HELP[command]}\n`;
+  }
   return `${COMMAND_HELP[command]}\n\nGlobal options:\n  --cwd <dir>  Resolve relative paths against a directory\n  --json       Print structured command results\n  --quiet      Suppress successful informational output\n`;
 }
 
 function commandHelp(argv) {
-  if (argv.length === 1 || (argv.length === 2 && ["--help", "-h"].includes(argv[1]))) return formatHelp();
-  if (argv.length !== 2 || !Object.hasOwn(COMMAND_HELP, argv[1])) throw makeUserError("help expects a command name; use reference for the template language");
+  if (argv.length === 1 || (argv.length === 2 && ["--help", "-h"].includes(argv[1]))) {
+    return formatHelp();
+  }
+  if (argv.length !== 2 || !Object.hasOwn(COMMAND_HELP, argv[1])) {
+    throw makeUserError("help expects a command name; use reference for the template language");
+  }
   return formatCommandHelp(argv[1]);
 }
 
 function referenceOutput(argv) {
-  const parsed = yargs(argv).exitProcess(false).help(false).version(false).strictOptions()
+  const parsed = yargs(argv)
+    .exitProcess(false)
+    .help(false)
+    .version(false)
+    .strictOptions()
     .option("format", { choices: ["json", "markdown", "text"], default: "json" })
-    .fail(message => { throw makeUserError(message); }).parseSync();
-  if (parsed._.length > 1) throw makeUserError("reference accepts at most one topic");
+    .fail((message) => {
+      throw makeUserError(message);
+    })
+    .parseSync();
+  if (parsed._.length > 1) {
+    throw makeUserError("reference accepts at most one topic");
+  }
   const topic = parsed._[0] == null ? null : String(parsed._[0]);
   const output = renderTemplateReference({ topic, format: parsed.format });
-  if (output == null) throw makeUserError(`unknown template function: ${topic}`);
+  if (output == null) {
+    throw makeUserError(`unknown template function: ${topic}`);
+  }
   return output;
 }
 
@@ -103,14 +116,22 @@ function diagnosticFrom(error) {
     return error.toDiagnostic();
   }
   return {
-    code: error?.code && Object.values(ERROR_CODES).includes(error.code) ? error.code : ERROR_CODES.DO_MD_USER_ERROR,
+    code:
+      error?.code && Object.values(ERROR_CODES).includes(error.code)
+        ? error.code
+        : ERROR_CODES.DO_MD_USER_ERROR,
     message: error?.message ?? String(error),
     locations: error?.locations ?? [],
   };
 }
 
 function formatTextDiagnostic(diagnostic) {
-  return formatDiagnostic(diagnostic, { colors: Boolean(process.stderr.isTTY) && !Object.hasOwn(process.env, "NO_COLOR") && process.env.TERM !== "dumb" });
+  return formatDiagnostic(diagnostic, {
+    colors:
+      Boolean(process.stderr.isTTY) &&
+      !Object.hasOwn(process.env, "NO_COLOR") &&
+      process.env.TERM !== "dumb",
+  });
 }
 
 function writeLine(stream, text) {
@@ -241,7 +262,10 @@ function parseArgv(argv) {
       cmd.option("patch", { type: "string", describe: "Path to a JSON patch object" });
       cmd.option("out", { type: "string", describe: "Write to a different file" });
     })
-    .command("render <file> <parseTemplate> <renderTemplate> <outFile>", "Parse with one template and render with another")
+    .command(
+      "render <file> <parseTemplate> <renderTemplate> <outFile>",
+      "Parse with one template and render with another",
+    )
     .command("match <file> <templates>", "Find templates that match a Markdown file", (cmd) => {
       cmd.option("all", {
         type: "boolean",
@@ -288,11 +312,15 @@ export async function execute(argv = process.argv.slice(2)) {
       } else if (token === "reference") {
         process.stdout.write(`${referenceOutput(argv.slice(argv.indexOf(token) + 1))}\n`);
       } else {
-        if (argv.length !== 1) throw makeUserError("skill accepts no arguments");
+        if (argv.length !== 1) {
+          throw makeUserError("skill accepts no arguments");
+        }
         process.stdout.write(await readSkill());
       }
       return 0;
-    } catch (error) { return reportRejected(error, flags); }
+    } catch (error) {
+      return reportRejected(error, flags);
+    }
   }
   if (["serve", "mcp"].includes(token) && (argv.includes("--help") || argv.includes("-h"))) {
     process.stdout.write(`${COMMAND_HELP[token]}\n`);
@@ -312,11 +340,17 @@ export async function execute(argv = process.argv.slice(2)) {
   }
   if (token === "mcp") {
     const index = argv.findIndex((arg) => arg !== "--" && !String(arg).startsWith("-"));
-    return runMcpServer([...argv.slice(0, index), ...argv.slice(index + 1)]);
+    return (await import("./McpServer.mjs")).run([
+      ...argv.slice(0, index),
+      ...argv.slice(index + 1),
+    ]);
   }
   if (token === "serve") {
     const index = argv.indexOf("serve");
-    return runHttpServer([...argv.slice(0, index), ...argv.slice(index + 1)]);
+    return (await import("./HttpServer.mjs")).run([
+      ...argv.slice(0, index),
+      ...argv.slice(index + 1),
+    ]);
   }
 
   if (!COMMANDS.has(token)) {
@@ -374,7 +408,8 @@ export async function execute(argv = process.argv.slice(2)) {
           template: parsed.template,
           key: parsed.key,
           value: parsed.value === undefined ? undefined : coerceValue(parsed.value),
-          patch: parsed.patch == null ? undefined : await readJsonFile(io, cwd, parsed.patch, "--patch"),
+          patch:
+            parsed.patch == null ? undefined : await readJsonFile(io, cwd, parsed.patch, "--patch"),
           out: parsed.out,
           cwd,
         });

@@ -1,4 +1,8 @@
-export interface ServerAddress { address: string; family: string; port: number; }
+export interface ServerAddress {
+  address: string;
+  family: string;
+  port: number;
+}
 export interface ServerOptions {
   root: string;
   host?: string;

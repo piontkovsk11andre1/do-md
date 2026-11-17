@@ -1,0 +1,11 @@
+node_modules/
+coverage/
+.types/
+examples/
+tests/fixtures/
+tests/conformance/
+docs/template-language.md
+sources/SourceText.d.mts
+sources/SourceMap.d.mts
+sources/Reader/IterationState.d.mts
+package-lock.json

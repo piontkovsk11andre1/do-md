@@ -1,0 +1,4 @@
+* text=auto eol=lf
+examples/** -text
+tests/fixtures/** -text
+tests/conformance/** -text

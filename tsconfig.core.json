@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023", "DOM"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "allowJs": true,
+    "checkJs": true,
+    "strict": true,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "outDir": ".types",
+    "rootDir": "sources",
+    "skipLibCheck": true
+  },
+  "files": ["sources/SourceText.mjs", "sources/SourceMap.mjs", "sources/Reader/IterationState.mjs"]
+}

@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 
-import { ERROR_CODES } from "../SyntaxError.mjs";
+import { ERROR_CODES } from "../DoMdError.mjs";
 import { handleValidate } from "./tools/validate.mjs";
 import { handleExport } from "./tools/export.mjs";
 import { handleCreate } from "./tools/create.mjs";
@@ -15,7 +15,13 @@ import { handleQuery } from "./tools/query.mjs";
 import { handleReference } from "./tools/reference.mjs";
 import { handleSkill } from "./tools/skill.mjs";
 import { renderTemplateReference } from "../TemplateLanguage.mjs";
-import { VERSION, TOOL_DEFINITIONS, DEFAULT_MAX_INPUT_BYTES, DEFAULT_TIMEOUT_MS, TOOL_NAMES } from "../Service/Definitions.mjs";
+import {
+  VERSION,
+  TOOL_DEFINITIONS,
+  DEFAULT_MAX_INPUT_BYTES,
+  DEFAULT_TIMEOUT_MS,
+  TOOL_NAMES,
+} from "../Service/Definitions.mjs";
 import { execute } from "../Service/Executor.mjs";
 import { Client, remoteUrl } from "../HTTP/Client.mjs";
 
@@ -43,11 +49,15 @@ function flagValue(argv, index, name) {
   const prefix = `${name}=`;
   if (arg.startsWith(prefix)) {
     const value = arg.slice(prefix.length);
-    if (value === "") throw new Error(`${name} requires a value`);
+    if (value === "") {
+      throw new Error(`${name} requires a value`);
+    }
     return { value, consumed: 0 };
   }
   const value = argv[index + 1];
-  if (value == null || String(value).startsWith("--")) throw new Error(`${name} requires a value`);
+  if (value == null || String(value).startsWith("--")) {
+    throw new Error(`${name} requires a value`);
+  }
   return { value, consumed: 1 };
 }
 
@@ -80,7 +90,9 @@ export function parseArgv(argv = []) {
       const parsed = flagValue(argv, i, "--timeout-ms");
       options.timeoutMs = nonNegativeInteger(parsed.value, "--timeout-ms");
       i += parsed.consumed;
-    } else if (["--host", "--port", "--url"].some((name) => arg === name || arg.startsWith(`${name}=`))) {
+    } else if (
+      ["--host", "--port", "--url"].some((name) => arg === name || arg.startsWith(`${name}=`))
+    ) {
       const name = arg.split("=")[0];
       const parsed = flagValue(argv, i, name);
       options[name.slice(2)] = name === "--port" ? Number(parsed.value) : parsed.value;
@@ -90,7 +102,9 @@ export function parseArgv(argv = []) {
     } else if (arg === "--max-response-bytes" || arg.startsWith("--max-response-bytes=")) {
       const parsed = flagValue(argv, i, "--max-response-bytes");
       options.maxResponseBytes = nonNegativeInteger(parsed.value, "--max-response-bytes");
-      if (options.maxResponseBytes === 0) throw new Error("--max-response-bytes must be positive");
+      if (options.maxResponseBytes === 0) {
+        throw new Error("--max-response-bytes must be positive");
+      }
       i += parsed.consumed;
     } else {
       throw new Error(`unknown option: ${arg}`);
@@ -115,13 +129,22 @@ export function mcpDiagnostic(code, message, extra = {}) {
 
 export function stripDiagnosticSnippets(errors) {
   const list = Array.isArray(errors) ? errors : errors == null ? [] : [errors];
-  return list.map((error) => (error && typeof error === "object" ? {
-    ...error, locations: (error.locations ?? []).map((location) => ({ ...location, snippet: null })),
-  } : error));
+  return list.map((error) =>
+    error && typeof error === "object"
+      ? {
+          ...error,
+          locations: (error.locations ?? []).map((location) => ({ ...location, snippet: null })),
+        }
+      : error,
+  );
 }
 
 function isKnownDiagnosticCode(code) {
-  return code === MCP_CODES.DO_MD_TIMEOUT || code === MCP_CODES.DO_MD_INTERNAL_ERROR || LIBRARY_CODES.has(code);
+  return (
+    code === MCP_CODES.DO_MD_TIMEOUT ||
+    code === MCP_CODES.DO_MD_INTERNAL_ERROR ||
+    LIBRARY_CODES.has(code)
+  );
 }
 
 export function toMcpDiagnostic(error, { fallbackInternal = true } = {}) {
@@ -137,7 +160,9 @@ export function toMcpDiagnostic(error, { fallbackInternal = true } = {}) {
 }
 
 export async function resolveRoot(root) {
-  if (root == null || String(root).trim() === "") throw new Error("--root is required");
+  if (root == null || String(root).trim() === "") {
+    throw new Error("--root is required");
+  }
   const absolute = resolve(String(root));
   let info;
   try {
@@ -145,21 +170,31 @@ export async function resolveRoot(root) {
   } catch {
     throw new Error(`--root does not exist: ${root}`);
   }
-  if (!info.isDirectory()) throw new Error(`--root is not a directory: ${root}`);
+  if (!info.isDirectory()) {
+    throw new Error(`--root is not a directory: ${root}`);
+  }
   return realpath(absolute);
 }
 
 function emptyResult(name) {
   switch (name) {
-    case "export": return { ok: false, context: null, errors: [] };
-    case "create": return { ok: false, output: null, wrote: null, errors: [] };
-    case "set": return { ok: false, output: null, wrote: null, context: null, errors: [] };
-    case "render": return { ok: false, output: null, wrote: null, errors: [] };
+    case "export":
+      return { ok: false, context: null, errors: [] };
+    case "create":
+      return { ok: false, output: null, wrote: null, errors: [] };
+    case "set":
+      return { ok: false, output: null, wrote: null, context: null, errors: [] };
+    case "render":
+      return { ok: false, output: null, wrote: null, errors: [] };
     case "match":
-    case "query": return { ok: false, matches: [], errors: [] };
-    case "reference": return { ok: false, reference: null, errors: [] };
-    case "skill": return { ok: false, skill: null, errors: [] };
-    default: return { ok: false, errors: [] };
+    case "query":
+      return { ok: false, matches: [], errors: [] };
+    case "reference":
+      return { ok: false, reference: null, errors: [] };
+    case "skill":
+      return { ok: false, skill: null, errors: [] };
+    default:
+      return { ok: false, errors: [] };
   }
 }
 
@@ -188,7 +223,9 @@ export class Server {
     this._active = new Map();
   }
 
-  toolNames() { return [...TOOL_NAMES]; }
+  toolNames() {
+    return [...TOOL_NAMES];
+  }
 
   toolDefinitions() {
     return TOOL_NAMES.map((name) => ({ name, ...TOOL_DEFINITIONS[name] }));
@@ -205,10 +242,15 @@ export class Server {
   }
 
   async callTool(name, params = {}) {
-    if (this._remote) return this._dispatch(name, params);
+    if (this._remote) {
+      return this._dispatch(name, params);
+    }
     const handler = this.handlers[name];
     if (typeof handler !== "function") {
-      return this._failure(name, mcpDiagnostic(MCP_CODES.DO_MD_USER_ERROR, `unknown tool: ${name ?? ""}`));
+      return this._failure(
+        name,
+        mcpDiagnostic(MCP_CODES.DO_MD_USER_ERROR, `unknown tool: ${name ?? ""}`),
+      );
     }
     try {
       const running = Promise.resolve().then(() => handler(params, this.toolContext()));
@@ -219,8 +261,11 @@ export class Server {
   }
 
   async start() {
-    if (this._remote) await this._remote.connect();
-    else this.root = await resolveRoot(this.root);
+    if (this._remote) {
+      await this._remote.connect();
+    } else {
+      this.root = await resolveRoot(this.root);
+    }
     this._protocol = new McpServer({ name: "do-md", version: VERSION });
     for (const name of TOOL_NAMES) {
       const definition = TOOL_DEFINITIONS[name];
@@ -232,55 +277,91 @@ export class Server {
         };
       });
     }
-    this._protocol.registerResource("template-language", "do-md://reference/template-language", {
-      title: "do-md Template Language",
-      description: "Complete Markdown reference for authoring do-md templates",
-      mimeType: "text/markdown",
-    }, async () => ({
-      contents: [{
-        uri: "do-md://reference/template-language",
+    this._protocol.registerResource(
+      "template-language",
+      "do-md://reference/template-language",
+      {
+        title: "do-md Template Language",
+        description: "Complete Markdown reference for authoring do-md templates",
         mimeType: "text/markdown",
-        text: await this._referenceText("markdown"),
-      }],
-    }));
-    this._protocol.registerResource("template-language-json", "do-md://reference/template-language.json", {
-      title: "do-md Template Language JSON",
-      description: "Machine-readable do-md template-language registry",
-      mimeType: "application/json",
-    }, async () => ({
-      contents: [{
-        uri: "do-md://reference/template-language.json",
+      },
+      async () => ({
+        contents: [
+          {
+            uri: "do-md://reference/template-language",
+            mimeType: "text/markdown",
+            text: await this._referenceText("markdown"),
+          },
+        ],
+      }),
+    );
+    this._protocol.registerResource(
+      "template-language-json",
+      "do-md://reference/template-language.json",
+      {
+        title: "do-md Template Language JSON",
+        description: "Machine-readable do-md template-language registry",
         mimeType: "application/json",
-        text: await this._referenceText("json"),
-      }],
-    }));
-    this._protocol.registerResource("agent-skill", "do-md://skills/do-md", {
-      title: "do-md Agent Skill", description: "Workflow for authoring, validating and editing documents with do-md", mimeType: "text/markdown",
-    }, async () => {
-      const result = await this._dispatch("skill", {});
-      if (!result.ok || typeof result.skill !== "string") throw new Error(result.errors?.[0]?.message ?? "skill unavailable");
-      return { contents: [{ uri: "do-md://skills/do-md", mimeType: "text/markdown", text: result.skill }] };
-    });
+      },
+      async () => ({
+        contents: [
+          {
+            uri: "do-md://reference/template-language.json",
+            mimeType: "application/json",
+            text: await this._referenceText("json"),
+          },
+        ],
+      }),
+    );
+    this._protocol.registerResource(
+      "agent-skill",
+      "do-md://skills/do-md",
+      {
+        title: "do-md Agent Skill",
+        description: "Workflow for authoring, validating and editing documents with do-md",
+        mimeType: "text/markdown",
+      },
+      async () => {
+        const result = await this._dispatch("skill", {});
+        if (!result.ok || typeof result.skill !== "string") {
+          throw new Error(result.errors?.[0]?.message ?? "skill unavailable");
+        }
+        return {
+          contents: [
+            { uri: "do-md://skills/do-md", mimeType: "text/markdown", text: result.skill },
+          ],
+        };
+      },
+    );
     await this._protocol.connect(new StdioServerTransport());
     return new Promise((resolveDone) => {
       let done = false;
       const finish = async () => {
-        if (done) return;
+        if (done) {
+          return;
+        }
         done = true;
         await this.close();
         resolveDone();
       };
-      if (process.stdin.readableEnded) void finish();
-      else process.stdin.once("end", () => void finish());
+      if (process.stdin.readableEnded) {
+        void finish();
+      } else {
+        process.stdin.once("end", () => void finish());
+      }
     });
   }
 
   async close() {
-    for (const controller of this._active.keys()) controller.abort();
+    for (const controller of this._active.keys()) {
+      controller.abort();
+    }
     await Promise.allSettled([...this._active.values()]);
     const protocol = this._protocol;
     this._protocol = null;
-    if (protocol) await protocol.close();
+    if (protocol) {
+      await protocol.close();
+    }
   }
 
   async _callIsolated(name, params, signal) {
@@ -291,32 +372,52 @@ export class Server {
     const controller = new AbortController();
     const abort = () => controller.abort();
     signal?.addEventListener("abort", abort, { once: true });
-    if (signal?.aborted) abort();
+    if (signal?.aborted) {
+      abort();
+    }
     const running = this._remote
-      ? this._remote.call(name, params, controller.signal).then((result) => this._shapeResult(name, result))
-      : this._customHandlers ? this.callTool(name, params) : this._callIsolated(name, params, controller.signal);
+      ? this._remote
+          .call(name, params, controller.signal)
+          .then((result) => this._shapeResult(name, result))
+      : this._customHandlers
+        ? this.callTool(name, params)
+        : this._callIsolated(name, params, controller.signal);
     this._active.set(controller, running);
-    try { return await running; }
-    catch (error) { return this._failure(name, toMcpDiagnostic(error)); }
-    finally { signal?.removeEventListener("abort", abort); this._active.delete(controller); }
+    try {
+      return await running;
+    } catch (error) {
+      return this._failure(name, toMcpDiagnostic(error));
+    } finally {
+      signal?.removeEventListener("abort", abort);
+      this._active.delete(controller);
+    }
   }
 
   async _referenceText(format) {
-    if (!this._remote) return renderTemplateReference({ format });
+    if (!this._remote) {
+      return renderTemplateReference({ format });
+    }
     const result = await this._dispatch("reference", { format });
-    if (!result.ok) throw new Error(result.errors?.[0]?.message ?? "remote reference failed");
+    if (!result.ok) {
+      throw new Error(result.errors?.[0]?.message ?? "remote reference failed");
+    }
     return format === "json" ? JSON.stringify(result.reference) : result.reference;
   }
 
   _shapeResult(name, result) {
     if (result == null || typeof result !== "object") {
-      return this._failure(name, mcpDiagnostic(MCP_CODES.DO_MD_INTERNAL_ERROR, "invalid tool result"));
+      return this._failure(
+        name,
+        mcpDiagnostic(MCP_CODES.DO_MD_INTERNAL_ERROR, "invalid tool result"),
+      );
     }
     const shaped = emptyResult(name);
     shaped.ok = result.ok === true;
     shaped.errors = this._normalizeErrors(result.errors);
     for (const key of ["output", "context", "wrote", "matches", "reference", "skill"]) {
-      if (Object.hasOwn(shaped, key)) shaped[key] = result[key] ?? null;
+      if (Object.hasOwn(shaped, key)) {
+        shaped[key] = result[key] ?? null;
+      }
     }
     return this._finalizeResult(shaped);
   }
@@ -328,7 +429,9 @@ export class Server {
   }
 
   _finalizeResult(result) {
-    if (this.noSnippets) result.errors = stripDiagnosticSnippets(result.errors);
+    if (this.noSnippets) {
+      result.errors = stripDiagnosticSnippets(result.errors);
+    }
     return result;
   }
 

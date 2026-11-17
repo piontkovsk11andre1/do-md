@@ -74,7 +74,7 @@ are accounted for. Long lines are cropped around the marker with ellipses.
 The public formatter also accepts serialized diagnostics:
 
 ```js
-import { formatDiagnostic } from '@p10i/do-md';
+import { formatDiagnostic } from "@p10i/do-md";
 
 const plain = formatDiagnostic(diagnostic);
 const detailed = formatDiagnostic(diagnostic, {
@@ -96,10 +96,10 @@ the error. Missing snippets still show location headers. Raw JS `error.stack`,
 ## Template compilation
 
 ```js
-import { Template } from '@p10i/do-md';
+import { Template } from "@p10i/do-md";
 
 const { code, sourceMap } = Template.compile(templateText, {
-  file: '/templates/action.md.template',
+  file: "/templates/action.md.template",
 });
 ```
 
@@ -132,23 +132,25 @@ The application extracting a template owns the extraction map. This example
 uses one contiguous slice; indentation removal requires a segment per copied
 run, as demonstrated by the integration tests.
 
-```js
-import { Template, createSourceMap, mapDiagnostic } from '@p10i/do-md';
+````js
+import { Template, createSourceMap, mapDiagnostic } from "@p10i/do-md";
 
-const markdown = '# Workflow\n\n```template\n{% const = 1; %}\n```\n';
-const start = markdown.indexOf('{%');
-const end = markdown.indexOf('\n```', start);
+const markdown = "# Workflow\n\n```template\n{% const = 1; %}\n```\n";
+const start = markdown.indexOf("{%");
+const end = markdown.indexOf("\n```", start);
 const templateText = markdown.slice(start, end);
 const extractionMap = createSourceMap({
-  generated: { source: 'extracted.md.template', text: templateText },
-  original: { source: 'workflow.md', text: markdown },
-  segments: [{
-    generatedStart: 0,
-    generatedEnd: templateText.length,
-    originalStart: start,
-    originalEnd: end,
-    kind: 'exact',
-  }],
+  generated: { source: "extracted.md.template", text: templateText },
+  original: { source: "workflow.md", text: markdown },
+  segments: [
+    {
+      generatedStart: 0,
+      generatedEnd: templateText.length,
+      originalStart: start,
+      originalEnd: end,
+      kind: "exact",
+    },
+  ],
 });
 
 try {
@@ -158,7 +160,7 @@ try {
   // generated JS → extracted.md.template → workflow.md
   console.log(diagnostic.locations);
 }
-```
+````
 
 `mapDiagnostic()` accepts a diagnostic or an error exposing `toDiagnostic()`.
 It returns a new diagnostic, preserving existing locations, mapping the latest
@@ -170,10 +172,10 @@ To propagate a mapped error through another JavaScript boundary, wrap the new
 diagnostic and preserve the caught error as its cause:
 
 ```js
-import { SyntaxError, mapDiagnostic } from '@p10i/do-md';
+import { DoMdError, mapDiagnostic } from "@p10i/do-md";
 
 // Inside the caller's catch block:
-throw new SyntaxError(mapDiagnostic(error, extractionMap), { cause: error });
+throw new DoMdError(mapDiagnostic(error, extractionMap), { cause: error });
 ```
 
 The next layer can apply its own map in the same way. Serialized command results

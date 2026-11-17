@@ -1,6 +1,6 @@
 import { parse as parseYaml } from "yaml";
 
-import { makeParseError } from "../SyntaxError.mjs";
+import { makeParseError } from "../DoMdError.mjs";
 
 function newlineLength(text, index) {
   if (text[index] === "\r" && text[index + 1] === "\n") {
@@ -27,7 +27,7 @@ function isWordChar(ch) {
 function endPosition(source) {
   let line = 1;
   let column = 1;
-  for (let i = 0; i < source.length; ) {
+  for (let i = 0; i < source.length;) {
     const nl = newlineLength(source, i);
     if (nl) {
       i += nl;
@@ -238,10 +238,15 @@ export function flattenNode(node) {
     case "list_item":
     case "block_quote":
     case "document":
-      return (node.children ?? []).map(flattenNode).filter((part, i, arr) => part || i < arr.length - 1).join("\n");
+      return (node.children ?? [])
+        .map(flattenNode)
+        .filter((part, i, arr) => part || i < arr.length - 1)
+        .join("\n");
     case "table": {
       const headers = (node.headers ?? []).map((cell) => flattenInlines(cell.children));
-      const rows = (node.rows ?? []).map((row) => row.map((cell) => flattenInlines(cell.children)).join(" | "));
+      const rows = (node.rows ?? []).map((row) =>
+        row.map((cell) => flattenInlines(cell.children)).join(" | "),
+      );
       return [...headers, ...rows].join("\n");
     }
     default:
@@ -269,7 +274,9 @@ function isBlockQuote(text) {
 }
 
 function isHtmlBlockStart(text) {
-  return /^( {0,3})<(?:!--|\?|!\[CDATA\[|![A-Za-z]|\/[A-Za-z][A-Za-z0-9-]*|[A-Za-z][A-Za-z0-9-]*(?:[\s>/]|$))/.test(text);
+  return /^( {0,3})<(?:!--|\?|!\[CDATA\[|![A-Za-z]|\/[A-Za-z][A-Za-z0-9-]*|[A-Za-z][A-Za-z0-9-]*(?:[\s>/]|$))/.test(
+    text,
+  );
 }
 
 function isSetextUnderline(text) {
@@ -306,7 +313,13 @@ function matchListMarker(text) {
 }
 
 function interruptsParagraph(text) {
-  if (isAtxHeading(text) || isThematicBreak(text) || isFence(text) || isBlockQuote(text) || isHtmlBlockStart(text)) {
+  if (
+    isAtxHeading(text) ||
+    isThematicBreak(text) ||
+    isFence(text) ||
+    isBlockQuote(text) ||
+    isHtmlBlockStart(text)
+  ) {
     return true;
   }
   if (matchListMarker(text)) {
@@ -412,7 +425,12 @@ function tryCodeSpan(s) {
       }
       if (closer === opener) {
         let value = s.source.slice(s.offset, i).replace(/\r\n|\r|\n/g, " ");
-        if (value.length >= 2 && value.startsWith(" ") && value.endsWith(" ") && value.trim() !== "") {
+        if (
+          value.length >= 2 &&
+          value.startsWith(" ") &&
+          value.endsWith(" ") &&
+          value.trim() !== ""
+        ) {
           value = value.slice(1, -1);
         }
         while (s.offset < i + closer) {
@@ -443,7 +461,11 @@ function tryAutolinkOrHtml(s) {
     advanceScanN(s, email[0].length);
     const addr = email[1];
     const innerStart = { offset: start.offset + 1, line: start.line, column: start.column + 1 };
-    const innerEnd = { offset: start.offset + 1 + addr.length, line: start.line, column: start.column + 1 + addr.length };
+    const innerEnd = {
+      offset: start.offset + 1 + addr.length,
+      line: start.line,
+      column: start.column + 1 + addr.length,
+    };
     return makeInlineNode(
       "autolink",
       {
@@ -461,7 +483,11 @@ function tryAutolinkOrHtml(s) {
     advanceScanN(s, url[0].length);
     const href = url[1];
     const innerStart = { offset: start.offset + 1, line: start.line, column: start.column + 1 };
-    const innerEnd = { offset: start.offset + 1 + href.length, line: start.line, column: start.column + 1 + href.length };
+    const innerEnd = {
+      offset: start.offset + 1 + href.length,
+      line: start.line,
+      column: start.column + 1 + href.length,
+    };
     return makeInlineNode(
       "autolink",
       {
@@ -487,7 +513,12 @@ function parseDestination(s) {
   if (peekScan(s) === "<") {
     advanceScan(s);
     let url = "";
-    while (s.offset < s.end && peekScan(s) !== ">" && peekScan(s) !== "\n" && peekScan(s) !== "\r") {
+    while (
+      s.offset < s.end &&
+      peekScan(s) !== ">" &&
+      peekScan(s) !== "\n" &&
+      peekScan(s) !== "\r"
+    ) {
       if (peekScan(s) === "\\") {
         advanceScan(s);
       }
@@ -624,9 +655,20 @@ function tryLinkLike(s, image) {
     return null;
   }
   advanceScan(s);
-  const children = parseInlinesAt(s.source, innerStart.offset, innerEnd.offset, innerStart.line, innerStart.column);
+  const children = parseInlinesAt(
+    s.source,
+    innerStart.offset,
+    innerEnd.offset,
+    innerStart.line,
+    innerStart.column,
+  );
   if (image) {
-    return makeInlineNode("image", { url, title, alt: flattenInlines(children) }, start, markScan(s));
+    return makeInlineNode(
+      "image",
+      { url, title, alt: flattenInlines(children) },
+      start,
+      markScan(s),
+    );
   }
   return makeInlineNode("link", { url, title, children }, start, markScan(s));
 }
@@ -669,7 +711,12 @@ function shiftPos(pos, delta) {
 }
 
 function delimToText(node) {
-  return makeInlineNode("text", { value: node.ch.repeat(node.count) }, node.position.start, node.position.end);
+  return makeInlineNode(
+    "text",
+    { value: node.ch.repeat(node.count) },
+    node.position.start,
+    node.position.end,
+  );
 }
 
 function processEmphasis(nodes) {
@@ -694,10 +741,17 @@ function processEmphasis(nodes) {
     }
     const opener = nodes[openerIndex];
     const used = opener.count >= 2 && closer.count >= 2 ? 2 : 1;
-    const inner = nodes.slice(openerIndex + 1, i).map((node) => (node.type === "delim" ? delimToText(node) : node));
+    const inner = nodes
+      .slice(openerIndex + 1, i)
+      .map((node) => (node.type === "delim" ? delimToText(node) : node));
     const wrapStart = shiftPos(opener.position.end, -used);
     const wrapEnd = shiftPos(closer.position.start, used);
-    const wrapped = makeInlineNode(used === 2 ? "strong" : "emphasis", { children: mergeAdjacentText(inner) }, wrapStart, wrapEnd);
+    const wrapped = makeInlineNode(
+      used === 2 ? "strong" : "emphasis",
+      { children: mergeAdjacentText(inner) },
+      wrapStart,
+      wrapEnd,
+    );
     opener.count -= used;
     closer.count -= used;
     const replacement = [];
@@ -718,7 +772,15 @@ function processEmphasis(nodes) {
 
 function isSpecialStart(s) {
   const ch = peekScan(s);
-  if (ch === "`" || ch === "[" || ch === "<" || ch === "*" || ch === "_" || ch === "\n" || ch === "\r") {
+  if (
+    ch === "`" ||
+    ch === "[" ||
+    ch === "<" ||
+    ch === "*" ||
+    ch === "_" ||
+    ch === "\n" ||
+    ch === "\r"
+  ) {
     return true;
   }
   if (ch === "!" && peekScan(s, 1) === "[") {
@@ -809,7 +871,13 @@ function parseInlinesAt(source, start, end, line, column) {
 }
 
 function parseLineInlines(source, line) {
-  return parseInlinesAt(source, line.start.offset, line.end.offset, line.start.line, line.start.column);
+  return parseInlinesAt(
+    source,
+    line.start.offset,
+    line.end.offset,
+    line.start.line,
+    line.start.column,
+  );
 }
 
 function parseParagraphInlines(source, lines) {
@@ -823,7 +891,11 @@ function parseParagraphInlines(source, lines) {
       if (text.endsWith("\\")) {
         text = text.slice(0, -1);
         breakType = "hard_break";
-        contentEnd = { offset: line.end.offset - 1, line: line.end.line, column: line.end.column - 1 };
+        contentEnd = {
+          offset: line.end.offset - 1,
+          line: line.end.line,
+          column: line.end.column - 1,
+        };
       } else {
         const spaces = text.match(/ {2,}$/);
         if (spaces) {
@@ -837,7 +909,13 @@ function parseParagraphInlines(source, lines) {
         }
       }
     }
-    const parsed = parseInlinesAt(source, line.start.offset, line.start.offset + text.length, line.start.line, line.start.column);
+    const parsed = parseInlinesAt(
+      source,
+      line.start.offset,
+      line.start.offset + text.length,
+      line.start.line,
+      line.start.column,
+    );
     nodes.push(...parsed);
     if (breakType) {
       const breakStart = contentEnd;
@@ -866,10 +944,14 @@ function parseAtxHeading(source, line) {
   if (!match) {
     return null;
   }
-  if (match[3] == null && !/^( {0,3})(#{1,6})[ \t]*$/.test(line.text) && !/^( {0,3})(#{1,6})[ \t]/.test(line.text)) {
+  if (
+    match[3] == null &&
+    !/^( {0,3})(#{1,6})[ \t]*$/.test(line.text) &&
+    !/^( {0,3})(#{1,6})[ \t]/.test(line.text)
+  ) {
     return null;
   }
-  let content = (match[3] ?? "").replace(/[ \t]+#*[ \t]*$/, "");
+  const content = (match[3] ?? "").replace(/[ \t]+#*[ \t]*$/, "");
   const prefix = match[1].length + match[2].length;
   const afterHashes = line.text.slice(prefix);
   const spaceMatch = afterHashes.match(/^[ \t]*/);
@@ -891,7 +973,7 @@ function parseFencedCode(lines, start, end) {
     return null;
   }
   const splitAt = info.search(/\s/);
-  const language = splitAt === -1 ? (info || null) : info.slice(0, splitAt);
+  const language = splitAt === -1 ? info || null : info.slice(0, splitAt);
   const meta = splitAt === -1 ? "" : info.slice(splitAt).replace(/^\s+/, "");
   const valueLines = [];
   let i = start + 1;
@@ -901,7 +983,7 @@ function parseFencedCode(lines, start, end) {
       i += 1;
       break;
     }
-    let text = lines[i].text;
+    const text = lines[i].text;
     let stripped = 0;
     while (stripped < indent && text[stripped] === " ") {
       stripped += 1;
@@ -963,7 +1045,12 @@ function parseHtmlBlock(lines, start, end) {
     i += 1;
   }
   return {
-    node: makeNode("html_block", { value: valueLines.join("\n") }, lines[start].start, lines[i - 1].end),
+    node: makeNode(
+      "html_block",
+      { value: valueLines.join("\n") },
+      lines[start].start,
+      lines[i - 1].end,
+    ),
     nextIndex: i,
   };
 }
@@ -1165,18 +1252,28 @@ function parseList(source, lines, start, end) {
         }
         const nextMarker = matchListMarker(lines[j].text);
         const nextIndent = lineIndent(lines[j].text);
-        if ((nextMarker && nextMarker.ordered === first.ordered && nextIndent < contentIndent) || nextIndent < contentIndent) {
+        if (
+          (nextMarker && nextMarker.ordered === first.ordered && nextIndent < contentIndent) ||
+          nextIndent < contentIndent
+        ) {
           if (!nextMarker || nextMarker.ordered !== first.ordered || nextIndent < marker.indent) {
             if (!(nextIndent >= contentIndent || (nextMarker && nextIndent >= contentIndent))) {
               break;
             }
           }
         }
-        if (nextMarker && nextMarker.ordered === first.ordered && lineIndent(lines[j].text) <= marker.indent) {
+        if (
+          nextMarker &&
+          nextMarker.ordered === first.ordered &&
+          lineIndent(lines[j].text) <= marker.indent
+        ) {
           tight = false;
           break;
         }
-        if (nextIndent >= contentIndent || (nextMarker && lineIndent(lines[j].text) > marker.indent)) {
+        if (
+          nextIndent >= contentIndent ||
+          (nextMarker && lineIndent(lines[j].text) > marker.indent)
+        ) {
           tight = false;
           itemLines.push(virtualLine(lines[i], "", 0));
           i += 1;
@@ -1185,7 +1282,11 @@ function parseList(source, lines, start, end) {
         break;
       }
       const nextMarker = matchListMarker(lines[i].text);
-      if (nextMarker && nextMarker.ordered === first.ordered && lineIndent(lines[i].text) <= marker.indent) {
+      if (
+        nextMarker &&
+        nextMarker.ordered === first.ordered &&
+        lineIndent(lines[i].text) <= marker.indent
+      ) {
         break;
       }
       if (lineIndent(lines[i].text) >= contentIndent) {
@@ -1213,7 +1314,11 @@ function parseList(source, lines, start, end) {
       }
       if (j < end) {
         const nextMarker = matchListMarker(lines[j].text);
-        if (nextMarker && nextMarker.ordered === first.ordered && lineIndent(lines[j].text) <= marker.indent) {
+        if (
+          nextMarker &&
+          nextMarker.ordered === first.ordered &&
+          lineIndent(lines[j].text) <= marker.indent
+        ) {
           tight = false;
           i = j;
         }
@@ -1246,7 +1351,15 @@ function parseParagraphOrSetext(source, lines, start, end) {
     if (isSetextUnderline(lines[i].text)) {
       if (paraLines.length === 1) {
         return {
-          nodes: [makeHeading(source, paraLines[0], setextLevel(lines[i].text), paraLines[0].start, lines[i].end)],
+          nodes: [
+            makeHeading(
+              source,
+              paraLines[0],
+              setextLevel(lines[i].text),
+              paraLines[0].start,
+              lines[i].end,
+            ),
+          ],
           nextIndex: i + 1,
         };
       }

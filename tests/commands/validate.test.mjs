@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { validate } from "../../sources/commands/validate.mjs";
 import { Virtual } from "../../sources/IO/Virtual.mjs";
-import { ERROR_CODES } from "../../sources/SyntaxError.mjs";
+import { ERROR_CODES } from "../../sources/DoMdError.mjs";
 
 const TEMPLATE = '# {% doc.line().as("title") %}\n';
 const INPUT = "# Hello\n";
@@ -66,7 +66,10 @@ test("validate resolves relative paths against cwd", async () => {
 });
 
 test("validate rejects missing arguments with DO_MD_USER_ERROR", async () => {
-  await assert.rejects(() => validate({}), (err) => err.code === ERROR_CODES.DO_MD_USER_ERROR);
+  await assert.rejects(
+    () => validate({}),
+    (err) => err.code === ERROR_CODES.DO_MD_USER_ERROR,
+  );
   await assert.rejects(
     () => validate({ io: new Virtual(), file: "/doc.md" }),
     (err) => err.code === ERROR_CODES.DO_MD_USER_ERROR,

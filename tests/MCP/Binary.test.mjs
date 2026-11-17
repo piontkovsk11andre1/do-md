@@ -10,7 +10,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 
 import { MCP_CODES } from "../../sources/MCP/Server.mjs";
-import { ERROR_CODES } from "../../sources/SyntaxError.mjs";
+import { ERROR_CODES } from "../../sources/DoMdError.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const DO_MD = path.join(ROOT, "bin/do-md.mjs");
@@ -57,17 +57,29 @@ test("both package binaries expose the same official MCP server", async () => {
   await withRoot(async (root) => {
     const results = [];
     for (const entry of ENTRIES) {
-      results.push(await useEntry(entry, ["--root", root], async (client) => {
-        const tools = await client.listTools();
-        const result = await client.callTool({
-          name: "validate",
-          arguments: { file: "ok.md", template: "tpl.md" },
-        });
-        return { tools: tools.tools.map((tool) => tool.name), payload: payload(result) };
-      }));
+      results.push(
+        await useEntry(entry, ["--root", root], async (client) => {
+          const tools = await client.listTools();
+          const result = await client.callTool({
+            name: "validate",
+            arguments: { file: "ok.md", template: "tpl.md" },
+          });
+          return { tools: tools.tools.map((tool) => tool.name), payload: payload(result) };
+        }),
+      );
     }
     assert.deepEqual(results[0], results[1]);
-    assert.deepEqual(results[0].tools, ["validate", "export", "create", "set", "render", "match", "query", "reference", "skill"]);
+    assert.deepEqual(results[0].tools, [
+      "validate",
+      "export",
+      "create",
+      "set",
+      "render",
+      "match",
+      "query",
+      "reference",
+      "skill",
+    ]);
     assert.deepEqual(results[0].payload, { ok: true, errors: [] });
   });
 });
@@ -76,7 +88,10 @@ test("both binaries require a valid root", () => {
   const missing = path.join(tmpdir(), `do-md-missing-${process.pid}`);
   for (const entry of ENTRIES) {
     for (const flags of [[], ["--root", missing]]) {
-      const result = spawnSync(process.execPath, entry.args(flags), { encoding: "utf8", windowsHide: true });
+      const result = spawnSync(process.execPath, entry.args(flags), {
+        encoding: "utf8",
+        windowsHide: true,
+      });
       assert.equal(result.status, 1, entry.name);
       assert.match(result.stderr, /--root/, entry.name);
       assert.equal(result.stdout, "", entry.name);
@@ -88,17 +103,21 @@ test("both binaries enforce root scoping and maxInputBytes", async () => {
   await withRoot(async (root) => {
     for (const entry of ENTRIES) {
       await useEntry(entry, ["--root", root], async (client) => {
-        const escaped = payload(await client.callTool({
-          name: "validate",
-          arguments: { file: "../secret.md", template: "tpl.md" },
-        }));
+        const escaped = payload(
+          await client.callTool({
+            name: "validate",
+            arguments: { file: "../secret.md", template: "tpl.md" },
+          }),
+        );
         assert.equal(escaped.errors[0].code, ERROR_CODES.DO_MD_USER_ERROR, entry.name);
       });
       await useEntry(entry, ["--root", root, "--max-input-bytes", "1"], async (client) => {
-        const limited = payload(await client.callTool({
-          name: "validate",
-          arguments: { file: "ok.md", template: "tpl.md" },
-        }));
+        const limited = payload(
+          await client.callTool({
+            name: "validate",
+            arguments: { file: "ok.md", template: "tpl.md" },
+          }),
+        );
         assert.equal(limited.errors[0].code, ERROR_CODES.DO_MD_USER_ERROR, entry.name);
       });
     }
@@ -108,19 +127,30 @@ test("both binaries enforce root scoping and maxInputBytes", async () => {
 test("both binaries apply no-snippets and terminate runaway templates", async () => {
   await withRoot(async (root) => {
     for (const entry of ENTRIES) {
-      await useEntry(entry, ["--root", root, "--no-snippets", "--timeout-ms", "25"], async (client) => {
-        const mismatch = payload(await client.callTool({
-          name: "validate",
-          arguments: { file: "bad.md", template: "tpl.md" },
-        }));
-        assert.ok(mismatch.errors[0].locations.every((l) => l.snippet === null), entry.name);
+      await useEntry(
+        entry,
+        ["--root", root, "--no-snippets", "--timeout-ms", "25"],
+        async (client) => {
+          const mismatch = payload(
+            await client.callTool({
+              name: "validate",
+              arguments: { file: "bad.md", template: "tpl.md" },
+            }),
+          );
+          assert.ok(
+            mismatch.errors[0].locations.every((l) => l.snippet === null),
+            entry.name,
+          );
 
-        const timeout = payload(await client.callTool({
-          name: "validate",
-          arguments: { file: "ok.md", template: "loop.tpl.md" },
-        }));
-        assert.equal(timeout.errors[0].code, MCP_CODES.DO_MD_TIMEOUT, entry.name);
-      });
+          const timeout = payload(
+            await client.callTool({
+              name: "validate",
+              arguments: { file: "ok.md", template: "loop.tpl.md" },
+            }),
+          );
+          assert.equal(timeout.errors[0].code, MCP_CODES.DO_MD_TIMEOUT, entry.name);
+        },
+      );
     }
   });
 });

@@ -129,13 +129,23 @@ for (const spec of MUTATION_FIXTURES) {
     }
 
     if (fixture.byteStable) {
-      const editor = await Editor.open({ io: new Virtual({ [file]: fixture.input, [template]: fixture.template }), file, template });
+      const editor = await Editor.open({
+        io: new Virtual({ [file]: fixture.input, [template]: fixture.template }),
+        file,
+        template,
+      });
       const slot = editor.slotMap.find((entry) => entry.key === fixture.key);
       assert.ok(slot);
       const written = await io.readFileAsync(file);
       const replacement = String(fixture.value);
-      assert.equal(written.slice(0, slot.sourceOffsetStart), fixture.input.slice(0, slot.sourceOffsetStart));
-      assert.equal(written.slice(slot.sourceOffsetStart + replacement.length), fixture.input.slice(slot.sourceOffsetEnd));
+      assert.equal(
+        written.slice(0, slot.sourceOffsetStart),
+        fixture.input.slice(0, slot.sourceOffsetStart),
+      );
+      assert.equal(
+        written.slice(slot.sourceOffsetStart + replacement.length),
+        fixture.input.slice(slot.sourceOffsetEnd),
+      );
     }
   });
 

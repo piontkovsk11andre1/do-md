@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { handleMatch } from "../../../sources/MCP/tools/match.mjs";
 import { Virtual } from "../../../sources/IO/Virtual.mjs";
-import { ERROR_CODES } from "../../../sources/SyntaxError.mjs";
+import { ERROR_CODES } from "../../../sources/DoMdError.mjs";
 
 const io = new Virtual({
   "/root/doc.md": "# Hello\n",

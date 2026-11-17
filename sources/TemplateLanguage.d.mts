@@ -1,5 +1,17 @@
-export interface TemplateFunctionReference { readonly name: string; readonly category: string; readonly signature: string; readonly summary: string; readonly value: string; readonly example: string; }
-export interface TemplateModifierReference { readonly name: string; readonly signature: string; readonly summary: string; readonly example: string; }
+export interface TemplateFunctionReference {
+  readonly name: string;
+  readonly category: string;
+  readonly signature: string;
+  readonly summary: string;
+  readonly value: string;
+  readonly example: string;
+}
+export interface TemplateModifierReference {
+  readonly name: string;
+  readonly signature: string;
+  readonly summary: string;
+  readonly example: string;
+}
 export interface TemplateLanguageReference {
   readonly version: string;
   readonly syntax: Readonly<Record<string, string>>;
@@ -13,5 +25,10 @@ export interface TemplateLanguageReference {
 }
 export const templateLanguage: TemplateLanguageReference;
 export function listTemplateFunctions(): string[];
-export function describeTemplateFunction(name: unknown): TemplateFunctionReference | TemplateModifierReference | null;
-export function renderTemplateReference(options?: { topic?: string | null; format?: "text" | "markdown" | "json" }): string | null;
+export function describeTemplateFunction(
+  name: unknown,
+): TemplateFunctionReference | TemplateModifierReference | null;
+export function renderTemplateReference(options?: {
+  topic?: string | null;
+  format?: "text" | "markdown" | "json";
+}): string | null;

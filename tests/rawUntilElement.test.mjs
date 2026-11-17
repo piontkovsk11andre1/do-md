@@ -7,9 +7,10 @@ import { Reader } from "../sources/Reader.mjs";
 import { Slot } from "../sources/Slot.mjs";
 import { Writer } from "../sources/Writer.mjs";
 import { Virtual } from "../sources/IO/Virtual.mjs";
-import { ERROR_CODES } from "../sources/SyntaxError.mjs";
+import { ERROR_CODES } from "../sources/DoMdError.mjs";
 
-const TEMPLATE = '{% doc.repeat((item) => { item.rawUntilElement("list"); item.listTree().asArray("lists") }); doc.rawRest() %}';
+const TEMPLATE =
+  '{% doc.repeat((item) => { item.rawUntilElement("list"); item.listTree().asArray("lists") }); doc.rawRest() %}';
 
 function templateError(err) {
   return err?.code === ERROR_CODES.DO_MD_TEMPLATE_ERROR;
@@ -110,7 +111,10 @@ test("set of a checkbox changes three bytes and leaves the heading offset", asyn
   editor.set("lists[0].items[0].checked", true);
   const rendered = editor.render();
   assert.equal(rendered.slice(checkbox.sourceOffsetStart, checkbox.sourceOffsetEnd), "[x]");
-  assert.equal(rendered.slice(0, checkbox.sourceOffsetStart), source.slice(0, checkbox.sourceOffsetStart));
+  assert.equal(
+    rendered.slice(0, checkbox.sourceOffsetStart),
+    source.slice(0, checkbox.sourceOffsetStart),
+  );
   assert.equal(rendered.slice(checkbox.sourceOffsetEnd), source.slice(checkbox.sourceOffsetEnd));
   assert.equal(rendered.indexOf(heading), headingAt);
   assert.equal(rendered.slice(headingAt, headingAt + heading.length), heading);
@@ -137,7 +141,10 @@ test("set that adds a child rewrites only the list after the heading", async () 
     ],
   });
   const rendered = editor.render();
-  assert.equal(rendered.slice(0, secondList.sourceOffsetStart), source.slice(0, secondList.sourceOffsetStart));
+  assert.equal(
+    rendered.slice(0, secondList.sourceOffsetStart),
+    source.slice(0, secondList.sourceOffsetStart),
+  );
   assert.equal(rendered.indexOf(heading), headingAt);
   assert.equal(rendered.slice(headingAt, headingAt + heading.length), heading);
   assert.equal(

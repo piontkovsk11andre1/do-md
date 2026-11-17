@@ -1,12 +1,5 @@
 import { set } from "../../commands/set.mjs";
-import {
-  commandIo,
-  commandOptions,
-  cwdOf,
-  hasOwnPath,
-  ioOf,
-  resolveToolPath,
-} from "./helpers.mjs";
+import { commandIo, commandOptions, cwdOf, hasOwnPath, ioOf, resolveToolPath } from "./helpers.mjs";
 
 export async function handleSet(params = {}, context = {}) {
   const io = ioOf(context);
@@ -30,7 +23,7 @@ export async function handleSet(params = {}, context = {}) {
     ok: result.ok === true,
     output: result.output ?? null,
     wrote: result.ok === true && !dryRun ? (writeOut ? params.out : params.file) : null,
-    context: result.ok === true ? result.context ?? null : null,
+    context: result.ok === true ? (result.context ?? null) : null,
     errors: result.errors ?? [],
   };
 }

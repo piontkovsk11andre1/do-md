@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { Fetch } from "../../sources/IO/Fetch.mjs";
-import { ERROR_CODES, SyntaxError } from "../../sources/SyntaxError.mjs";
+import { ERROR_CODES, DoMdError } from "../../sources/DoMdError.mjs";
 
 test("Fetch IO module exists", () => {
   const io = new Fetch();
@@ -34,7 +34,7 @@ test("readFileAsync rejects missing files with DO_MD_IO_ERROR", async () => {
   try {
     await assert.rejects(
       () => io.readFileAsync("https://example.com/missing.md"),
-      (err) => err instanceof SyntaxError && err.code === ERROR_CODES.DO_MD_IO_ERROR,
+      (err) => err instanceof DoMdError && err.code === ERROR_CODES.DO_MD_IO_ERROR,
     );
   } finally {
     globalThis.fetch = original;
@@ -68,7 +68,7 @@ test("writeFileAsync rejects with DO_MD_IO_ERROR", async () => {
   const io = new Fetch();
   await assert.rejects(
     () => io.writeFileAsync("https://example.com/out.md", "# no"),
-    (err) => err instanceof SyntaxError && err.code === ERROR_CODES.DO_MD_IO_ERROR,
+    (err) => err instanceof DoMdError && err.code === ERROR_CODES.DO_MD_IO_ERROR,
   );
 });
 
@@ -76,6 +76,6 @@ test("statAsync rejects with DO_MD_IO_ERROR", async () => {
   const io = new Fetch();
   await assert.rejects(
     () => io.statAsync("https://example.com/out.md"),
-    (err) => err instanceof SyntaxError && err.code === ERROR_CODES.DO_MD_IO_ERROR,
+    (err) => err instanceof DoMdError && err.code === ERROR_CODES.DO_MD_IO_ERROR,
   );
 });

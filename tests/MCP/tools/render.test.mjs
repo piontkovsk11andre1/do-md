@@ -6,7 +6,14 @@ import { handleRender } from "../../../sources/MCP/tools/render.mjs";
 import { create } from "../../../sources/commands/create.mjs";
 import { render } from "../../../sources/commands/render.mjs";
 import { RUNTIME_FIXTURES, fixtureReady, loadFixture } from "../../conformance-helpers.mjs";
-import { cloneIo, cloneJson, fixtureFiles, snapshot, toolContext, trackWrites } from "./helpers.mjs";
+import {
+  cloneIo,
+  cloneJson,
+  fixtureFiles,
+  snapshot,
+  toolContext,
+  trackWrites,
+} from "./helpers.mjs";
 
 test("MCP render tool module exists", () => {
   assert.equal(typeof handleRender, "function");

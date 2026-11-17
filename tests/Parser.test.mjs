@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { Parser } from "../sources/Parser.mjs";
-import { ERROR_CODES, SyntaxError } from "../sources/SyntaxError.mjs";
+import { ERROR_CODES, DoMdError } from "../sources/DoMdError.mjs";
 import { Slot } from "../sources/Slot.mjs";
 
 test("Parser module exists", () => {
@@ -38,7 +38,7 @@ test("non-whitespace characters must match exactly", () => {
   parser.parse("hallo");
   assert.equal(parser.offset, 0);
   assert.equal(parser.errors.length, 1);
-  assert.ok(parser.errors[0] instanceof SyntaxError);
+  assert.ok(parser.errors[0] instanceof DoMdError);
   assert.equal(parser.errors[0].code, ERROR_CODES.DO_MD_PARSE_ERROR);
 });
 
@@ -162,7 +162,7 @@ test("optional parseUntil rewinds when the limiter is missing", () => {
   assert.equal(parser.errors.length, 0);
 });
 
-test("error records a SyntaxError at the current line and column", () => {
+test("error records a domain error at the current line and column", () => {
   const parser = new Parser("ab\ncd", { path: "notes.md" });
   parser.parse("ab\nc");
   const err = parser.error("custom miss");
@@ -271,5 +271,8 @@ test("Parser.repeat stops on zero-width match without throwing", () => {
   const slots = parser.repeat((p) => p.parseRegExp(/^/));
   assert.deepEqual(slots, []);
   assert.equal(parser.offset, 0);
-  assert.doesNotMatch(parser.errors.map((err) => err.message).join("\n"), /max scope iterations exceeded/);
+  assert.doesNotMatch(
+    parser.errors.map((err) => err.message).join("\n"),
+    /max scope iterations exceeded/,
+  );
 });

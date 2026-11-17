@@ -25,7 +25,7 @@ export async function handleExport(params = {}, context = {}) {
   });
   return {
     ok: result.ok === true,
-    context: result.ok === true ? result.context ?? null : null,
+    context: result.ok === true ? (result.context ?? null) : null,
     ...(params.savePath ? { wrote: result.ok === true ? params.savePath : null } : {}),
     errors: result.errors ?? [],
   };

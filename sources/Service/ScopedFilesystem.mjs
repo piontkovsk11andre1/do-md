@@ -13,22 +13,36 @@ export class ScopedFilesystem extends NodeFilesystem {
 
   resolvePath(cwd, path) {
     const target = resolve(cwd ?? this.root, path);
-    if (!isWithinRoot(this.root, target)) throw scopeError(path);
+    if (!isWithinRoot(this.root, target)) {
+      throw scopeError(path);
+    }
     return target;
   }
 
   async readable(path) {
     const target = await resolveScopedPath(this.root, path);
     const info = await super.statAsync(target);
-    if (info.size > this.maxInputBytes) throw scopeError(path, "input exceeds maxInputBytes");
+    if (info.size > this.maxInputBytes) {
+      throw scopeError(path, "input exceeds maxInputBytes");
+    }
     return target;
   }
 
-  async readFileAsync(path, options) { return super.readFileAsync(await this.readable(path), options); }
-  async readFileSnapshotAsync(path, options) { return super.readFileSnapshotAsync(await this.readable(path), options); }
-  async statAsync(path) { return super.statAsync(await resolveScopedPath(this.root, path)); }
-  async writeFileAsync(path, content, options) { return super.writeFileAsync(await resolveScopedPath(this.root, path), content, options); }
-  async writeFileAtomicAsync(path, content, options) { return super.writeFileAtomicAsync(await resolveScopedPath(this.root, path), content, options); }
+  async readFileAsync(path, options) {
+    return super.readFileAsync(await this.readable(path), options);
+  }
+  async readFileSnapshotAsync(path, options) {
+    return super.readFileSnapshotAsync(await this.readable(path), options);
+  }
+  async statAsync(path) {
+    return super.statAsync(await resolveScopedPath(this.root, path));
+  }
+  async writeFileAsync(path, content, options) {
+    return super.writeFileAsync(await resolveScopedPath(this.root, path), content, options);
+  }
+  async writeFileAtomicAsync(path, content, options) {
+    return super.writeFileAtomicAsync(await resolveScopedPath(this.root, path), content, options);
+  }
 
   async globAsync(pattern, { cwd = this.root } = {}) {
     const input = this.resolvePath(cwd, String(pattern)).replace(/\\/g, "/");
@@ -39,7 +53,11 @@ export class ScopedFilesystem extends NodeFilesystem {
     const matches = await super.globAsync(input, { cwd: this.root });
     const scoped = [];
     for (const candidate of matches) {
-      try { scoped.push(await resolveScopedPath(this.root, candidate)); } catch { /* Outside-root candidates are not templates. */ }
+      try {
+        scoped.push(await resolveScopedPath(this.root, candidate));
+      } catch {
+        /* Outside-root candidates are not templates. */
+      }
     }
     return scoped;
   }

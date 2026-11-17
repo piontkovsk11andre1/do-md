@@ -15,7 +15,10 @@ export interface DiagnosticLocation {
   role: "generated" | "template" | "document";
   relation: "origin" | "processing";
   source: string | null;
-  range: { start: { offset: number | null; line: number; column: number }; end: SourcePoint | null };
+  range: {
+    start: { offset: number | null; line: number; column: number };
+    end: SourcePoint | null;
+  };
   precision: "exact" | "range" | "context";
   snippet: string | null;
 }
@@ -157,7 +160,9 @@ export interface HtmlBlockNode extends PositionedNode {
   value: string;
 }
 
-export interface FrontmatterNode<T extends Record<string, unknown> = Record<string, unknown>> extends PositionedNode {
+export interface FrontmatterNode<
+  T extends Record<string, unknown> = Record<string, unknown>,
+> extends PositionedNode {
   type: "frontmatter";
   format: "yaml";
   raw: string;
@@ -233,8 +238,7 @@ export interface FrontmatterValue<T extends Record<string, unknown> = Record<str
 export type RawValue = string;
 
 export type SafeParseResult<T> =
-  | { success: true; data: T }
-  | { success: false; error?: { message?: string } };
+  { success: true; data: T } | { success: false; error?: { message?: string } };
 
 export interface SafeParseSchema<T> {
   safeParse(value: unknown): SafeParseResult<T>;
@@ -267,8 +271,15 @@ export interface IOAdapter {
   globAsync?(pattern: string, options?: { cwd?: string }): Promise<string[]>;
   readFileAsync(path: string, options?: unknown): Promise<string | Uint8Array>;
   writeFileAsync(path: string, content: string | Uint8Array, options?: unknown): Promise<void>;
-  readFileSnapshotAsync?(path: string, options?: unknown): Promise<ReadSnapshot<string | Uint8Array>>;
-  writeFileAtomicAsync?(path: string, content: string | Uint8Array, options?: AtomicWriteOptions): Promise<WriteSnapshot>;
+  readFileSnapshotAsync?(
+    path: string,
+    options?: unknown,
+  ): Promise<ReadSnapshot<string | Uint8Array>>;
+  writeFileAtomicAsync?(
+    path: string,
+    content: string | Uint8Array,
+    options?: AtomicWriteOptions,
+  ): Promise<WriteSnapshot>;
   statAsync(path: string): Promise<FileStat>;
   resolvePath(cwd: string, path: string): string;
 }
@@ -290,10 +301,28 @@ export interface WriterOptions extends ReaderOptions {
 }
 
 export type LeafType =
-  | "value" | "line" | "text" | "heading" | "paragraph" | "list" | "listTree"
-  | "frontmatter" | "rawUntil" | "rawUntilElement" | "rawBlock" | "rawRest" | "table" | "codeBlock"
-  | "blockQuote" | "thematicBreak" | "htmlBlock" | "link" | "image" | "autolink"
-  | "codeSpan" | "checkbox";
+  | "value"
+  | "line"
+  | "text"
+  | "heading"
+  | "paragraph"
+  | "list"
+  | "listTree"
+  | "frontmatter"
+  | "rawUntil"
+  | "rawUntilElement"
+  | "rawBlock"
+  | "rawRest"
+  | "table"
+  | "codeBlock"
+  | "blockQuote"
+  | "thematicBreak"
+  | "htmlBlock"
+  | "link"
+  | "image"
+  | "autolink"
+  | "codeSpan"
+  | "checkbox";
 
 export interface SlotMetadata {
   key: string;
@@ -379,7 +408,9 @@ export interface ValidateOptions extends BaseCommandOptions {
   template: string;
 }
 
-export interface CreateOptions<TData extends Record<string, unknown> = Record<string, unknown>> extends BaseCommandOptions {
+export interface CreateOptions<
+  TData extends Record<string, unknown> = Record<string, unknown>,
+> extends BaseCommandOptions {
   file: string;
   template: string;
   data: TData;

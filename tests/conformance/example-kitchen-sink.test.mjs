@@ -7,7 +7,7 @@ import { render } from "../../sources/commands/render.mjs";
 import { set } from "../../sources/commands/set.mjs";
 import { validate } from "../../sources/commands/validate.mjs";
 import { Virtual } from "../../sources/IO/Virtual.mjs";
-import { ERROR_CODES } from "../../sources/SyntaxError.mjs";
+import { ERROR_CODES } from "../../sources/DoMdError.mjs";
 import {
   loadFixture,
   normalize,

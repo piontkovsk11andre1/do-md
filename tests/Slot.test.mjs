@@ -3,11 +3,11 @@ import assert from "node:assert/strict";
 
 import { Reader } from "../sources/Reader.mjs";
 import { Slot } from "../sources/Slot.mjs";
-import { ERROR_CODES, SyntaxError } from "../sources/SyntaxError.mjs";
+import { ERROR_CODES, DoMdError } from "../sources/DoMdError.mjs";
 import { Writer } from "../sources/Writer.mjs";
 
 function isTemplateError(err) {
-  return err instanceof SyntaxError && err.code === ERROR_CODES.DO_MD_TEMPLATE_ERROR;
+  return err instanceof DoMdError && err.code === ERROR_CODES.DO_MD_TEMPLATE_ERROR;
 }
 
 test("Slot module exists", () => {
@@ -80,7 +80,14 @@ test("mixing as and asArray on the same key throws DO_MD_TEMPLATE_ERROR", () => 
 
 test("default applies before trim, validate, and notEmpty regardless of call order", () => {
   const reader = new Reader("abc");
-  reader.optional().regexp(/\d+/).notEmpty().trim().validate((v) => v === "x").default("  x  ").as("n");
+  reader
+    .optional()
+    .regexp(/\d+/)
+    .notEmpty()
+    .trim()
+    .validate((v) => v === "x")
+    .default("  x  ")
+    .as("n");
   assert.deepEqual(reader.context, { n: "x" });
 });
 
@@ -93,8 +100,12 @@ test("trim only transforms strings", () => {
 test("validate returning false throws DO_MD_USER_ERROR", () => {
   const reader = new Reader("nope");
   assert.throws(
-    () => reader.line().validate(() => false).as("k"),
-    (err) => err instanceof SyntaxError && err.code === ERROR_CODES.DO_MD_USER_ERROR,
+    () =>
+      reader
+        .line()
+        .validate(() => false)
+        .as("k"),
+    (err) => err instanceof DoMdError && err.code === ERROR_CODES.DO_MD_USER_ERROR,
   );
 });
 
@@ -103,7 +114,7 @@ test("Reader notEmpty throws DO_MD_PARSE_ERROR", () => {
   assert.throws(
     () => reader.line().notEmpty().as("k"),
     (err) => {
-      assert.ok(err instanceof SyntaxError);
+      assert.ok(err instanceof DoMdError);
       assert.equal(err.code, ERROR_CODES.DO_MD_PARSE_ERROR);
       assert.equal(err.locations[0].source, "doc.md");
       assert.equal(err.locations[0].range.start.line, 1);

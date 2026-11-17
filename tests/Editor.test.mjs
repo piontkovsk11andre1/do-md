@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { Editor, lookupSlot } from "../sources/Editor.mjs";
 import { Reader } from "../sources/Reader.mjs";
 import { Virtual } from "../sources/IO/Virtual.mjs";
-import { ERROR_CODES } from "../sources/SyntaxError.mjs";
+import { ERROR_CODES } from "../sources/DoMdError.mjs";
 
 const RELEASE_TPL = `# {% doc.line().as("version") %}
 
@@ -124,8 +124,14 @@ test("Editor.open preserves NFC and intra-line whitespace", async () => {
 
 test("Editor.open missing io, file, or template throws DO_MD_USER_ERROR", async () => {
   const io = new Virtual({ "/doc.md": RELEASE_DOC, "/tpl.md": RELEASE_TPL });
-  await assert.rejects(() => Editor.open({}), (err) => err.code === ERROR_CODES.DO_MD_USER_ERROR);
-  await assert.rejects(() => Editor.open({ io }), (err) => err.code === ERROR_CODES.DO_MD_USER_ERROR);
+  await assert.rejects(
+    () => Editor.open({}),
+    (err) => err.code === ERROR_CODES.DO_MD_USER_ERROR,
+  );
+  await assert.rejects(
+    () => Editor.open({ io }),
+    (err) => err.code === ERROR_CODES.DO_MD_USER_ERROR,
+  );
   await assert.rejects(
     () => Editor.open({ io, file: "/doc.md" }),
     (err) => err.code === ERROR_CODES.DO_MD_USER_ERROR,
@@ -151,7 +157,10 @@ test("get, has, and keys resolve dotted and bracketed paths against ctx", async 
   const editor = await openDoc({ "/doc.md": RELEASE_DOC, "/tpl.md": RELEASE_TPL });
   assert.equal(editor.get("version"), "1.2.0");
   assert.equal(editor.get("date"), "2026-08-22");
-  assert.deepEqual(editor.get("changes"), ["Added Writer round-trip", "Added conformance fixtures"]);
+  assert.deepEqual(editor.get("changes"), [
+    "Added Writer round-trip",
+    "Added conformance fixtures",
+  ]);
   assert.equal(editor.get("changes[0]"), "Added Writer round-trip");
   assert.equal(editor.get("changes[1]"), "Added conformance fixtures");
   assert.equal(editor.get("missing"), undefined);
@@ -442,7 +451,11 @@ test("changes is a protected journal of path/before/after entries", async () => 
   assert.deepEqual(journal[1], { path: "version", before: "2.0.0", after: "3.0.0" });
   assert.equal(journal[2].path, "changes");
   assert.deepEqual(journal[2].before, ["Added Writer round-trip", "Added conformance fixtures"]);
-  assert.deepEqual(journal[2].after, ["Added Writer round-trip", "Added conformance fixtures", "Third"]);
+  assert.deepEqual(journal[2].after, [
+    "Added Writer round-trip",
+    "Added conformance fixtures",
+    "Third",
+  ]);
   try {
     journal.push({ path: "nope", before: 1, after: 2 });
     journal[0].after = "mutated";
@@ -487,7 +500,10 @@ test("revertAll discards everything since open and does not touch the file", asy
   assert.deepEqual(editor.dirtyKeys, []);
   assert.deepEqual(editor.changes, []);
   assert.equal(editor.get("version"), "1.2.0");
-  assert.deepEqual(editor.get("changes"), ["Added Writer round-trip", "Added conformance fixtures"]);
+  assert.deepEqual(editor.get("changes"), [
+    "Added Writer round-trip",
+    "Added conformance fixtures",
+  ]);
   assert.equal(editor.get("extra"), undefined);
   assert.equal(editor._structuralDirty, false);
   assert.deepEqual(editor.context.version, editor.original.version);
@@ -593,7 +609,10 @@ test("save rejects concurrent disk edits unless force is true", async () => {
   const editor = await Editor.open({ io, file: "/doc.md", template: "/tpl.md" });
   editor.set("version", "2.0.0");
   await io.writeFileAsync("/doc.md", "externally changed\n");
-  await assert.rejects(() => editor.save(), (err) => err.code === ERROR_CODES.DO_MD_CONFLICT);
+  await assert.rejects(
+    () => editor.save(),
+    (err) => err.code === ERROR_CODES.DO_MD_CONFLICT,
+  );
   assert.equal(await io.readFileAsync("/doc.md"), "externally changed\n");
   await editor.save({ force: true });
   const written = await io.readFileAsync("/doc.md");
@@ -625,8 +644,14 @@ test("scalar set splices only the original slot byte range", async () => {
     "2.0.0" +
     RELEASE_DOC.slice(version.sourceOffsetEnd);
   assert.equal(rendered, expected);
-  assert.equal(rendered.slice(0, version.sourceOffsetStart), RELEASE_DOC.slice(0, version.sourceOffsetStart));
-  assert.equal(rendered.slice(version.sourceOffsetStart + "2.0.0".length), RELEASE_DOC.slice(version.sourceOffsetEnd));
+  assert.equal(
+    rendered.slice(0, version.sourceOffsetStart),
+    RELEASE_DOC.slice(0, version.sourceOffsetStart),
+  );
+  assert.equal(
+    rendered.slice(version.sourceOffsetStart + "2.0.0".length),
+    RELEASE_DOC.slice(version.sourceOffsetEnd),
+  );
 });
 
 test("multiple scalar mutations splice from the original source in descending offset order", async () => {
@@ -638,8 +663,12 @@ test("multiple scalar mutations splice from the original source in descending of
   editor.set("date", "2026-1-1");
   const rendered = editor.render();
   let expected = RELEASE_DOC;
-  expected = expected.slice(0, date.sourceOffsetStart) + "2026-1-1" + expected.slice(date.sourceOffsetEnd);
-  expected = expected.slice(0, version.sourceOffsetStart) + "2.0.0-beta" + expected.slice(version.sourceOffsetEnd);
+  expected =
+    expected.slice(0, date.sourceOffsetStart) + "2026-1-1" + expected.slice(date.sourceOffsetEnd);
+  expected =
+    expected.slice(0, version.sourceOffsetStart) +
+    "2.0.0-beta" +
+    expected.slice(version.sourceOffsetEnd);
   assert.equal(rendered, expected);
   assert.match(rendered, /# 2\.0\.0-beta\n/);
   assert.match(rendered, /Released on 2026-1-1\./);
@@ -653,7 +682,9 @@ test("same-length list replacement splices only the list slot range", async () =
   const rendered = editor.render();
   assert.equal(
     rendered,
-    RELEASE_DOC.slice(0, changes.sourceOffsetStart) + "- one\n- two" + RELEASE_DOC.slice(changes.sourceOffsetEnd),
+    RELEASE_DOC.slice(0, changes.sourceOffsetStart) +
+      "- one\n- two" +
+      RELEASE_DOC.slice(changes.sourceOffsetEnd),
   );
   assert.equal(editor._structuralDirty, false);
 });
@@ -665,7 +696,9 @@ test("heading and asArray exact slots splice their recorded ranges", async () =>
   const chapterText = chapters.render();
   assert.equal(
     chapterText,
-    CHAPTERS_DOC.slice(0, name.sourceOffsetStart) + "## Renamed" + CHAPTERS_DOC.slice(name.sourceOffsetEnd),
+    CHAPTERS_DOC.slice(0, name.sourceOffsetStart) +
+      "## Renamed" +
+      CHAPTERS_DOC.slice(name.sourceOffsetEnd),
   );
 
   const notes = await openDoc({ "/doc.md": NOTES_DOC, "/tpl.md": NOTES_TPL });
@@ -695,11 +728,10 @@ test("listTree checkbox descendants splice only their three-byte markers", async
   const source = "- [ ] parent\r\n  - [x] nested\r\n- [x] sibling\r\n";
   const editor = await openDoc({ "/doc.md": source, "/tpl.md": template });
   const tasks = editor.slotMap.find((slot) => slot.key === "tasks");
-  assert.deepEqual(tasks.items.map((item) => item.key), [
-    "tasks.items[0]",
-    "tasks.items[0].children[1].children[0]",
-    "tasks.items[1]",
-  ]);
+  assert.deepEqual(
+    tasks.items.map((item) => item.key),
+    ["tasks.items[0]", "tasks.items[0].children[1].children[0]", "tasks.items[1]"],
+  );
 
   editor.set("tasks.items[0].children[1].children[0].checked", false);
   assert.equal(editor.render(), "- [ ] parent\r\n  - [ ] nested\r\n- [x] sibling\r\n");
@@ -722,7 +754,10 @@ test("top-level scope append remove and move replace only the scope source range
     mutate(editor);
     const rendered = editor.render();
     assert.equal(rendered, `HEAD  \r\n${scoped}TAIL\t\r\n`);
-    assert.equal(rendered.slice(0, region.sourceOffsetStart), source.slice(0, region.sourceOffsetStart));
+    assert.equal(
+      rendered.slice(0, region.sourceOffsetStart),
+      source.slice(0, region.sourceOffsetStart),
+    );
     assert.ok(rendered.endsWith(source.slice(region.sourceOffsetEnd)));
   }
 });
@@ -759,7 +794,10 @@ test("nested scope structural edits preserve its parent and all outside bytes", 
   editor.append("chapters[0].sections", { name: "C" });
   const rendered = editor.render();
   assert.equal(rendered, "START  \r\n## One\r\n* A\r\n* B\r\n* C\r\nEND\t\r\n");
-  assert.equal(rendered.slice(0, nested.sourceOffsetStart), source.slice(0, nested.sourceOffsetStart));
+  assert.equal(
+    rendered.slice(0, nested.sourceOffsetStart),
+    source.slice(0, nested.sourceOffsetStart),
+  );
   assert.ok(rendered.endsWith(source.slice(nested.sourceOffsetEnd)));
 });
 
@@ -795,7 +833,10 @@ test("resized table replacement preserves all bytes outside the table span", asy
   editor.set("table", {
     headers: ["A", "B"],
     align: [null, null],
-    rows: [["x", "y"], ["z", "w"]],
+    rows: [
+      ["x", "y"],
+      ["z", "w"],
+    ],
   });
   const rendered = editor.render();
   assert.equal(rendered.slice(0, slot.sourceOffsetStart), source.slice(0, slot.sourceOffsetStart));
@@ -810,7 +851,10 @@ test("save({ to }) after scalar splice leaves the original path untouched", asyn
   editor.set("version", "2.0.0");
   await editor.save({ to: "/out.md" });
   assert.equal(await io.readFileAsync("/doc.md"), RELEASE_DOC);
-  assert.equal(await io.readFileAsync("/out.md"), ensureSaved(RELEASE_DOC.replace("1.2.0", "2.0.0")));
+  assert.equal(
+    await io.readFileAsync("/out.md"),
+    ensureSaved(RELEASE_DOC.replace("1.2.0", "2.0.0")),
+  );
 });
 
 test("save preserves a missing final newline and rebases editor state", async () => {
@@ -890,7 +934,11 @@ test("set type mismatches reject list, checkbox, table, codeBlock, link, image, 
     (err) => err.code === ERROR_CODES.DO_MD_USER_ERROR && /type mismatch/.test(err.message),
   );
   code.set("sample", { language: "ts", value: "const y = 2;" });
-  assert.deepEqual(new Reader(code.render()).codeBlock().value, { language: "ts", meta: "", value: "const y = 2;" });
+  assert.deepEqual(new Reader(code.render()).codeBlock().value, {
+    language: "ts",
+    meta: "",
+    value: "const y = 2;",
+  });
 
   const link = await openDoc({
     "/doc.md": '[docs](https://example.com "Guide")\n',

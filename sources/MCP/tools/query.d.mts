@@ -6,4 +6,7 @@ export interface QueryToolParams {
   all?: boolean;
   options?: Record<string, unknown>;
 }
-export function handleQuery(params?: Partial<QueryToolParams>, context?: Partial<ToolContext>): Promise<McpResult & { matches: QueryMatch[] }>;
+export function handleQuery(
+  params?: Partial<QueryToolParams>,
+  context?: Partial<ToolContext>,
+): Promise<McpResult & { matches: QueryMatch[] }>;

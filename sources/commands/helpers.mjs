@@ -1,12 +1,17 @@
 import { Reader } from "../Reader.mjs";
+import { SourceText } from "../SourceText.mjs";
 import { Template } from "../Template.mjs";
 export { runTemplate } from "../Template.mjs";
 import { runTemplate } from "../Template.mjs";
 import { Writer } from "../Writer.mjs";
-import { ERROR_CODES, makeUserError } from "../SyntaxError.mjs";
+import { ERROR_CODES, makeUserError } from "../DoMdError.mjs";
 
 export function requireIo(io) {
-  if (io == null || typeof io.readFileAsync !== "function" || typeof io.resolvePath !== "function") {
+  if (
+    io == null ||
+    typeof io.readFileAsync !== "function" ||
+    typeof io.resolvePath !== "function"
+  ) {
     throw makeUserError("missing io");
   }
   return io;
@@ -120,11 +125,18 @@ export async function fileExists(io, path) {
   }
 }
 
-export function parseSource(source, fn, { file, templatePath, options, io, diagnosticSource = source, diagnosticOffset = 0 }) {
+export function parseSource(
+  source,
+  fn,
+  { file, templatePath, options, io, diagnosticSource = source, diagnosticOffset = 0 },
+) {
   const text = String(source ?? "");
   const bomOffset = text.startsWith("\uFEFF") ? 1 : 0;
   const reader = new Reader(bomOffset ? text.slice(bomOffset) : text, { ...(options ?? {}), file });
-  reader.diagnosticSourceText = String(diagnosticSource ?? "");
+  reader.diagnosticSource =
+    !bomOffset && diagnosticSource === text
+      ? reader.sourceText
+      : new SourceText(String(diagnosticSource ?? ""), file);
   reader.diagnosticOffsetBase = diagnosticOffset + bomOffset;
   const literal = reader.literal;
   reader.literal = function parseLiteral(value) {

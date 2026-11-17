@@ -8,7 +8,7 @@ import { IO } from "../sources/IO.mjs";
 import { NodeFilesystem } from "../sources/IO/NodeFilesystem.mjs";
 import { Fetch } from "../sources/IO/Fetch.mjs";
 import { Virtual } from "../sources/IO/Virtual.mjs";
-import { ERROR_CODES } from "../sources/SyntaxError.mjs";
+import { ERROR_CODES } from "../sources/DoMdError.mjs";
 
 test("IO interface stub exists", () => {
   const io = new IO();
@@ -26,7 +26,9 @@ test("Virtual snapshots and atomic writes implement exact revision CAS", async (
   assert.equal(first.content, "one");
   assert.match(first.revision, /^sha256:[0-9a-f]{64}$/);
 
-  const written = await io.writeFileAtomicAsync("/doc.md", "two", { expectedRevision: first.revision });
+  const written = await io.writeFileAtomicAsync("/doc.md", "two", {
+    expectedRevision: first.revision,
+  });
   assert.equal(written.revision, (await io.readFileSnapshotAsync("/doc.md")).revision);
   await assert.rejects(
     () => io.writeFileAtomicAsync("/doc.md", "stale", { expectedRevision: first.revision }),
@@ -52,21 +54,37 @@ test("NodeFilesystem snapshots and atomic writes preserve files on conflict", as
   await fs.writeFile(file, "one", "utf8");
 
   const snapshot = await io.readFileSnapshotAsync(file);
-  await io.writeFileAtomicAsync(file, "two", { expectedRevision: snapshot.revision, encoding: "utf8" });
+  await io.writeFileAtomicAsync(file, "two", {
+    expectedRevision: snapshot.revision,
+    encoding: "utf8",
+  });
   await assert.rejects(
-    () => io.writeFileAtomicAsync(file, "stale", { expectedRevision: snapshot.revision, encoding: "utf8" }),
+    () =>
+      io.writeFileAtomicAsync(file, "stale", {
+        expectedRevision: snapshot.revision,
+        encoding: "utf8",
+      }),
     (error) => error.code === ERROR_CODES.DO_MD_CONFLICT && error.locations[0].source === file,
   );
   assert.equal(await fs.readFile(file, "utf8"), "two");
 
   const concurrent = await io.readFileSnapshotAsync(file);
   const commits = await Promise.allSettled([
-    io.writeFileAtomicAsync(file, "three-a", { expectedRevision: concurrent.revision, encoding: "utf8" }),
-    io.writeFileAtomicAsync(file, "three-b", { expectedRevision: concurrent.revision, encoding: "utf8" }),
+    io.writeFileAtomicAsync(file, "three-a", {
+      expectedRevision: concurrent.revision,
+      encoding: "utf8",
+    }),
+    io.writeFileAtomicAsync(file, "three-b", {
+      expectedRevision: concurrent.revision,
+      encoding: "utf8",
+    }),
   ]);
   assert.equal(commits.filter((result) => result.status === "fulfilled").length, 1);
   assert.equal(commits.filter((result) => result.status === "rejected").length, 1);
-  assert.equal(commits.find((result) => result.status === "rejected").reason.code, ERROR_CODES.DO_MD_CONFLICT);
+  assert.equal(
+    commits.find((result) => result.status === "rejected").reason.code,
+    ERROR_CODES.DO_MD_CONFLICT,
+  );
 
   await io.writeFileAtomicAsync(fresh, "created", { ifAbsent: true, encoding: "utf8" });
   await assert.rejects(

@@ -5,7 +5,7 @@ import {
   Parser,
   Reader,
   Slot,
-  SyntaxError,
+  DoMdError,
   Template,
   Virtual,
   Writer,
@@ -37,16 +37,19 @@ import {
   type DiagnosticLocation,
   type SourceMap,
 } from "@p10i/do-md";
-import { IO, createContentRevision } from "@p10i/do-md/sources/IO.mjs";
-import { lookupSlot } from "@p10i/do-md/sources/Editor.mjs";
-import { parseMarkdown } from "@p10i/do-md/sources/Reader/Markdown.mjs";
-import { handleValidate } from "@p10i/do-md/sources/MCP/tools/validate.mjs";
-import { Server } from "@p10i/do-md/sources/MCP/Server.mjs";
-import { createServer as createHttpServer, type ServerOptions as HttpOptions } from "@p10i/do-md/sources/HttpServer.mjs";
-import { Client as HttpClient } from "@p10i/do-md/sources/HTTP/Client.mjs";
-import { ScopedFilesystem } from "@p10i/do-md/sources/Service/ScopedFilesystem.mjs";
-import { execute } from "@p10i/do-md/sources/Service/Executor.mjs";
-import { TOOL_DEFINITIONS } from "@p10i/do-md/sources/Service/Definitions.mjs";
+import { IO, createContentRevision } from "@p10i/do-md/io";
+import { lookupSlot } from "../../sources/Editor.mjs";
+import { parseMarkdown } from "@p10i/do-md/markdown";
+import { handleValidate } from "../../sources/MCP/tools/validate.mjs";
+import { Server } from "@p10i/do-md/mcp";
+import {
+  createServer as createHttpServer,
+  type ServerOptions as HttpOptions,
+  Client as HttpClient,
+} from "@p10i/do-md/http";
+import { ScopedFilesystem } from "../../sources/Service/ScopedFilesystem.mjs";
+import { execute } from "../../sources/Service/Executor.mjs";
+import { TOOL_DEFINITIONS } from "../../sources/Service/Definitions.mjs";
 
 const httpOptions: HttpOptions = { root: "/workspace", port: 0, maxConcurrency: 2 };
 const httpServer = createHttpServer(httpOptions);
@@ -64,7 +67,11 @@ void [filesystem, fetchIo, baseIo];
 const parser = new Parser<{ title?: string }>("hello");
 parser.parse("hello").allowNewlines();
 const textSlot: Slot<string> = parser.parseRegExp(/hello/);
-textSlot.trim().notEmpty().default("fallback").validate((value) => value !== "bad");
+textSlot
+  .trim()
+  .notEmpty()
+  .default("fallback")
+  .validate((value) => value !== "bad");
 
 const reader = new Reader<{ title?: string }>("# Hello");
 reader.heading(1).as("title");
@@ -77,7 +84,12 @@ const listTree: ListTreeValue = {
   ordered: false,
   start: null,
   tight: true,
-  items: [{ checked: true, children: [{ type: "paragraph", children: [{ type: "text", value: "Task" }] }] }],
+  items: [
+    {
+      checked: true,
+      children: [{ type: "paragraph", children: [{ type: "text", value: "Task" }] }],
+    },
+  ],
 };
 const code: CodeBlockValue = { language: "ts", meta: "", value: "const x = 1" };
 const link: LinkValue = { url: "https://example.com", text: "example", title: null };
@@ -102,34 +114,71 @@ const template = new Template("{% doc.heading(1).as('title') %}", { file: "templ
 template.renderBlocks();
 template.wrap<{ title: string }>();
 
-const editor = new Editor({ io, file: "doc.md", template: "template.md", context: { title: "Hello" } });
+const editor = new Editor({
+  io,
+  file: "doc.md",
+  template: "template.md",
+  context: { title: "Hello" },
+});
 editor.set("title", "World").revertAll();
 editor.save({ force: true });
 const revision: string = createContentRevision("content");
 void revision;
 
-const diagnostic: Diagnostic = new SyntaxError("bad").toDiagnostic();
-const formattedDiagnostic: string = formatDiagnostic(diagnostic, { colors: false, includeGenerated: true });
+const diagnostic: Diagnostic = new DoMdError("bad").toDiagnostic();
+const formattedDiagnostic: string = formatDiagnostic(diagnostic, {
+  colors: false,
+  includeGenerated: true,
+});
 void formattedDiagnostic;
 const compilation = Template.compile("{% return; %}", { file: "template.md.template" });
 const sourceMap: SourceMap = createSourceMap(compilation.sourceMap);
 const location: DiagnosticLocation | null = mapPosition(sourceMap, 0);
 const mapped: Diagnostic = mapDiagnostic(diagnostic, sourceMap, { role: "template" });
-const composed: SourceMap = composeSourceMaps(sourceMap, createSourceMap({
-  generated: sourceMap.original, original: sourceMap.original,
-  segments: [{ generatedStart: 0, generatedEnd: sourceMap.original.text.length,
-    originalStart: 0, originalEnd: sourceMap.original.text.length, kind: "exact" }],
-}));
-void [location, composed, primaryLocation(mapped), mapRange(sourceMap, { start: 0, end: 1 }),
-  sourceOffset("text", sourcePoint("text", 1)), template.compile(), Template.compilation(template.wrap())];
+const composed: SourceMap = composeSourceMaps(
+  sourceMap,
+  createSourceMap({
+    generated: sourceMap.original,
+    original: sourceMap.original,
+    segments: [
+      {
+        generatedStart: 0,
+        generatedEnd: sourceMap.original.text.length,
+        originalStart: 0,
+        originalEnd: sourceMap.original.text.length,
+        kind: "exact",
+      },
+    ],
+  }),
+);
+void [
+  location,
+  composed,
+  primaryLocation(mapped),
+  mapRange(sourceMap, { start: 0, end: 1 }),
+  sourceOffset("text", sourcePoint("text", 1)),
+  template.compile(),
+  Template.compilation(template.wrap()),
+];
 const lookup = lookupSlot([], "title");
 if (lookup.kind === "unknown") lookup.slot satisfies null;
 
 void validate({ io, file: "doc.md", template: "template.md" });
 void create({ io, file: "new.md", template: "template.md", data: { title: "Hello" } });
-void exportDoc<{ title: string }>({ io, file: "doc.md", template: "template.md", savePath: "data.json" });
+void exportDoc<{ title: string }>({
+  io,
+  file: "doc.md",
+  template: "template.md",
+  savePath: "data.json",
+});
 void set({ io, file: "doc.md", template: "template.md", key: "title", value: "New" });
-void render({ io, file: "doc.md", parseTemplate: "read.md", renderTemplate: "write.md", outFile: "out.md" });
+void render({
+  io,
+  file: "doc.md",
+  parseTemplate: "read.md",
+  renderTemplate: "write.md",
+  outFile: "out.md",
+});
 void match({ io, file: "doc.md", templates: "templates/**/*.tpl.md", all: true });
 void query({ io, file: "doc.md", template: "query.tpl.md", all: true });
 void handleValidate({ file: "doc.md", template: "template.md" }, { io, root: "/" });

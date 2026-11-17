@@ -1,7 +1,7 @@
 import { lstat, readlink, realpath } from "node:fs/promises";
 import { basename, dirname, isAbsolute, relative, resolve } from "node:path";
 
-import { makeUserError } from "../SyntaxError.mjs";
+import { makeUserError } from "../DoMdError.mjs";
 
 const ESCAPE_MESSAGE = "path escapes --root";
 

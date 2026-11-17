@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { render } from "../../sources/commands/render.mjs";
 import { Virtual } from "../../sources/IO/Virtual.mjs";
-import { ERROR_CODES } from "../../sources/SyntaxError.mjs";
+import { ERROR_CODES } from "../../sources/DoMdError.mjs";
 
 const PARSE_TEMPLATE = '# {% doc.line().as("title") %}\n';
 const RENDER_TEMPLATE = 'Title: {% doc.line().as("title") %}\n';
@@ -62,7 +62,10 @@ test("render parse failure does not write outFile or change the input", async ()
 });
 
 test("render rejects missing arguments with DO_MD_USER_ERROR", async () => {
-  await assert.rejects(() => render({}), (err) => err.code === ERROR_CODES.DO_MD_USER_ERROR);
+  await assert.rejects(
+    () => render({}),
+    (err) => err.code === ERROR_CODES.DO_MD_USER_ERROR,
+  );
   await assert.rejects(
     () =>
       render({

@@ -1,24 +1,12 @@
-import { addProcessingLocation, makeParseError, makeTemplateError, makeUserError } from "./SyntaxError.mjs";
+import {
+  addProcessingLocation,
+  makeParseError,
+  makeTemplateError,
+  makeUserError,
+} from "./DoMdError.mjs";
 
 function ownerMode(owner) {
-  if (!owner) {
-    return "none";
-  }
-  if (typeof owner.parse === "function" || owner.inputSourceText != null) {
-    return "reader";
-  }
-  if (
-    owner.data !== undefined ||
-    Array.isArray(owner.buffer) ||
-    typeof owner.write === "function" ||
-    typeof owner.emitBoundValue === "function"
-  ) {
-    return "writer";
-  }
-  if (owner.context && typeof owner.context === "object") {
-    return "reader";
-  }
-  return "none";
+  return owner?.mode ?? "none";
 }
 
 function locationFromOwner(owner) {
@@ -108,7 +96,9 @@ function recordSlotMap(owner, slot, mode) {
   const prefix = owner.slotPathPrefix ?? "";
   let key;
   if (mode === "asArray") {
-    const index = Array.isArray(owner.context?.[slot.path]) ? owner.context[slot.path].length - 1 : 0;
+    const index = Array.isArray(owner.context?.[slot.path])
+      ? owner.context[slot.path].length - 1
+      : 0;
     key = joinSlotPath(prefix, `${slot.path}[${index}]`);
   } else {
     key = joinSlotPath(prefix, slot.path);
@@ -150,6 +140,11 @@ function emitValue(owner, slot, value) {
   }
 }
 
+/**
+ * An eager binding operation owned by a Reader or Writer. Configuration is applied
+ * in the fixed order default → trim → validators → notEmpty at as()/asArray().
+ * A slot can bind once; duplicate scalar keys are rejected within its owner scope.
+ */
 export class Slot {
   constructor(pathOrOwner = "", options = {}) {
     const ownerIsFirst = pathOrOwner != null && typeof pathOrOwner === "object";
@@ -160,6 +155,9 @@ export class Slot {
     this.leafType = opts.leafType ?? "value";
     this.value = opts.value === undefined ? null : opts.value;
     this.owner = opts.owner ?? null;
+    if (this.owner && !["reader", "writer"].includes(this.owner.mode)) {
+      throw makeTemplateError("slot owner must declare reader or writer mode");
+    }
     this.sourceOffsetStart = opts.sourceOffsetStart ?? null;
     this.sourceOffsetEnd = opts.sourceOffsetEnd ?? null;
     this.node = opts.node ?? null;
@@ -210,7 +208,10 @@ export class Slot {
     try {
       return this._bindValue(key, mode);
     } catch (cause) {
-      const error = typeof cause?.toDiagnostic === "function" ? cause : makeTemplateError(cause?.message ?? String(cause), { cause });
+      const error =
+        typeof cause?.toDiagnostic === "function"
+          ? cause
+          : makeTemplateError(cause?.message ?? String(cause), { cause });
       throw addProcessingLocation(error, this.owner, this);
     }
   }

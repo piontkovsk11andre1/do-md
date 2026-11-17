@@ -4,8 +4,12 @@ import assert from "node:assert/strict";
 import { handleSet } from "../../../sources/MCP/tools/set.mjs";
 import { Server } from "../../../sources/MCP/Server.mjs";
 import { set } from "../../../sources/commands/set.mjs";
-import { ERROR_CODES } from "../../../sources/SyntaxError.mjs";
-import { MUTATION_FIXTURES, loadMutationFixture, mutationReady } from "../../conformance-helpers.mjs";
+import { ERROR_CODES } from "../../../sources/DoMdError.mjs";
+import {
+  MUTATION_FIXTURES,
+  loadMutationFixture,
+  mutationReady,
+} from "../../conformance-helpers.mjs";
 import { cloneIo, fixtureFiles, snapshot, toolContext, trackWrites } from "./helpers.mjs";
 
 const UNSAFE_PATCHES = [
