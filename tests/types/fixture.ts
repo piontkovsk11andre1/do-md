@@ -25,6 +25,17 @@ import {
   type LinkValue,
   type ListTreeValue,
   type TableValue,
+  createSourceMap,
+  composeSourceMaps,
+  mapDiagnostic,
+  mapPosition,
+  mapRange,
+  primaryLocation,
+  formatDiagnostic,
+  sourcePoint,
+  sourceOffset,
+  type DiagnosticLocation,
+  type SourceMap,
 } from "@p10i/do-md";
 import { IO, createContentRevision } from "@p10i/do-md/sources/IO.mjs";
 import { lookupSlot } from "@p10i/do-md/sources/Editor.mjs";
@@ -98,6 +109,19 @@ const revision: string = createContentRevision("content");
 void revision;
 
 const diagnostic: Diagnostic = new SyntaxError("bad").toDiagnostic();
+const formattedDiagnostic: string = formatDiagnostic(diagnostic, { colors: false, includeGenerated: true });
+void formattedDiagnostic;
+const compilation = Template.compile("{% return; %}", { file: "template.md.template" });
+const sourceMap: SourceMap = createSourceMap(compilation.sourceMap);
+const location: DiagnosticLocation | null = mapPosition(sourceMap, 0);
+const mapped: Diagnostic = mapDiagnostic(diagnostic, sourceMap, { role: "template" });
+const composed: SourceMap = composeSourceMaps(sourceMap, createSourceMap({
+  generated: sourceMap.original, original: sourceMap.original,
+  segments: [{ generatedStart: 0, generatedEnd: sourceMap.original.text.length,
+    originalStart: 0, originalEnd: sourceMap.original.text.length, kind: "exact" }],
+}));
+void [location, composed, primaryLocation(mapped), mapRange(sourceMap, { start: 0, end: 1 }),
+  sourceOffset("text", sourcePoint("text", 1)), template.compile(), Template.compilation(template.wrap())];
 const lookup = lookupSlot([], "title");
 if (lookup.kind === "unknown") lookup.slot satisfies null;
 

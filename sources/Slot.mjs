@@ -1,4 +1,4 @@
-import { locationFromStack, makeParseError, makeTemplateError, makeUserError } from "./SyntaxError.mjs";
+import { addProcessingLocation, makeParseError, makeTemplateError, makeUserError } from "./SyntaxError.mjs";
 
 function ownerMode(owner) {
   if (!owner) {
@@ -33,14 +33,7 @@ function locationFromOwner(owner) {
 }
 
 function throwTemplateError(message) {
-  const err = makeTemplateError(message);
-  const loc = locationFromStack(err.stack);
-  if (loc.file) {
-    err.file = loc.file;
-  }
-  err.line = loc.line;
-  err.column = loc.column;
-  throw err;
+  throw makeTemplateError(message);
 }
 
 export function registerBinding(owner, key, mode) {
@@ -214,6 +207,15 @@ export class Slot {
   }
 
   _bind(key, mode) {
+    try {
+      return this._bindValue(key, mode);
+    } catch (cause) {
+      const error = typeof cause?.toDiagnostic === "function" ? cause : makeTemplateError(cause?.message ?? String(cause), { cause });
+      throw addProcessingLocation(error, this.owner, this);
+    }
+  }
+
+  _bindValue(key, mode) {
     if (this._bound) {
       throwTemplateError("slot is already bound");
     }
@@ -256,7 +258,7 @@ export class Slot {
 
     for (const fn of this._validators) {
       if (fn(value) === false) {
-        throw makeUserError("validation failed", locationFromOwner(owner));
+        throw makeUserError("validation failed");
       }
     }
 

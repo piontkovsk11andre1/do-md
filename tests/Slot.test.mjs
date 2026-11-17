@@ -105,9 +105,9 @@ test("Reader notEmpty throws DO_MD_PARSE_ERROR", () => {
     (err) => {
       assert.ok(err instanceof SyntaxError);
       assert.equal(err.code, ERROR_CODES.DO_MD_PARSE_ERROR);
-      assert.equal(err.file, "doc.md");
-      assert.equal(err.line, 1);
-      assert.equal(err.column, 1);
+      assert.equal(err.locations[0].source, "doc.md");
+      assert.equal(err.locations[0].range.start.line, 1);
+      assert.equal(err.locations[0].range.start.column, 1);
       return true;
     },
   );

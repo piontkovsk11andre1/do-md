@@ -57,6 +57,8 @@ test("package manifest is CLI-compatible", async () => {
   assert.deepEqual(pkg.files, ["bin/", "sources/", "docs/", "examples/", "skills/", "Dockerfile", "compose.example.yaml", ".dockerignore", "README.md", "LICENSE"]);
   assert.deepEqual(pkg.dependencies, {
     "@modelcontextprotocol/sdk": "1.32.2",
+    acorn: "8.15.0",
+    "string-width": "4.2.3",
     yargs: "^17.0.0",
     chalk: "^5.0.0",
     "fast-glob": "^3.3.3",
@@ -151,18 +153,22 @@ test("package source has no accidental public entry files", async () => {
   }
 });
 
-test("CLI dependencies stay behind Shell.mjs", async () => {
+test("CLI parsing stays behind Shell.mjs and shared styling belongs to diagnostics", async () => {
   const binText = await fs.readFile(binPath, "utf8");
   assert.match(binText, /from ["']\.\.\/sources\/Shell\.mjs["']/);
   assert.doesNotMatch(binText, /\byargs\b|\bchalk\b/);
 
   const sourceFiles = await collectMjs(sourcesPath);
   const cliImporters = [];
+  const colorImporters = [];
   const shellImporters = [];
   for (const file of sourceFiles) {
     const text = await fs.readFile(file, "utf8");
-    if (/\bfrom\s+["']yargs["']|\bfrom\s+["']chalk["']/.test(text)) {
+    if (/\bfrom\s+["']yargs["']/.test(text)) {
       cliImporters.push(path.relative(root, file).replaceAll("\\", "/"));
+    }
+    if (/\bfrom\s+["']chalk["']/.test(text)) {
+      colorImporters.push(path.relative(root, file).replaceAll("\\", "/"));
     }
     if (file !== path.join(sourcesPath, "Shell.mjs") && /from\s+["'][^"']*Shell\.mjs["']/.test(text)) {
       shellImporters.push(path.relative(root, file).replaceAll("\\", "/"));
@@ -170,6 +176,7 @@ test("CLI dependencies stay behind Shell.mjs", async () => {
   }
 
   assert.deepEqual(cliImporters, ["sources/Shell.mjs"]);
+  assert.deepEqual(colorImporters, ["sources/SyntaxError.mjs"]);
   assert.deepEqual(shellImporters, []);
 });
 

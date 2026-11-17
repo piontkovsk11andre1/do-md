@@ -30,7 +30,7 @@ export function exitCode(errors = []) {
 }
 
 export function failure(code, message) {
-  return { ok: false, errors: [{ code, message: String(message), file: null, line: 1, column: 1, snippet: null }] };
+  return { ok: false, errors: [{ code, message: String(message), locations: [] }] };
 }
 
 export function positiveInteger(value, name) {

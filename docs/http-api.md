@@ -21,6 +21,10 @@ stderr when ready. The service does not start when imported as a library.
 | `--max-concurrency` | 4 | Active calls, including requests still sending bodies |
 | `--no-snippets` | off | Omit document snippets from diagnostics |
 
+Diagnostics use `{ code, message, locations }`; all source-map levels survive
+worker, HTTP and remote-MCP boundaries. See [diagnostics](diagnostics.md).
+`--no-snippets` strips snippets from every location in the chain.
+
 Limits must be positive integers. Requests can tighten input/deadline/snippet
 settings but cannot increase server limits. Oversized results fail explicitly;
 JSON is never silently truncated. SIGTERM/SIGINT stops admission, cancels owned

@@ -1,7 +1,9 @@
 import { Reader } from "../Reader.mjs";
 import { Template } from "../Template.mjs";
+export { runTemplate } from "../Template.mjs";
+import { runTemplate } from "../Template.mjs";
 import { Writer } from "../Writer.mjs";
-import { ERROR_CODES, fromNativeError, makeUserError } from "../SyntaxError.mjs";
+import { ERROR_CODES, makeUserError } from "../SyntaxError.mjs";
 
 export function requireIo(io) {
   if (io == null || typeof io.readFileAsync !== "function" || typeof io.resolvePath !== "function") {
@@ -49,20 +51,8 @@ export function normalizeDocument(text) {
   return String(text ?? "");
 }
 
-export function runTemplate(fn, doc, ctx, data, options, io, templatePath) {
-  try {
-    fn(doc, ctx, data, options ?? {}, io);
-  } catch (error) {
-    if (error?.code && Object.values(ERROR_CODES).includes(error.code)) {
-      throw error;
-    }
-    throw fromNativeError(error, { file: templatePath });
-  }
-}
-
 export function wrapTemplate(source, path) {
-  const text = String(source ?? "");
-  return Template.wrap(text.startsWith("\uFEFF") ? text.slice(1) : text, path);
+  return Template.wrap(String(source ?? ""), path);
 }
 
 function maxInputBytesLimit(options) {
@@ -130,10 +120,12 @@ export async function fileExists(io, path) {
   }
 }
 
-export function parseSource(source, fn, { file, templatePath, options, io }) {
+export function parseSource(source, fn, { file, templatePath, options, io, diagnosticSource = source, diagnosticOffset = 0 }) {
   const text = String(source ?? "");
   const bomOffset = text.startsWith("\uFEFF") ? 1 : 0;
   const reader = new Reader(bomOffset ? text.slice(bomOffset) : text, { ...(options ?? {}), file });
+  reader.diagnosticSourceText = String(diagnosticSource ?? "");
+  reader.diagnosticOffsetBase = diagnosticOffset + bomOffset;
   const literal = reader.literal;
   reader.literal = function parseLiteral(value) {
     const expected = String(value ?? "");

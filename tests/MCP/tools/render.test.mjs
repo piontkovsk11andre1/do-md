@@ -1,4 +1,5 @@
 import test from "node:test";
+import { stableDiagnostics } from "../../diagnostics.helpers.mjs";
 import assert from "node:assert/strict";
 
 import { handleRender } from "../../../sources/MCP/tools/render.mjs";
@@ -156,7 +157,7 @@ test("MCP render parse failure matches render() and writes nothing", async () =>
   assert.equal(mcp.ok, false);
   assert.equal(mcp.output, null);
   assert.equal(mcp.wrote, null);
-  assert.deepEqual(mcp.errors, cmd.errors);
+  assert.deepEqual(stableDiagnostics(mcp.errors), stableDiagnostics(cmd.errors));
   assert.deepEqual(writes, []);
   assert.equal(cmdIo.entries.has("/out.md"), false);
 });

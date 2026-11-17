@@ -43,9 +43,9 @@ test("required literal mismatch records a parse error and leaves the cursor", ()
   const err = reader.errors[0];
   assert.ok(err instanceof SyntaxError);
   assert.equal(err.code, ERROR_CODES.DO_MD_PARSE_ERROR);
-  assert.equal(err.file, "doc.md");
-  assert.equal(err.line, 2);
-  assert.equal(err.column, 1);
+  assert.equal(err.locations[0].source, "doc.md");
+  assert.equal(err.locations[0].range.start.line, 2);
+  assert.equal(err.locations[0].range.start.column, 1);
 });
 
 test("optional literal mismatch rewinds the cursor", () => {
@@ -94,9 +94,9 @@ test("required line at EOF records a parse error", () => {
   assert.equal(slot.leafType, "line");
   assert.equal(reader.errors.length, 1);
   assert.equal(reader.errors[0].code, ERROR_CODES.DO_MD_PARSE_ERROR);
-  assert.equal(reader.errors[0].file, "empty.md");
-  assert.equal(reader.errors[0].line, 1);
-  assert.equal(reader.errors[0].column, 1);
+  assert.equal(reader.errors[0].locations[0].source, "empty.md");
+  assert.equal(reader.errors[0].locations[0].range.start.line, 1);
+  assert.equal(reader.errors[0].locations[0].range.start.column, 1);
 });
 
 test("optional line at EOF rewinds and records no error", () => {
@@ -191,9 +191,9 @@ test("notEmpty records DO_MD_PARSE_ERROR with file, line, and column", () => {
     (err) => {
       assert.ok(err instanceof SyntaxError);
       assert.equal(err.code, ERROR_CODES.DO_MD_PARSE_ERROR);
-      assert.equal(err.file, "doc.md");
-      assert.equal(err.line, 1);
-      assert.equal(err.column, 1);
+      assert.equal(err.locations[0].source, "doc.md");
+      assert.equal(err.locations[0].range.start.line, 1);
+      assert.equal(err.locations[0].range.start.column, 1);
       return true;
     },
   );
@@ -347,9 +347,9 @@ test("raw slots capture exact source ranges and assertConsumed reports the curso
   const strict = new Reader("ok\n", { file: "strict.md" });
   strict.literal("ok");
   assert.equal(strict.assertConsumed({ trailingWhitespace: false }), false);
-  assert.equal(strict.errors[0].file, "strict.md");
-  assert.equal(strict.errors[0].line, 1);
-  assert.equal(strict.errors[0].column, 3);
+  assert.equal(strict.errors[0].locations[0].source, "strict.md");
+  assert.equal(strict.errors[0].locations[0].range.start.line, 1);
+  assert.equal(strict.errors[0].locations[0].range.start.column, 3);
 });
 
 test("table returns headers, rows, and align", () => {
@@ -435,9 +435,9 @@ test("required block-leaf mismatches record a parse error and leave the cursor",
   assert.equal(reader.offset, 0);
   assert.equal(reader.errors.length, 1);
   assert.equal(reader.errors[0].code, ERROR_CODES.DO_MD_PARSE_ERROR);
-  assert.equal(reader.errors[0].file, "doc.md");
-  assert.equal(reader.errors[0].line, 1);
-  assert.equal(reader.errors[0].column, 1);
+  assert.equal(reader.errors[0].locations[0].source, "doc.md");
+  assert.equal(reader.errors[0].locations[0].range.start.line, 1);
+  assert.equal(reader.errors[0].locations[0].range.start.column, 1);
 });
 
 test("optional block-leaf mismatches rewind and record no error", () => {
@@ -513,9 +513,9 @@ test("required text mismatches record a parse error; optional mismatches rewind"
   assert.equal(required.offset, 0);
   assert.equal(required.errors.length, 1);
   assert.equal(required.errors[0].code, ERROR_CODES.DO_MD_PARSE_ERROR);
-  assert.equal(required.errors[0].file, "doc.md");
-  assert.equal(required.errors[0].line, 1);
-  assert.equal(required.errors[0].column, 1);
+  assert.equal(required.errors[0].locations[0].source, "doc.md");
+  assert.equal(required.errors[0].locations[0].range.start.line, 1);
+  assert.equal(required.errors[0].locations[0].range.start.column, 1);
   const optional = new Reader("hello");
   const slot = optional.optional().text(" — ");
   assert.equal(slot.value, null);
@@ -603,9 +603,9 @@ test("required inline-leaf mismatches record a parse error; optional mismatches 
   assert.equal(required.link().value, null);
   assert.equal(required.offset, 0);
   assert.equal(required.errors[0].code, ERROR_CODES.DO_MD_PARSE_ERROR);
-  assert.equal(required.errors[0].file, "doc.md");
-  assert.equal(required.errors[0].line, 1);
-  assert.equal(required.errors[0].column, 1);
+  assert.equal(required.errors[0].locations[0].source, "doc.md");
+  assert.equal(required.errors[0].locations[0].range.start.line, 1);
+  assert.equal(required.errors[0].locations[0].range.start.column, 1);
   const optional = new Reader("hello");
   assert.equal(optional.optional().image().value, null);
   assert.equal(optional.optional().autolink().value, null);
@@ -876,7 +876,7 @@ test("required skipUntilHeading miss advances to EOF and records a parse error",
   assert.equal(reader.offset, reader.source.length);
   assert.equal(reader.errors.length, 1);
   assert.equal(reader.errors[0].code, ERROR_CODES.DO_MD_PARSE_ERROR);
-  assert.equal(reader.errors[0].file, "doc.md");
+  assert.equal(reader.errors[0].locations[0].source, "doc.md");
 });
 
 test("optional skipUntilHeading miss restores the cursor", () => {
@@ -1351,9 +1351,9 @@ test("required skipUntilHeading miss records DO_MD_PARSE_ERROR at EOF", () => {
   assert.equal(reader.offset, reader.source.length);
   assert.equal(reader.errors.length, 1);
   assert.equal(reader.errors[0].code, ERROR_CODES.DO_MD_PARSE_ERROR);
-  assert.equal(reader.errors[0].file, "doc.md");
-  assert.equal(typeof reader.errors[0].line, "number");
-  assert.equal(typeof reader.errors[0].column, "number");
+  assert.equal(reader.errors[0].locations[0].source, "doc.md");
+  assert.equal(typeof reader.errors[0].locations[0].range.start.line, "number");
+  assert.equal(typeof reader.errors[0].locations[0].range.start.column, "number");
 });
 
 test("slotMap records version and chapters[2].title path shapes", () => {

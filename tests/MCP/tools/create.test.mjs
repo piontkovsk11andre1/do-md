@@ -103,9 +103,7 @@ test("MCP create.force defaults to false", async () => {
   assert.equal(explicit.wrote, null);
   assert.equal(omitted.errors[0].code, cmd.errors[0].code);
   assert.equal(explicit.errors[0].code, cmd.errors[0].code);
-  assert.equal(omitted.errors[0].file, cmd.errors[0].file);
-  assert.equal(omitted.errors[0].line, cmd.errors[0].line);
-  assert.equal(omitted.errors[0].column, cmd.errors[0].column);
+  assert.deepEqual(omitted.errors[0].locations, cmd.errors[0].locations);
   assert.equal(await omittedIo.readFileAsync("/created.md"), "# keep me\n");
   assert.equal(await explicitIo.readFileAsync("/created.md"), "# keep me\n");
 });

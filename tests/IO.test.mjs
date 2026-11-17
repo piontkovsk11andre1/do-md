@@ -30,7 +30,7 @@ test("Virtual snapshots and atomic writes implement exact revision CAS", async (
   assert.equal(written.revision, (await io.readFileSnapshotAsync("/doc.md")).revision);
   await assert.rejects(
     () => io.writeFileAtomicAsync("/doc.md", "stale", { expectedRevision: first.revision }),
-    (error) => error.code === ERROR_CODES.DO_MD_CONFLICT && error.file === "/doc.md",
+    (error) => error.code === ERROR_CODES.DO_MD_CONFLICT && error.locations[0].source === "/doc.md",
   );
   assert.equal(await io.readFileAsync("/doc.md"), "two");
 
@@ -55,7 +55,7 @@ test("NodeFilesystem snapshots and atomic writes preserve files on conflict", as
   await io.writeFileAtomicAsync(file, "two", { expectedRevision: snapshot.revision, encoding: "utf8" });
   await assert.rejects(
     () => io.writeFileAtomicAsync(file, "stale", { expectedRevision: snapshot.revision, encoding: "utf8" }),
-    (error) => error.code === ERROR_CODES.DO_MD_CONFLICT && error.file === file,
+    (error) => error.code === ERROR_CODES.DO_MD_CONFLICT && error.locations[0].source === file,
   );
   assert.equal(await fs.readFile(file, "utf8"), "two");
 

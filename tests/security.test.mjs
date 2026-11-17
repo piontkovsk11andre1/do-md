@@ -37,7 +37,7 @@ test("maxInputBytes rejects input larger than the raw UTF-8 byte limit", async (
     () => Editor.open({ io, file: "/doc.md", template: "/tpl.md", options: { maxInputBytes: size - 1 } }),
     (err) => {
       assert.equal(err.code, ERROR_CODES.DO_MD_USER_ERROR);
-      assert.equal(err.file, "/doc.md");
+      assert.equal(err.locations[0].source, "/doc.md");
       return true;
     },
   );
@@ -68,7 +68,7 @@ test("maxInputBytes counts UTF-8 bytes, not JS string length", async () => {
       }),
     (err) => {
       assert.equal(err.code, ERROR_CODES.DO_MD_USER_ERROR);
-      assert.equal(err.file, "/doc.md");
+      assert.equal(err.locations[0].source, "/doc.md");
       return true;
     },
   );
@@ -108,7 +108,7 @@ test("validate rejects maxInputBytes overflow", async () => {
     () => validate({ io, file: "/doc.md", template: "/tpl.md", options: { maxInputBytes: 1 } }),
     (err) => {
       assert.equal(err.code, ERROR_CODES.DO_MD_USER_ERROR);
-      assert.equal(err.file, "/doc.md");
+      assert.equal(err.locations[0].source, "/doc.md");
       return true;
     },
   );
@@ -159,7 +159,7 @@ test("create rejects a template over maxInputBytes", async () => {
       }),
     (err) => {
       assert.equal(err.code, ERROR_CODES.DO_MD_USER_ERROR);
-      assert.equal(err.file, "/tpl.md");
+      assert.equal(err.locations[0].source, "/tpl.md");
       return true;
     },
   );

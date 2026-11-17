@@ -95,11 +95,13 @@ test("MCP startup options are strict and resource limits cannot be disabled acci
 });
 
 test("diagnostic helpers preserve the MCP result contract", () => {
-  const diagnostic = mcpDiagnostic(MCP_CODES.DO_MD_TIMEOUT, "line 1\nline 2", { file: "a.md" });
+  const locations = makeParseError("bad", { file: "a.md", snippet: "secret" }).locations;
+  const diagnostic = mcpDiagnostic(MCP_CODES.DO_MD_TIMEOUT, "line 1\nline 2", { locations });
   assert.equal(diagnostic.code, MCP_CODES.DO_MD_TIMEOUT);
   assert.equal(diagnostic.message, "line 1 line 2");
-  assert.equal(diagnostic.file, "a.md");
-  assert.equal(stripDiagnosticSnippets([{ ...diagnostic, snippet: "secret" }])[0].snippet, null);
+  assert.equal(diagnostic.locations[0].source, "a.md");
+  assert.equal(stripDiagnosticSnippets([diagnostic])[0].locations[0].snippet, null);
+  assert.equal(diagnostic.locations[0].snippet, "secret");
   assert.equal(toMcpDiagnostic(makeUserError("bad")).code, ERROR_CODES.DO_MD_USER_ERROR);
   assert.equal(toMcpDiagnostic(new Error("boom")).code, MCP_CODES.DO_MD_INTERNAL_ERROR);
 });

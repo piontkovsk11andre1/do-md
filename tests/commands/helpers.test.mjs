@@ -215,7 +215,7 @@ test("readText rejects raw UTF-8 bytes over options.maxInputBytes", async () => 
     () => readText(io, "/doc.md", { maxInputBytes: size - 1 }),
     (err) => {
       assert.equal(err.code, ERROR_CODES.DO_MD_USER_ERROR);
-      assert.equal(err.file, "/doc.md");
+      assert.equal(err.locations[0].source, "/doc.md");
       return true;
     },
   );

@@ -1,4 +1,5 @@
 import { makeParseError } from "./SyntaxError.mjs";
+import { sourceLocation } from "./SourceMap.mjs";
 import { Slot } from "./Slot.mjs";
 
 function newlineLength(text, index) {
@@ -13,19 +14,6 @@ function newlineLength(text, index) {
 
 function isSpace(ch) {
   return ch === " " || ch === "\t";
-}
-
-function lineSnippet(text, offset) {
-  let start = offset;
-  while (start > 0 && text[start - 1] !== "\n" && text[start - 1] !== "\r") {
-    start--;
-  }
-  let end = offset;
-  while (end < text.length && text[end] !== "\n" && text[end] !== "\r") {
-    end++;
-  }
-  const snippet = text.slice(start, end);
-  return snippet === "" ? null : snippet;
 }
 
 function tokenizeLiteral(text) {
@@ -242,12 +230,10 @@ export class Parser {
   }
 
   error(msg) {
-    const err = makeParseError(msg, {
-      file: this.file,
-      line: this._line,
-      column: this.char,
-      snippet: lineSnippet(this.inputSourceText, this.offset),
-    });
+    const text = this.diagnosticSourceText ?? this.inputSourceText;
+    const err = makeParseError(msg, { locations: [sourceLocation(this.file, text,
+      (this.diagnosticOffsetBase ?? 0) + this.offset, null,
+      { role: "document", relation: "processing", precision: "context" })] });
     this.errors.push(err);
     return err;
   }

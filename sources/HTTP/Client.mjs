@@ -1,5 +1,15 @@
 import { API_VERSION, failure, portNumber, positiveInteger } from "../Service/Definitions.mjs";
 
+function isDiagnostic(error) {
+  const point = (p) => p && (p.offset === null || Number.isInteger(p.offset) && p.offset >= 0)
+    && Number.isInteger(p.line) && p.line >= 1 && Number.isInteger(p.column) && p.column >= 1;
+  return typeof error?.code === "string" && typeof error.message === "string" && Array.isArray(error.locations)
+    && error.locations.every((l) => l && ["generated", "template", "document"].includes(l.role)
+      && ["origin", "processing"].includes(l.relation) && ["exact", "range", "context"].includes(l.precision)
+      && (l.source === null || typeof l.source === "string") && (l.snippet === null || typeof l.snippet === "string")
+      && point(l.range?.start) && (l.range.end === null || point(l.range.end)));
+}
+
 export function remoteUrl({ url, host, port } = {}) {
   if (url != null && (host != null || port != null)) throw new Error("--url cannot be combined with --host or --port");
   if (url == null && host == null && port == null) return null;
@@ -93,7 +103,7 @@ export class Client {
         body: { directory: this.root, params, limits: { timeoutMs: this.timeoutMs, maxInputBytes: this.maxInputBytes, noSnippets: this.noSnippets } },
       });
       if (typeof result.ok !== "boolean" || !Number.isInteger(result.exitCode) || result.exitCode < 0 || result.exitCode > 4 || !Array.isArray(result.errors)
-        || result.errors.some((error) => typeof error?.code !== "string" || typeof error.message !== "string")
+        || result.errors.some((error) => !isDiagnostic(error))
         || (result.ok && (status !== 200 || result.exitCode !== 0 || result.errors.length > 0))
         || (!result.ok && (result.exitCode === 0 || result.errors.length === 0))) throw new Error("invalid remote command result");
       if (result.ok) {

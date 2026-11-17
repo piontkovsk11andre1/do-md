@@ -73,25 +73,31 @@ function fileEndsWith(file, suffix) {
 function assertDiagnostic(error, expected = {}) {
   assert.equal(typeof error, "object");
   assert.equal(error.code, expected.code);
-  assert.ok(Number.isInteger(error.line) && error.line >= 1);
-  assert.ok(Number.isInteger(error.column) && error.column >= 1);
+  assert.ok(Array.isArray(error.locations));
+  const location = error.locations.find((l) => expected.fileSuffix && fileEndsWith(l.source, expected.fileSuffix))
+    ?? error.locations.find((l) => expected.file && l.source === expected.file)
+    ?? error.locations.find((l) => l.relation === "processing") ?? error.locations.at(-1);
+  for (const l of error.locations) {
+    assert.ok(Number.isInteger(l.range.start.line) && l.range.start.line >= 1);
+    assert.ok(Number.isInteger(l.range.start.column) && l.range.start.column >= 1);
+  }
   assert.equal(typeof error.message, "string");
   assert.match(error.message, /^[^\r\n]*$/);
-  assert.ok(error.snippet === null || typeof error.snippet === "string");
+  assert.ok(location == null || location.snippet === null || typeof location.snippet === "string");
   if (expected.fileSuffix) {
-    assert.ok(fileEndsWith(error.file, expected.fileSuffix));
+    assert.ok(fileEndsWith(location?.source, expected.fileSuffix));
   }
   if (Object.hasOwn(expected, "file")) {
-    assert.equal(error.file, expected.file);
+    assert.equal(location?.source ?? null, expected.file);
   }
   if (expected.line !== undefined) {
-    assert.equal(error.line, expected.line);
+    assert.equal(location?.range.start.line, expected.line);
   }
   if (expected.column !== undefined) {
-    assert.equal(error.column, expected.column);
+    assert.equal(location?.range.start.column, expected.column);
   }
   if (Object.hasOwn(expected, "snippet")) {
-    assert.equal(error.snippet, expected.snippet);
+    assert.equal(location?.snippet ?? null, expected.snippet);
   }
 }
 
@@ -280,6 +286,29 @@ test("validate reports parse diagnostics and exits 2", () => {
     const result = runCli(["validate", "doc.md", "tpl.md"], { cwd: dir });
     assert.equal(result.status, 2);
     assert.match(result.stderr, /doc\.md:\d+:\d+: /);
+  });
+});
+
+test("CLI displays mapped code frames and keeps JSON diagnostics structured", () => {
+  withTempDir((dir) => {
+    writeSimpleProject(dir, { tpl: "{%\nconst = 1;\n%}" });
+    const result = runCli(["validate", "doc.md", "tpl.md"], { cwd: dir });
+    assert.equal(result.status, 3);
+    assert.equal(result.stdout, "");
+    assert.match(result.stderr, /tpl\.md:2:7: Unexpected token\n\n2 \| const = 1;\n  \|       \^\n$/);
+    assert.doesNotMatch(result.stderr, /\x1b|generated:|sources\/Template/);
+    const json = runCli(["validate", "doc.md", "tpl.md", "--json"], { cwd: dir });
+    assert.equal(json.status, 3);
+    const diagnostic = JSON.parse(json.stderr).errors[0];
+    assert.equal(diagnostic.message, "Unexpected token");
+    assert.equal(diagnostic.locations.find((l) => l.role === "template").snippet, "const = 1;");
+    assert.ok(diagnostic.locations.some((l) => l.role === "generated"));
+    assert.doesNotMatch(json.stderr, /\x1b|2 \| const/);
+    writeSimpleProject(dir, { tpl: "{% doc.heading(1).validate(() => false).as('title'); %}" });
+    const validation = runCli(["validate", "doc.md", "tpl.md"], { cwd: dir });
+    assert.equal(validation.status, 1);
+    assert.match(validation.stderr, /doc\.md:1:1: validation failed\n\n1 \| # Hello/);
+    assert.match(validation.stderr, /template: .*tpl\.md:1:\d+\n\n1 \| \{%/);
   });
 });
 

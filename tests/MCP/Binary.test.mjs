@@ -113,7 +113,7 @@ test("both binaries apply no-snippets and terminate runaway templates", async ()
           name: "validate",
           arguments: { file: "bad.md", template: "tpl.md" },
         }));
-        assert.equal(mismatch.errors[0].snippet, null, entry.name);
+        assert.ok(mismatch.errors[0].locations.every((l) => l.snippet === null), entry.name);
 
         const timeout = payload(await client.callTool({
           name: "validate",

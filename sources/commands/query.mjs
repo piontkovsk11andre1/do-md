@@ -24,7 +24,8 @@ export async function query({ io, file, template, all = false, cwd, options } = 
   let shift = 0;
 
   while (shift <= source.length) {
-    const reader = parseSource(source.slice(shift), fn, { file: filePath, templatePath, options, io });
+    const reader = parseSource(source.slice(shift), fn, { file: filePath, templatePath, options, io,
+      diagnosticSource: source, diagnosticOffset: shift });
     if (reader.errors.length > 0) {
       break;
     }

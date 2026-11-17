@@ -35,10 +35,7 @@ try {
     errors: [{
       code: error?.code ?? "DO_MD_INTERNAL_ERROR",
       message: error?.message ?? String(error),
-      file: error?.file ?? null,
-      line: error?.line ?? 1,
-      column: error?.column ?? 1,
-      snippet: error?.snippet ?? null,
+       locations: error?.locations ?? [],
     }],
   });
 }

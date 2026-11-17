@@ -17,5 +17,5 @@ export function readText(io: IOAdapter, path: string, options?: CommandOptions):
 export function readTextSnapshot(io: IOAdapter, path: string, options?: CommandOptions): Promise<{ content: string; revision: string | null }>;
 export function writeText(io: IOAdapter, path: string, content: string, options?: AtomicWriteOptions): Promise<WriteSnapshot | { revision: null }>;
 export function fileExists(io: IOAdapter, path: string): Promise<boolean>;
-export function parseSource<TContext extends Record<string, unknown> = Record<string, unknown>>(source: unknown, fn: TemplateFunction<TContext>, options: { file: string; templatePath: string; options?: CommandOptions; io: IOAdapter }): Reader<TContext>;
+export function parseSource<TContext extends Record<string, unknown> = Record<string, unknown>>(source: unknown, fn: TemplateFunction<TContext>, options: { file: string; templatePath: string; options?: CommandOptions; io: IOAdapter; diagnosticSource?: unknown; diagnosticOffset?: number }): Reader<TContext>;
 export function renderSource<TContext extends Record<string, unknown> = Record<string, unknown>>(data: TContext, fn: TemplateFunction<TContext>, options: { templatePath: string; options?: CommandOptions; io: IOAdapter }): Writer<TContext>;

@@ -38,7 +38,7 @@ test("create refuses to overwrite without force and does not write", async () =>
   assert.equal(result.context, null);
   assert.equal(result.errors.length, 1);
   assert.equal(result.errors[0].code, ERROR_CODES.DO_MD_USER_ERROR);
-  assert.equal(result.errors[0].file, "/out.md");
+  assert.equal(result.errors[0].locations[0].source, "/out.md");
   assert.deepEqual(reads, []);
   assert.equal(io.entries.get("/out.md"), existing);
 });

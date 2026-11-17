@@ -5,7 +5,11 @@ export { Writer } from "./Writer.mjs";
 export { Parser } from "./Parser.mjs";
 export { Slot } from "./Slot.mjs";
 export { Editor } from "./Editor.mjs";
-export { SyntaxError } from "./SyntaxError.mjs";
+export { SyntaxError, primaryLocation, formatDiagnostic } from "./SyntaxError.mjs";
+export type { DiagnosticFormatOptions } from "./SyntaxError.mjs";
+export { createSourceMap, mapPosition, mapRange, composeSourceMaps, mapDiagnostic, sourcePoint, sourceOffset } from "./SourceMap.mjs";
+export type { SourceMap, SourceMapSegment } from "./SourceMap.mjs";
+export type { CompiledTemplate } from "./Template.mjs";
 export { NodeFilesystem, Virtual, Fetch } from "./IO/index.mjs";
 export { templateLanguage, listTemplateFunctions, describeTemplateFunction, renderTemplateReference } from "./TemplateLanguage.mjs";
 export { readSkill } from "./Skill.mjs";
@@ -13,7 +17,7 @@ export type { TemplateFunctionReference, TemplateLanguageReference, TemplateModi
 export type {
   AtomicWriteOptions, AutolinkNode, BaseCommandOptions, BlockQuoteNode, BreakNode,
   CodeBlockNode, CodeBlockValue, CodeSpanNode, CommandFailure, CommandOptions,
-  CommandResult, CommandSuccess, CreateOptions, Diagnostic, DocumentNode, EditorChange,
+   CommandResult, CommandSuccess, CreateOptions, Diagnostic, DiagnosticLocation, DocumentNode, EditorChange,
   EditorOpenOptions, EditorOptions, EditorSaveOptions, EmphasisNode, ErrorCode, ExportOptions,
   FileStat, FrontmatterNode, FrontmatterValue, HeadingNode, HtmlBlockNode, HtmlInlineNode,
   ImageNode, ImageValue, IOAdapter, LeafType, LinkNode, LinkValue, ListItemNode, ListNode,

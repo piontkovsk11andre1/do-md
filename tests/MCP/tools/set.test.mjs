@@ -225,8 +225,7 @@ test("MCP set rejects __proto__, constructor, and prototype patches as DO_MD_USE
     assert.deepEqual(Object.keys(mcp).sort(), ["context", "errors", "ok", "output", "wrote"]);
     assert.equal(mcp.errors.length, 1);
     assert.equal(mcp.errors[0].code, ERROR_CODES.DO_MD_USER_ERROR);
-    assert.ok(Number.isInteger(mcp.errors[0].line) && mcp.errors[0].line >= 1);
-    assert.ok(Number.isInteger(mcp.errors[0].column) && mcp.errors[0].column >= 1);
+    assert.ok(Array.isArray(mcp.errors[0].locations));
     assert.match(mcp.errors[0].message, /unsafe patch key/);
     assert.match(mcp.errors[0].message, new RegExp(path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
     assert.deepEqual(snapshot(mcpIo), before);

@@ -263,6 +263,28 @@ space. If the language is empty or null, metadata is not emitted. Parsed values
 and code-block AST nodes now include the additional `meta` property, so update
 strict object comparisons, schemas, and TypeScript object literals accordingly.
 
+### Diagnostic Source Mapping
+
+Template compilation and execution errors carry a `locations` chain from
+generated JavaScript back to the `.md.template` source. Reader and validator
+errors also identify the input document being processed. Offsets use UTF-16;
+lines and columns are one-based.
+
+Text CLI output and `console.error(error)` show source lines with carets/range
+markers and related locations. `formatDiagnostic(diagnostic)` provides the same
+human-readable output for serialized diagnostics; `String(error)` is plain text.
+
+Use `Template.compile()` to inspect generated code and its source map, and
+`mapDiagnostic()` to extend an error to an enclosing Markdown document. Maps
+can be composed with `composeSourceMaps()` when templates are extracted or
+transformed by another application.
+
+The diagnostic contract is `{ code, message, locations }`. Locations replace
+the top-level `file`, `line`, `column`, and `snippet` fields. Use
+`primaryLocation(diagnostic)` to select the processing location or outermost
+origin for display. See [diagnostics and source maps](docs/diagnostics.md) for
+the complete contract and extraction example.
+
 ### Safe Editing
 
 `Editor` retains BOMs, line endings, whitespace, and final-newline state.

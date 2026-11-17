@@ -92,10 +92,10 @@ test("required mismatch records a parse error at the cursor", () => {
   assert.equal(parser.errors.length, 1);
   const err = parser.errors[0];
   assert.equal(err.code, ERROR_CODES.DO_MD_PARSE_ERROR);
-  assert.equal(err.file, "doc.md");
-  assert.equal(err.line, 2);
-  assert.equal(err.column, 1);
-  assert.equal(err.snippet, "world");
+  assert.equal(err.locations[0].source, "doc.md");
+  assert.equal(err.locations[0].range.start.line, 2);
+  assert.equal(err.locations[0].range.start.column, 1);
+  assert.equal(err.locations[0].snippet, "world");
 });
 
 test("optional mode rewinds the cursor and records no error", () => {
@@ -167,9 +167,9 @@ test("error records a SyntaxError at the current line and column", () => {
   parser.parse("ab\nc");
   const err = parser.error("custom miss");
   assert.equal(err.code, ERROR_CODES.DO_MD_PARSE_ERROR);
-  assert.equal(err.file, "notes.md");
-  assert.equal(err.line, 2);
-  assert.equal(err.column, 2);
+  assert.equal(err.locations[0].source, "notes.md");
+  assert.equal(err.locations[0].range.start.line, 2);
+  assert.equal(err.locations[0].range.start.column, 2);
   assert.equal(parser.errors[0], err);
 });
 
@@ -207,8 +207,8 @@ test("parseOneOf empty alternatives is a required miss", () => {
   assert.equal(parser.offset, 0);
   assert.equal(parser.errors.length, 1);
   assert.equal(parser.errors[0].code, ERROR_CODES.DO_MD_PARSE_ERROR);
-  assert.equal(parser.errors[0].line, 1);
-  assert.equal(parser.errors[0].column, 1);
+  assert.equal(parser.errors[0].locations[0].range.start.line, 1);
+  assert.equal(parser.errors[0].locations[0].range.start.column, 1);
 });
 
 test("optional parseOneOf miss returns an unmatched slot without an error", () => {

@@ -1,6 +1,6 @@
 import { Parser } from "./Parser.mjs";
 import { Slot, registerBinding } from "./Slot.mjs";
-import { makeTemplateError, makeUserError } from "./SyntaxError.mjs";
+import { attachSource, makeTemplateError, makeUserError } from "./SyntaxError.mjs";
 import * as MarkdownParser from "./Reader/Markdown.mjs";
 
 const MAX_ITERATIONS = 10000;
@@ -97,9 +97,7 @@ export class Reader extends Parser {
     try {
       return MarkdownParser.parseMarkdown(source, options);
     } catch (error) {
-      if (error && error.code && options.file && !error.file) {
-        error.file = options.file;
-      }
+      if (options.file) attachSource(error, options.file);
       throw error;
     }
   }
@@ -108,9 +106,7 @@ export class Reader extends Parser {
     try {
       return MarkdownParser.parseMarkdown(this.inputSourceText);
     } catch (error) {
-      if (error && error.code && this.file && !error.file) {
-        error.file = this.file;
-      }
+      if (this.file) attachSource(error, this.file);
       throw error;
     }
   }
@@ -294,9 +290,7 @@ export class Reader extends Parser {
     try {
       node = MarkdownParser.parseFrontmatter(this.inputSourceText);
     } catch (error) {
-      if (error && error.code && this.file && !error.file) {
-        error.file = this.file;
-      }
+      if (this.file) attachSource(error, this.file);
       throw error;
     }
     if (!node) {
@@ -689,6 +683,8 @@ export class Reader extends Parser {
     child._line = this._line;
     child.char = this.char;
     child.file = this.file;
+    child.diagnosticSourceText = this.diagnosticSourceText;
+    child.diagnosticOffsetBase = this.diagnosticOffsetBase;
     child.data = null;
     child.slotPathPrefix = this.slotPathPrefix;
     return child;

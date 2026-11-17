@@ -10,10 +10,7 @@ export async function handleReference(params = {}) {
       errors: [{
         code: "DO_MD_USER_ERROR",
         message: `unknown template function: ${topic}`,
-        file: null,
-        line: 1,
-        column: 1,
-        snippet: null,
+        locations: [],
       }],
     };
   }

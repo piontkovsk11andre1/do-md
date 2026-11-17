@@ -30,11 +30,14 @@ function assertResolvedFailure(result, { exitCode, code, file }) {
   assert.equal(err.code, code);
   assert.equal(typeof err.message, "string");
   assert.match(err.message, /^[^\r\n]*$/);
-  assert.ok(Number.isInteger(err.line) && err.line >= 1);
-  assert.ok(Number.isInteger(err.column) && err.column >= 1);
-  assert.ok("snippet" in err);
+  assert.ok(Array.isArray(err.locations));
+  for (const location of err.locations) {
+    assert.ok(Number.isInteger(location.range.start.line) && location.range.start.line >= 1);
+    assert.ok(Number.isInteger(location.range.start.column) && location.range.start.column >= 1);
+    assert.ok("snippet" in location);
+  }
   if (file !== undefined) {
-    assert.equal(err.file, file);
+    assert.ok(err.locations.some((l) => l.source === file));
   }
 }
 
@@ -45,7 +48,7 @@ function assertRejectedError(err, code, file) {
   assert.equal(typeof err.message, "string");
   assert.match(err.message, /^[^\r\n]*$/);
   if (file !== undefined) {
-    assert.equal(err.file, file);
+    assert.ok(err.locations.some((l) => l.source === file));
   }
 }
 

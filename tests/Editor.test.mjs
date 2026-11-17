@@ -139,9 +139,9 @@ test("Editor.open throws DO_MD_PARSE_ERROR with validate diagnostics", async () 
       assert.equal(err.code, ERROR_CODES.DO_MD_PARSE_ERROR);
       assert.ok(Array.isArray(err.errors));
       assert.equal(err.errors[0].code, ERROR_CODES.DO_MD_PARSE_ERROR);
-      assert.ok(err.file);
-      assert.ok(err.line >= 1);
-      assert.ok(err.column >= 1);
+      assert.ok(err.locations[0].source);
+      assert.ok(err.locations[0].range.start.line >= 1);
+      assert.ok(err.locations[0].range.start.column >= 1);
       return true;
     },
   );

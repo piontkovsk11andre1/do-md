@@ -109,16 +109,15 @@ export function mcpDiagnostic(code, message, extra = {}) {
   return {
     code,
     message: singleLine(message),
-    file: extra.file ?? extra.path ?? null,
-    line: Number.isInteger(extra.line) && extra.line >= 1 ? extra.line : 1,
-    column: Number.isInteger(extra.column) && extra.column >= 1 ? extra.column : 1,
-    snippet: extra.snippet == null ? null : String(extra.snippet),
+    locations: structuredClone(extra.locations ?? []),
   };
 }
 
 export function stripDiagnosticSnippets(errors) {
   const list = Array.isArray(errors) ? errors : errors == null ? [] : [errors];
-  return list.map((error) => (error && typeof error === "object" ? { ...error, snippet: null } : error));
+  return list.map((error) => (error && typeof error === "object" ? {
+    ...error, locations: (error.locations ?? []).map((location) => ({ ...location, snippet: null })),
+  } : error));
 }
 
 function isKnownDiagnosticCode(code) {

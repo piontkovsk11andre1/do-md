@@ -1,7 +1,7 @@
 import { lstat, readlink, realpath } from "node:fs/promises";
 import { basename, dirname, isAbsolute, relative, resolve } from "node:path";
 
-import { ERROR_CODES } from "../SyntaxError.mjs";
+import { makeUserError } from "../SyntaxError.mjs";
 
 const ESCAPE_MESSAGE = "path escapes --root";
 
@@ -25,13 +25,7 @@ export function ensureWithinRoot(rootPath, targetPath) {
 }
 
 export function scopeError(path, message = ESCAPE_MESSAGE) {
-  const error = new Error(String(message));
-  error.code = ERROR_CODES.DO_MD_USER_ERROR;
-  error.file = path == null || path === "" ? null : String(path);
-  error.line = 1;
-  error.column = 1;
-  error.snippet = null;
-  return error;
+  return makeUserError(message, { file: path == null || path === "" ? null : String(path) });
 }
 
 export async function resolveScopedPath(rootPath, targetPath) {

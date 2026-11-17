@@ -8,9 +8,15 @@ export type ErrorCode =
 export interface Diagnostic {
   code: ErrorCode | (string & {});
   message: string;
-  file: string | null;
-  line: number;
-  column: number;
+  locations: DiagnosticLocation[];
+}
+
+export interface DiagnosticLocation {
+  role: "generated" | "template" | "document";
+  relation: "origin" | "processing";
+  source: string | null;
+  range: { start: { offset: number | null; line: number; column: number }; end: SourcePoint | null };
+  precision: "exact" | "range" | "context";
   snippet: string | null;
 }
 

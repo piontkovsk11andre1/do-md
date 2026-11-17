@@ -1,4 +1,5 @@
 import test from "node:test";
+import { stableDiagnostics } from "../../diagnostics.helpers.mjs";
 import assert from "node:assert/strict";
 
 import { handleValidate } from "../../../sources/MCP/tools/validate.mjs";
@@ -62,9 +63,9 @@ test("MCP validate parse failure matches validate()", async () => {
 
   assert.equal(mcp.ok, cmd.ok);
   assert.equal(mcp.ok, false);
-  assert.deepEqual(mcp.errors, cmd.errors);
+  assert.deepEqual(stableDiagnostics(mcp.errors), stableDiagnostics(cmd.errors));
   assert.ok(mcp.errors.length > 0);
   assert.equal(typeof mcp.errors[0].code, "string");
-  assert.ok(Number.isInteger(mcp.errors[0].line) && mcp.errors[0].line >= 1);
-  assert.ok(Number.isInteger(mcp.errors[0].column) && mcp.errors[0].column >= 1);
+  assert.ok(Number.isInteger(mcp.errors[0].locations[0].range.start.line));
+  assert.ok(Number.isInteger(mcp.errors[0].locations[0].range.start.column));
 });

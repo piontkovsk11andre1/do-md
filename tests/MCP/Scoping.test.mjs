@@ -14,10 +14,12 @@ import {
 
 function assertUserError(err, file) {
   assert.equal(err.code, ERROR_CODES.DO_MD_USER_ERROR);
-  assert.equal(err.line, 1);
-  assert.equal(err.column, 1);
+  for (const location of err.locations) {
+    assert.equal(location.range.start.line, 1);
+    assert.equal(location.range.start.column, 1);
+  }
   if (file !== undefined) {
-    assert.equal(err.file, file);
+    assert.equal(err.locations[0].source, file);
   }
   return true;
 }
@@ -68,7 +70,7 @@ test("ensureWithinRoot rejects lexical .. and absolute escapes", () => {
 test("scopeError is a DO_MD_USER_ERROR diagnostic", () => {
   const error = scopeError("docs/a.md");
   assertUserError(error, "docs/a.md");
-  assert.equal(error.snippet, null);
+  assert.equal(error.locations[0].snippet, null);
 });
 
 test("resolveScopedPath accepts paths under --root", async () => {

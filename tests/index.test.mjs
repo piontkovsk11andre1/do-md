@@ -12,6 +12,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const indexPath = path.join(root, "sources/index.mjs");
 
 const EXPECTED_PUBLIC_EXPORTS = [
+  "formatDiagnostic",
+  "createSourceMap", "mapPosition", "mapRange", "composeSourceMaps", "mapDiagnostic", "sourcePoint", "sourceOffset", "primaryLocation",
   "create",
   "describeTemplateFunction",
   "Editor",

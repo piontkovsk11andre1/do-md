@@ -1,4 +1,5 @@
 import test from "node:test";
+import { stableDiagnostics } from "../../diagnostics.helpers.mjs";
 import assert from "node:assert/strict";
 
 import { handleExport } from "../../../sources/MCP/tools/export.mjs";
@@ -72,7 +73,7 @@ test("MCP export parse failure matches exportDoc() and writes nothing", async ()
   assert.equal(mcp.ok, cmd.ok);
   assert.equal(mcp.ok, false);
   assert.equal(mcp.context, null);
-  assert.deepEqual(mcp.errors, cmd.errors);
+  assert.deepEqual(stableDiagnostics(mcp.errors), stableDiagnostics(cmd.errors));
   assert.deepEqual(writes, []);
   assert.equal(cmdIo.entries.has("/expected.json"), false);
 });

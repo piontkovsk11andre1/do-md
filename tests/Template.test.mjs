@@ -78,11 +78,12 @@ test("Template.wrap returns a function with the documented signature", () => {
   assert.deepEqual(calls, ["hi"]);
 });
 
-test("Template.wrap appends sourceURL so runtime errors report the template path", () => {
+test("Template.wrap maps its unique sourceURL back to the template path", () => {
   const fn = Template.wrap("{% throw new Error(\"boom\") %}", "notes.tpl.md");
-  assert.match(Function.prototype.toString.call(fn), /\/\/# sourceURL=notes\.tpl\.md/);
+  assert.match(Template.compilation(fn).sourceMap.generated.source, /^generated:do-md\/template-/);
   assert.throws(() => fn({}, {}, null, {}, null), (err) => {
-    assert.match(String(err.stack), /notes\.tpl\.md/);
+    assert.equal(err.locations.find((l) => l.role === "template").source, "notes.tpl.md");
+    assert.match(String(err.cause.stack), /generated:do-md\/template-/);
     return true;
   });
 });
@@ -98,9 +99,10 @@ test("Template.wrap reports new Function SyntaxError as DO_MD_TEMPLATE_ERROR", (
   assert.throws(() => Template.wrap("{% const %}", "bad.tpl.md"), (err) => {
     assert.ok(err instanceof SyntaxError);
     assert.equal(err.code, ERROR_CODES.DO_MD_TEMPLATE_ERROR);
-    assert.equal(err.file, "bad.tpl.md");
-    assert.equal(err.line, 1);
-    assert.equal(err.column, 1);
+    const location = err.locations.find((l) => l.role === "template");
+    assert.equal(location.source, "bad.tpl.md");
+    assert.equal(location.range.start.line, 1);
+    assert.ok(location.range.start.column > 1);
     return true;
   });
 });

@@ -1,5 +1,4 @@
 import yargs from "yargs";
-import chalk from "chalk";
 
 import {
   validate,
@@ -13,7 +12,7 @@ import {
 import { NodeFilesystem } from "./IO/NodeFilesystem.mjs";
 import { run as runMcpServer } from "./McpServer.mjs";
 import { run as runHttpServer } from "./HttpServer.mjs";
-import { ERROR_CODES, makeUserError } from "./SyntaxError.mjs";
+import { ERROR_CODES, makeUserError, formatDiagnostic } from "./SyntaxError.mjs";
 import { renderTemplateReference } from "./TemplateLanguage.mjs";
 import { readSkill } from "./Skill.mjs";
 
@@ -106,21 +105,12 @@ function diagnosticFrom(error) {
   return {
     code: error?.code && Object.values(ERROR_CODES).includes(error.code) ? error.code : ERROR_CODES.DO_MD_USER_ERROR,
     message: error?.message ?? String(error),
-    file: error?.file ?? null,
-    line: error?.line ?? 1,
-    column: error?.column ?? 1,
-    snippet: error?.snippet ?? null,
+    locations: error?.locations ?? [],
   };
 }
 
-function formatDiagnostic(diagnostic) {
-  const message = diagnostic?.message ?? "";
-  if (!diagnostic?.file) {
-    return message;
-  }
-  const loc = `${diagnostic.file}:${diagnostic.line ?? 1}:${diagnostic.column ?? 1}`;
-  const prefix = process.stderr.isTTY ? chalk.cyan(loc) : loc;
-  return `${prefix}: ${message}`;
+function formatTextDiagnostic(diagnostic) {
+  return formatDiagnostic(diagnostic, { colors: Boolean(process.stderr.isTTY) && !Object.hasOwn(process.env, "NO_COLOR") && process.env.TERM !== "dumb" });
 }
 
 function writeLine(stream, text) {
@@ -152,7 +142,7 @@ function reportResult(result, { json, quiet, showOutput = false }) {
     writeLine(process.stdout, result.output);
   } else if (!result.ok) {
     for (const error of result.errors ?? []) {
-      writeLine(process.stderr, formatDiagnostic(error));
+      writeLine(process.stderr, formatTextDiagnostic(error));
     }
   }
 }
@@ -172,7 +162,7 @@ function reportRejected(error, { json }) {
       }),
     );
   } else {
-    writeLine(process.stderr, formatDiagnostic(diagnostic));
+    writeLine(process.stderr, formatTextDiagnostic(diagnostic));
   }
   return exitCode;
 }

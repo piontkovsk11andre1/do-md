@@ -13,6 +13,10 @@ import { parseArgv as mcpArgv } from "../sources/MCP/Server.mjs";
 import { startServe } from "./http-helpers.mjs";
 import { TOOL_NAMES } from "../sources/Service/Definitions.mjs";
 import { getEventListeners } from "node:events";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
+import { stableDiagnostics } from "./diagnostics.helpers.mjs";
 
 async function fixture(fn, options = {}) {
   const root = await mkdtemp(join(tmpdir(), "do-md-http-"));
@@ -51,6 +55,58 @@ test("serve and remote MCP arguments are strict and preserve the local default",
     assert.throws(() => remoteUrl(options));
   }
   for (const args of [["--unknown"], ["--root"], ["--port", "-1"], ["--timeout-ms", "0"], ["--max-concurrency", "1.5"]]) assert.throws(() => parseArgv(args));
+});
+
+test("template diagnostic chains survive CLI, HTTP, local and remote MCP", async () => {
+  await fixture(async ({ project, url, call }) => {
+    const templates = [
+      "{%\nconst = 1;\n%}",
+      "{% doc.heading(1).validate(() => {throw new Error('invalid heading');}).as('title'); %}",
+    ];
+    const transports = [];
+    const clients = [];
+    try {
+      for (const args of [[], ["--url", url]]) {
+        const transport = new StdioClientTransport({ command: process.execPath,
+          args: [fileURLToPath(new URL("../bin/do-md-mcp.mjs", import.meta.url)), "--root", project, ...args], stderr: "pipe" });
+        transports.push(transport);
+        const client = new McpClient({ name: "diagnostic-test", version: "1.0.0" });
+        clients.push(client);
+        await client.connect(transport);
+      }
+      for (const template of templates) {
+        await writeFile(join(project, "broken.md.template"), template);
+        const params = { file: "doc.md", template: "broken.md.template" };
+        const http = (await call("validate", params)).result;
+        assert.equal(http.ok, false);
+        const locations = http.errors[0].locations;
+        assert.ok(locations.some((l) => l.role === "generated"));
+        assert.ok(locations.some((l) => l.role === "template"));
+        if (template.includes("validate")) assert.ok(locations.some((l) => l.relation === "processing" && l.range.end));
+        let cli;
+        try {
+          await promisify(execFile)(process.execPath, [fileURLToPath(new URL("../bin/do-md.mjs", import.meta.url)),
+            "validate", "doc.md", "broken.md.template", "--json"], { cwd: project });
+          assert.fail("CLI must fail");
+        } catch (error) {
+          assert.equal(error.code, 3);
+          cli = JSON.parse(error.stderr);
+        }
+        assert.deepEqual(stableDiagnostics(cli.errors), stableDiagnostics(http.errors));
+        for (const client of clients) {
+          const response = await client.callTool({ name: "validate", arguments: params });
+          const mcp = JSON.parse(response.content[0].text);
+          assert.deepEqual(stableDiagnostics(mcp.errors), stableDiagnostics(http.errors));
+        }
+        const stripped = (await call("validate", params, { limits: { noSnippets: true } })).result;
+        assert.equal(stripped.errors[0].locations.length, locations.length);
+        assert.ok(stripped.errors[0].locations.every((l) => l.snippet === null));
+      }
+    } finally {
+      await Promise.all(clients.map((client) => client.close()));
+      await Promise.all(transports.map((transport) => transport.close()));
+    }
+  });
 });
 
 test("HTTP executes all document commands with CLI-equivalent data and side effects", async () => {
@@ -139,7 +195,7 @@ test("HTTP rejects invalid transports and cannot relax server limits", async () 
     assert.equal(result.result.ok, false);
     assert.match(result.result.errors[0].message, /maxInputBytes/);
     const parse = await call("validate", { file: "doc.md", template: "other.tpl.md" }, { limits: { noSnippets: false } });
-    assert.equal(parse.result.errors[0].snippet, null);
+    assert.ok(parse.result.errors[0].locations.every((l) => l.snippet === null));
   }, { maxBodyBytes: 1024, maxInputBytes: 80, noSnippets: true });
 });
 

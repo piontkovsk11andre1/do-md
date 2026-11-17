@@ -49,11 +49,11 @@ test("validate parse failure writes nothing and resolves exit 2", async () => {
   assert.equal(result.context, null);
   assert.ok(result.errors.length > 0);
   assert.equal(result.errors[0].code, ERROR_CODES.DO_MD_PARSE_ERROR);
-  assert.equal(result.errors[0].file, "/doc.md");
+  assert.equal(result.errors[0].locations[0].source, "/doc.md");
   assert.equal(typeof result.errors[0].message, "string");
-  assert.equal(typeof result.errors[0].line, "number");
-  assert.equal(typeof result.errors[0].column, "number");
-  assert.ok("snippet" in result.errors[0]);
+  assert.equal(typeof result.errors[0].locations[0].range.start.line, "number");
+  assert.equal(typeof result.errors[0].locations[0].range.start.column, "number");
+  assert.ok("snippet" in result.errors[0].locations[0]);
   assert.deepEqual(Object.keys(result).sort(), ["context", "errors", "exitCode", "ok", "output"]);
   assert.deepEqual(writes, []);
   assert.deepEqual(snapshot(io), before);

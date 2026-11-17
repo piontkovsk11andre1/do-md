@@ -1,20 +1,9 @@
-import { Template } from "./Template.mjs";
+import { Template, runTemplate } from "./Template.mjs";
 import { Writer } from "./Writer.mjs";
-import { ERROR_CODES, fromNativeError, makeUserError } from "./SyntaxError.mjs";
+import { ERROR_CODES, makeUserError } from "./SyntaxError.mjs";
 import { parseSource, readText, readTextSnapshot, wrapTemplate, writeText } from "./commands/helpers.mjs";
 
 const SAFE_KEY = /^[A-Za-z_][A-Za-z0-9_-]*$/;
-
-function runTemplate(fn, doc, ctx, data, options, io, templatePath) {
-  try {
-    fn(doc, ctx, data, options ?? {}, io);
-  } catch (error) {
-    if (error?.code && Object.values(ERROR_CODES).includes(error.code)) {
-      throw error;
-    }
-    throw fromNativeError(error, { file: templatePath });
-  }
-}
 
 function isUnsafeKey(key) {
   return key === "__proto__" || key === "constructor" || key === "prototype";

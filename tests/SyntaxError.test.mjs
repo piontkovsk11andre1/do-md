@@ -24,6 +24,7 @@ import {
   makeParseError,
   makeTemplateError,
   SyntaxError,
+  primaryLocation,
 } from "../sources/SyntaxError.mjs";
 import { Template } from "../sources/Template.mjs";
 import { Writer } from "../sources/Writer.mjs";
@@ -40,33 +41,38 @@ function isLibraryCode(code) {
 function assertLibraryError(err, code, location = {}) {
   assert.equal(err.code, code);
   assert.ok(!MCP_ONLY_CODES.includes(err.code));
-  assert.ok(Number.isInteger(err.line) && err.line >= 1);
-  assert.ok(Number.isInteger(err.column) && err.column >= 1);
+  assert.ok(Array.isArray(err.locations));
+  const position = err.locations.find((l) => l.source === location.file) ?? primaryLocation(err);
+  for (const l of err.locations) {
+    assert.ok(Number.isInteger(l.range.start.line) && l.range.start.line >= 1);
+    assert.ok(Number.isInteger(l.range.start.column) && l.range.start.column >= 1);
+  }
   assert.equal(typeof err.message, "string");
   assert.match(err.message, /^[^\r\n]*$/);
   if (location.file !== undefined) {
-    assert.equal(err.file, location.file);
+    assert.equal(position?.source, location.file);
   }
   if (location.line !== undefined) {
-    assert.equal(err.line, location.line);
+    assert.equal(position?.range.start.line, location.line);
   }
   if (location.column !== undefined) {
-    assert.equal(err.column, location.column);
+    assert.equal(position?.range.start.column, location.column);
   }
   if (Object.hasOwn(location, "snippet")) {
-    assert.equal(err.snippet, location.snippet);
+    assert.equal(position?.snippet, location.snippet);
   }
 }
 
 function assertLiveDiagnostic(err, expected) {
   assertLibraryError(err, expected.code, expected);
-  assert.ok(err.snippet === null || typeof err.snippet === "string");
+  const position = primaryLocation(err);
+  assert.ok(position.snippet === null || typeof position.snippet === "string");
   const diagnostic = typeof err.toDiagnostic === "function" ? err.toDiagnostic() : err;
   assert.equal(diagnostic.code, expected.code);
-  assert.equal(diagnostic.line, expected.line);
-  assert.equal(diagnostic.column, expected.column);
-  assert.equal(diagnostic.file, expected.file);
-  assert.equal(diagnostic.snippet, expected.snippet);
+  assert.equal(primaryLocation(diagnostic).range.start.line, expected.line);
+  assert.equal(primaryLocation(diagnostic).range.start.column, expected.column);
+  assert.equal(primaryLocation(diagnostic).source, expected.file);
+  assert.equal(primaryLocation(diagnostic).snippet, expected.snippet);
   assert.equal(typeof diagnostic.message, "string");
   assert.match(diagnostic.message, /^[^\r\n]*$/);
 }
@@ -116,10 +122,9 @@ test("SyntaxError is a Diagnostic plus a JS Error", () => {
   assert.deepEqual(err.toDiagnostic(), {
     code: ERROR_CODES.DO_MD_PARSE_ERROR,
     message: "literal mismatch",
-    file: "notes.md",
-    line: 4,
-    column: 2,
-    snippet: "# Title",
+    locations: [{ role: "document", relation: "processing", source: "notes.md",
+      range: { start: { offset: null, line: 4, column: 2 }, end: null },
+      precision: "context", snippet: "# Title" }],
   });
 });
 
@@ -131,18 +136,16 @@ test("path and char aliases populate file and column", () => {
     char: 8,
   });
 
-  assert.equal(err.file, "doc.md");
-  assert.equal(err.line, 3);
-  assert.equal(err.column, 8);
+  assert.equal(primaryLocation(err).source, "doc.md");
+  assert.equal(primaryLocation(err).range.start.line, 3);
+  assert.equal(primaryLocation(err).range.start.column, 8);
 });
 
-test("missing location defaults to 1-indexed line and column", () => {
+test("missing location is represented by an empty chain", () => {
   const err = new SyntaxError("unknown");
   assert.equal(err.code, ERROR_CODES.DO_MD_USER_ERROR);
-  assert.equal(err.file, null);
-  assert.equal(err.line, 1);
-  assert.equal(err.column, 1);
-  assert.equal(err.snippet, null);
+  assert.deepEqual(err.locations, []);
+  assert.equal(primaryLocation(err), null);
 });
 
 test("library error codes are the only exported codes", () => {
@@ -183,7 +186,7 @@ test("Diagnostic message is a single line and snippet may be null", () => {
     column: 1,
   });
   assert.equal(err.message, "first second");
-  assert.equal(err.snippet, null);
+  assert.equal(primaryLocation(err).snippet, null);
   assert.match(err.message, /^[^\r\n]*$/);
 });
 
@@ -197,9 +200,9 @@ test("fromNativeError reports template path and line", () => {
   const err = fromNativeError(native, { path: "notes.tpl.md" });
   assert.ok(err instanceof SyntaxError);
   assert.equal(err.code, ERROR_CODES.DO_MD_TEMPLATE_ERROR);
-  assert.equal(err.file, "notes.tpl.md");
-  assert.equal(err.line, 2);
-  assert.equal(err.column, 5);
+  assert.equal(primaryLocation(err).source, "notes.tpl.md");
+  assert.equal(primaryLocation(err).range.start.line, 2);
+  assert.equal(primaryLocation(err).range.start.column, 5);
 });
 
 test("MCP-only codes are remapped and absent from ERROR_CODES", () => {
@@ -351,7 +354,7 @@ test("error registry PARSE sites produce only DO_MD_PARSE_ERROR with location", 
         file: "/empty.md",
         line: 1,
         column: 1,
-        snippet: null,
+        snippet: "",
       });
       return true;
     },
@@ -433,7 +436,7 @@ test("live parse diagnostics include snippet and stable location", async () => {
     file: "/blank.md",
     line: 1,
     column: 1,
-    snippet: null,
+    snippet: "",
   });
 
   const io = new Virtual({

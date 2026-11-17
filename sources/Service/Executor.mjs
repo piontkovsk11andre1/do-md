@@ -24,7 +24,9 @@ export async function execute(name, params, context, { signal } = {}) {
       signal?.removeEventListener("abort", abort);
       await worker.terminate().catch(() => {});
       if (context.noSnippets && Array.isArray(result?.errors)) {
-        result.errors = result.errors.map((error) => ({ ...error, snippet: null }));
+        result.errors = result.errors.map((error) => ({ ...error,
+          locations: (error.locations ?? []).map((location) => ({ ...location, snippet: null })),
+        }));
       }
       resolve(result);
     };
