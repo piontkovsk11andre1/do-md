@@ -26,7 +26,7 @@ const COMMAND_HELP = Object.freeze({
     "do-md reference [topic] [--format json|markdown|text]\nRead the template-language reference. JSON is the default, matching MCP reference.",
   skill: "do-md skill\nPrint the bundled Agent Skill as Markdown. This does not install it.",
   serve:
-    "do-md serve --root <dir> [--host 127.0.0.1] [--port 8080]\nOptions: --max-input-bytes --timeout-ms --max-body-bytes --max-response-bytes --max-concurrency --no-snippets",
+    "do-md serve --root <dir> [--host 127.0.0.1] [--port 8080] [--mcp]\nOptions: --mcp-origin --max-input-bytes --timeout-ms --max-body-bytes --max-response-bytes --max-concurrency --no-snippets\n--mcp adds a standard Streamable HTTP MCP endpoint at /mcp.",
   mcp: "do-md mcp --root <dir> [--host <host> --port 8080 | --url <http(s)://host/prefix>]\nOptions: --max-input-bytes --timeout-ms --max-response-bytes --no-snippets\nWithout host/port/URL, commands execute locally. In remote mode --root is a server-side directory.",
 });
 

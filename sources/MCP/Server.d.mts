@@ -51,6 +51,11 @@ export interface McpResult {
   wrote?: string | null;
   errors: Diagnostic[];
 }
+export type ToolDispatch = (
+  name: ToolName,
+  params: Record<string, unknown>,
+  signal?: AbortSignal,
+) => Promise<McpResult>;
 export function parseArgv(
   argv?: string[],
 ): Required<Pick<ServerOptions, "root" | "maxInputBytes" | "timeoutMs" | "noSnippets">> &
@@ -79,6 +84,9 @@ export class Server {
   toolDefinitions(): Array<{ name: ToolName; description: string; inputSchema: unknown }>;
   toolContext(extra?: Record<string, unknown>): ToolContext;
   callTool(name: string, params?: Record<string, unknown>): Promise<McpResult>;
+  createProtocol(options?: {
+    dispatch?: ToolDispatch;
+  }): import("@modelcontextprotocol/sdk/server/mcp.js").McpServer;
   start(): Promise<void>;
   close(): Promise<void>;
 }

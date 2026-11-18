@@ -66,12 +66,26 @@ const browserError: BrowserDiagnostic = {
 };
 void [browserIO, browserCompilation, browserDiagnostic(browserError, { includeGenerated: true })];
 
-const httpOptions: HttpOptions = { root: "/workspace", port: 0, maxConcurrency: 2 };
+const httpOptions: HttpOptions = {
+  root: "/workspace",
+  port: 0,
+  maxConcurrency: 2,
+  mcp: true,
+  mcpAllowedOrigins: ["https://tools.example.com"],
+};
 const httpServer = createHttpServer(httpOptions);
 const httpClient = new HttpClient({ url: "http://do-md:8080", root: "/workspace" });
 const remoteMcp = new Server({ root: "/workspace", host: "do-md", port: 8080 });
+const protocol: import("@modelcontextprotocol/sdk/server/mcp.js").McpServer = new Server({
+  root: "/workspace",
+}).createProtocol({
+  dispatch: async (_name, _params, signal) => {
+    signal?.throwIfAborted();
+    return { ok: true, errors: [] };
+  },
+});
 const scopedIo: IOAdapter = new ScopedFilesystem("/workspace", 1024);
-void [httpServer, httpClient, remoteMcp, scopedIo, execute, TOOL_DEFINITIONS];
+void [httpServer, httpClient, remoteMcp, protocol, scopedIo, execute, TOOL_DEFINITIONS];
 
 const io: IOAdapter = new Virtual({ "doc.md": "# Hello" });
 const filesystem: IOAdapter = new NodeFilesystem();

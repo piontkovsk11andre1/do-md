@@ -7,6 +7,7 @@ import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { createServer } from "../sources/HTTP/index.mjs";
 import { readSkill } from "../sources/Skill.mjs";
 
@@ -19,6 +20,7 @@ const root = await mkdtemp(join(tmpdir(), "do-md-image-"));
 const execute = promisify(execFile);
 let server;
 let client;
+let httpClient;
 try {
   await access(new URL("LICENSE", base));
   await access(new URL("README.md", base));
@@ -52,12 +54,35 @@ try {
   });
   assert.equal(JSON.parse(result.content[0].text).ok, true);
 
-  server = await createServer({ root, host: "127.0.0.1", port: 0 }).start();
+  server = await createServer({ root, host: "127.0.0.1", port: 0, mcp: true }).start();
   const health = await fetch(`http://127.0.0.1:${server.port}/healthz`);
   assert.equal(health.status, 200);
   assert.equal((await health.json()).ok, true);
-  process.stdout.write("Runtime smoke passed: CLI, Skill, MCP resource/tool and HTTP health.\n");
+  httpClient = new Client({ name: "image-http-smoke", version: "1" });
+  await httpClient.connect(
+    new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${server.port}/mcp`)),
+  );
+  assert.equal((await httpClient.listTools()).tools.length, 9);
+  assert.equal(
+    (await httpClient.readResource({ uri: "do-md://skills/do-md" })).contents[0].text,
+    skill,
+  );
+  assert.equal(
+    JSON.parse(
+      (
+        await httpClient.callTool({
+          name: "validate",
+          arguments: { file: "document.md", template: "shape.md.template" },
+        })
+      ).content[0].text,
+    ).ok,
+    true,
+  );
+  process.stdout.write(
+    "Runtime smoke passed: CLI, Skill, stdio/Streamable HTTP MCP resource/tool and HTTP health.\n",
+  );
 } finally {
+  await httpClient?.close();
   await client?.close();
   await server?.close();
   await rm(root, { recursive: true, force: true });

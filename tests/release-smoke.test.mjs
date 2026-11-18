@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { startServe } from "./http-helpers.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -145,6 +146,8 @@ test(
       "bin/do-md-mcp.mjs",
       "sources/index.mjs",
       "sources/MCP/Server.mjs",
+      "sources/MCP/Http.mjs",
+      "sources/Service/Http.mjs",
       "sources/HttpServer.mjs",
       "skills/do-md/SKILL.md",
       "Dockerfile",
@@ -167,14 +170,14 @@ test(
 );
 
 test(
-  "installed serve executes HTTP commands and both installed MCP proxies dispatch remotely",
+  "installed serve supports HTTP, native MCP and both installed remote MCP proxies",
   { timeout: INSTALL_TIMEOUT_MS },
   async () => {
     const install = await getInstall();
     await withTempDir("do-md-smoke-http-", async (root) => {
       await fs.writeFile(path.join(root, "doc.md"), "# Hello\n");
       await fs.writeFile(path.join(root, "tpl.md"), '# {% doc.line().as("title") %}\n');
-      const service = await startServe(root, install.doMdJs);
+      const service = await startServe(root, install.doMdJs, ["--mcp"]);
       try {
         const response = await fetch(`${service.url}/v1/commands/export`, {
           method: "POST",
@@ -205,6 +208,29 @@ test(
           } finally {
             await client.close();
           }
+        }
+        const native = new Client({ name: "installed-native", version: "1" });
+        try {
+          await native.connect(new StreamableHTTPClientTransport(new URL(service.url + "/mcp")));
+          assert.equal((await native.listTools()).tools.length, 9);
+          assert.equal((await native.listResources()).resources.length, 3);
+          assert.equal(
+            JSON.parse(
+              (
+                await native.callTool({
+                  name: "export",
+                  arguments: { file: "doc.md", template: "tpl.md" },
+                })
+              ).content[0].text,
+            ).context.title,
+            "Hello",
+          );
+          assert.match(
+            (await native.readResource({ uri: "do-md://skills/do-md" })).contents[0].text,
+            /name: do-md/,
+          );
+        } finally {
+          await native.close();
         }
       } finally {
         await service.close();

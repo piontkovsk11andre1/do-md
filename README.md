@@ -6,7 +6,7 @@ do-md combines literal Markdown with small JavaScript blocks. The same template
 can read a document into data or write a document from that data. Editing uses
 recorded source ranges to preserve unrelated text.
 
-This checkout prepares **2.0.0-rc.2**. See the [changelog](CHANGELOG.md) and
+This checkout prepares **2.0.0-rc.3**. See the [changelog](CHANGELOG.md) and
 [migration guide](docs/migration-2.md) for breaking changes.
 
 ## Install
@@ -158,6 +158,15 @@ do-md-mcp --url http://127.0.0.1:8080 --root /workspace/project
 ```
 
 The MCP proxy uses server-side paths and does not fall back to local execution.
+For clients that support native remote MCP, enable Streamable HTTP on the same
+service and connect directly to `http://127.0.0.1:8080/mcp`:
+
+```sh
+do-md serve --root /workspace/project --port 8080 --mcp
+```
+
+This endpoint exposes the same nine tools and three resources as stdio MCP.
+It shares the HTTP service's root, worker limits, cancellation and shutdown.
 See [HTTP integration](docs/http-api.md) for endpoints, limits, cancellation and
 write semantics. Templates execute trusted code; filesystem scoping is not a
 JavaScript sandbox.

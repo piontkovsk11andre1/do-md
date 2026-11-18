@@ -1,4 +1,4 @@
-# Public contract — 2.0.0-rc.2
+# Public contract — 2.0.0-rc.3
 
 This candidate's supported surface is fixed here. Incompatible changes after a
 candidate is frozen require a new candidate number and migration notes. Public
@@ -12,8 +12,8 @@ reviewed contract. Underscore/internal helpers are not public API.
 | `@p10i/do-md`            | Node commands/classes, adapters, reference and Skill reader               |
 | `/browser`               | Portable commands/classes, Fetch/Virtual, plain diagnostics and reference |
 | `/io`                    | Node filesystem, portable adapters and revision helpers                   |
-| `/http`                  | HTTP execution server factory and remote client                           |
-| `/mcp`                   | MCP server integration                                                    |
+| `/http`                  | HTTP execution server, optional Streamable HTTP MCP and remote client     |
+| `/mcp`                   | MCP server integration and transport-independent protocol factory         |
 | `/markdown`              | Positioned Markdown parsing and flattening                                |
 | `/skills/do-md/SKILL.md` | Bundled English Agent Skill text                                          |
 | `/package.json`          | Package metadata                                                          |
@@ -87,6 +87,17 @@ Editor captures an initial revision. Mutations do not write; render composes tex
 save commits through adapter revision/atomic capabilities. Unchanged spans retain
 their bytes; changed structured values may normalize. Filesystem conflict guarantees
 are cooperative and adapter-dependent. Fetch is read-only; Virtual uses synchronous CAS.
+
+## Service transports
+
+`do-md serve --mcp` (or HTTP `ServerOptions.mcp: true`) adds `/mcp` to the same
+listener. It exposes all tools and resources through standard Streamable HTTP,
+retaining protocol sessions for cancellation and sharing the service's execution
+budget. The plain HTTP API and stdio/remote-dispatch MCP remain available.
+`mcpAllowedOrigins` is an explicit Origin allowlist, configured by repeatable
+`--mcp-origin` options. `Server.createProtocol({dispatch?})` from `/mcp` builds the
+same tool/resource surface for an embedding-owned transport without connecting
+stdio or opening a listener. The embedding owns transport closure.
 
 ## Candidate identity
 

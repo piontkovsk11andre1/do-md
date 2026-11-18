@@ -266,73 +266,7 @@ export class Server {
     } else {
       this.root = await resolveRoot(this.root);
     }
-    this._protocol = new McpServer({ name: "do-md", version: VERSION });
-    for (const name of TOOL_NAMES) {
-      const definition = TOOL_DEFINITIONS[name];
-      this._protocol.registerTool(name, definition, async (params, extra) => {
-        const result = await this._dispatch(name, params, extra.signal);
-        return {
-          content: [{ type: "text", text: JSON.stringify(result) }],
-          isError: result.ok === false,
-        };
-      });
-    }
-    this._protocol.registerResource(
-      "template-language",
-      "do-md://reference/template-language",
-      {
-        title: "do-md Template Language",
-        description: "Complete Markdown reference for authoring do-md templates",
-        mimeType: "text/markdown",
-      },
-      async () => ({
-        contents: [
-          {
-            uri: "do-md://reference/template-language",
-            mimeType: "text/markdown",
-            text: await this._referenceText("markdown"),
-          },
-        ],
-      }),
-    );
-    this._protocol.registerResource(
-      "template-language-json",
-      "do-md://reference/template-language.json",
-      {
-        title: "do-md Template Language JSON",
-        description: "Machine-readable do-md template-language registry",
-        mimeType: "application/json",
-      },
-      async () => ({
-        contents: [
-          {
-            uri: "do-md://reference/template-language.json",
-            mimeType: "application/json",
-            text: await this._referenceText("json"),
-          },
-        ],
-      }),
-    );
-    this._protocol.registerResource(
-      "agent-skill",
-      "do-md://skills/do-md",
-      {
-        title: "do-md Agent Skill",
-        description: "Workflow for authoring, validating and editing documents with do-md",
-        mimeType: "text/markdown",
-      },
-      async () => {
-        const result = await this._dispatch("skill", {});
-        if (!result.ok || typeof result.skill !== "string") {
-          throw new Error(result.errors?.[0]?.message ?? "skill unavailable");
-        }
-        return {
-          contents: [
-            { uri: "do-md://skills/do-md", mimeType: "text/markdown", text: result.skill },
-          ],
-        };
-      },
-    );
+    this._protocol = this.createProtocol();
     await this._protocol.connect(new StdioServerTransport());
     return new Promise((resolveDone) => {
       let done = false;
@@ -350,6 +284,97 @@ export class Server {
         process.stdin.once("end", () => void finish());
       }
     });
+  }
+
+  /** Register one transport-independent protocol surface; each session owns its instance. */
+  createProtocol({ dispatch } = {}) {
+    const protocol = new McpServer({ name: "do-md", version: VERSION });
+    const call = dispatch
+      ? async (name, params, signal) => {
+          try {
+            return this._shapeResult(name, await dispatch(name, params, signal));
+          } catch (error) {
+            return this._failure(name, toMcpDiagnostic(error));
+          }
+        }
+      : (name, params, signal) => this._dispatch(name, params, signal);
+    const reference = async (format, signal) => {
+      if (!dispatch) {
+        return this._referenceText(format);
+      }
+      const result = await call("reference", { format }, signal);
+      if (!result.ok) {
+        throw new Error(result.errors?.[0]?.message ?? "reference unavailable");
+      }
+      return format === "json" ? JSON.stringify(result.reference) : result.reference;
+    };
+    for (const name of TOOL_NAMES) {
+      const definition = TOOL_DEFINITIONS[name];
+      protocol.registerTool(name, definition, async (params, extra) => {
+        const result = await call(name, params, extra.signal);
+        return {
+          content: [{ type: "text", text: JSON.stringify(result) }],
+          isError: result.ok === false,
+        };
+      });
+    }
+    protocol.registerResource(
+      "template-language",
+      "do-md://reference/template-language",
+      {
+        title: "do-md Template Language",
+        description: "Complete Markdown reference for authoring do-md templates",
+        mimeType: "text/markdown",
+      },
+      async (_uri, extra) => ({
+        contents: [
+          {
+            uri: "do-md://reference/template-language",
+            mimeType: "text/markdown",
+            text: await reference("markdown", extra.signal),
+          },
+        ],
+      }),
+    );
+    protocol.registerResource(
+      "template-language-json",
+      "do-md://reference/template-language.json",
+      {
+        title: "do-md Template Language JSON",
+        description: "Machine-readable do-md template-language registry",
+        mimeType: "application/json",
+      },
+      async (_uri, extra) => ({
+        contents: [
+          {
+            uri: "do-md://reference/template-language.json",
+            mimeType: "application/json",
+            text: await reference("json", extra.signal),
+          },
+        ],
+      }),
+    );
+    protocol.registerResource(
+      "agent-skill",
+      "do-md://skills/do-md",
+      {
+        title: "do-md Agent Skill",
+        description: "Workflow for authoring, validating and editing documents with do-md",
+        mimeType: "text/markdown",
+      },
+      async (_uri, extra) => {
+        const result = await call("skill", {}, extra.signal);
+        if (!result.ok || typeof result.skill !== "string") {
+          throw new Error(result.errors?.[0]?.message ?? "skill unavailable");
+        }
+        return {
+          contents: [
+            { uri: "do-md://skills/do-md", mimeType: "text/markdown", text: result.skill },
+          ],
+        };
+      },
+    );
+    return protocol;
   }
 
   async close() {

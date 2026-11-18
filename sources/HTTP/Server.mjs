@@ -17,6 +17,7 @@ import {
 } from "../Service/Definitions.mjs";
 import { execute } from "../Service/Executor.mjs";
 import { resolveScopedPath } from "../MCP/Scoping.mjs";
+import { httpError, readJson } from "../Service/Http.mjs";
 
 const requestSchema = z.strictObject({
   directory: z.string().min(1).optional(),
@@ -29,62 +30,6 @@ const requestSchema = z.strictObject({
     })
     .optional(),
 });
-
-function httpError(status, message) {
-  return Object.assign(new Error(message), { status });
-}
-
-function readJson(request, maxBytes, timeoutMs, signal) {
-  return new Promise((resolveBody, reject) => {
-    let bytes = 0;
-    const chunks = [];
-    let settled = false;
-    const finish = (error, value) => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      clearTimeout(timer);
-      signal.removeEventListener("abort", abort);
-      if (error) {
-        chunks.length = 0;
-        request.resume();
-        reject(error);
-      } else {
-        resolveBody(value);
-      }
-    };
-    const abort = () => finish(httpError(408, "request body cancelled"));
-    const timer = setTimeout(() => finish(httpError(408, "request body timed out")), timeoutMs);
-    signal.addEventListener("abort", abort, { once: true });
-    request.on("data", (chunk) => {
-      if (settled) {
-        return;
-      }
-      bytes += chunk.length;
-      if (bytes > maxBytes) {
-        finish(httpError(413, "request body exceeds maxBodyBytes"));
-      } else {
-        chunks.push(chunk);
-      }
-    });
-    request.once("end", () => {
-      if (settled) {
-        return;
-      }
-      try {
-        finish(null, JSON.parse(Buffer.concat(chunks).toString("utf8")));
-      } catch {
-        finish(httpError(400, "invalid JSON request body"));
-      }
-    });
-    request.once("error", (error) => finish(error));
-    request.once("aborted", () => finish(httpError(400, "request aborted")));
-    if (signal.aborted) {
-      abort();
-    }
-  });
-}
 
 export class Server {
   constructor(options = {}) {
@@ -103,6 +48,20 @@ export class Server {
     );
     this.maxConcurrency = positiveInteger(options.maxConcurrency ?? 4, "maxConcurrency");
     this.noSnippets = options.noSnippets === true;
+    this.mcp = options.mcp === true;
+    this.mcpAllowedOrigins = options.mcpAllowedOrigins ?? [];
+    if (
+      !Array.isArray(this.mcpAllowedOrigins) ||
+      this.mcpAllowedOrigins.some(
+        (origin) =>
+          typeof origin !== "string" ||
+          !["http:", "https:"].includes(new URL(origin).protocol) ||
+          new URL(origin).origin !== origin,
+      )
+    ) {
+      throw new Error("mcpAllowedOrigins must contain exact HTTP(S) origins");
+    }
+    this.mcpEndpoint = null;
     this.server = null;
     this.calls = new Map();
     this.stopping = false;
@@ -125,6 +84,10 @@ export class Server {
     }
     this.root = await realpath(resolve(this.root));
     await this.directory();
+    if (this.mcp) {
+      const { Endpoint } = await import("../MCP/Http.mjs");
+      this.mcpEndpoint = new Endpoint(this);
+    }
     this.stopping = false;
     const server = createServer((request, response) => void this.handle(request, response));
     server.requestTimeout = this.timeoutMs;
@@ -161,6 +124,7 @@ export class Server {
     const closed = server ? new Promise((done) => server.close(done)) : Promise.resolve();
     server?.closeAllConnections();
     await Promise.allSettled([...this.calls.values()].map(({ promise }) => promise));
+    await this.mcpEndpoint?.close();
     await closed;
   }
 
@@ -197,6 +161,10 @@ export class Server {
         throw httpError(503, "server is stopping");
       }
       const url = new URL(request.url, "http://do-md.local");
+      if (url.pathname === "/mcp" && this.mcpEndpoint) {
+        await this.mcpEndpoint.handle(request, response);
+        return;
+      }
       if (request.method === "GET" && url.pathname === "/healthz") {
         this.send(response, 200, { ok: true, version: VERSION }, requestId);
         return;
@@ -327,5 +295,40 @@ export class Server {
       },
       requestId,
     );
+  }
+
+  /** MCP tool/resource execution shares the REST worker budget and configured root. */
+  async dispatchMcp(name, params, signal) {
+    if (this.stopping) {
+      throw httpError(503, "server is stopping");
+    }
+    if (this.calls.size >= this.maxConcurrency) {
+      throw httpError(503, "server is busy");
+    }
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    signal?.addEventListener("abort", abort, { once: true });
+    if (signal?.aborted) {
+      abort();
+    }
+    const id = randomUUID();
+    const promise = execute(
+      name,
+      params,
+      {
+        root: this.root,
+        maxInputBytes: this.maxInputBytes,
+        timeoutMs: this.timeoutMs,
+        noSnippets: this.noSnippets,
+      },
+      { signal: controller.signal },
+    );
+    this.calls.set(id, { controller, promise });
+    try {
+      return await promise;
+    } finally {
+      signal?.removeEventListener("abort", abort);
+      this.calls.delete(id);
+    }
   }
 }

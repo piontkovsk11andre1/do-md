@@ -1,6 +1,7 @@
 # HTTP API And Remote MCP
 
-Available in do-md 1.4.0. HTTP API version: **1**.
+Custom HTTP API available since do-md 1.4.0. Native Streamable HTTP MCP is added
+in **2.0.0-rc.3**. Custom HTTP API version remains **1**.
 
 ## Start The Service
 
@@ -20,6 +21,8 @@ stderr when ready. The service does not start when imported as a library.
 | `--max-response-bytes` | 8388608 | Maximum serialized command response                    |
 | `--max-concurrency`    | 4       | Active calls, including requests still sending bodies  |
 | `--no-snippets`        | off     | Omit document snippets from diagnostics                |
+| `--mcp`                | off     | Add standard Streamable HTTP MCP at `/mcp`             |
+| `--mcp-origin`         | none    | Repeatable exact browser Origin allowed at `/mcp`      |
 
 Diagnostics use `{ code, message, locations }`; all source-map levels survive
 worker, HTTP and remote-MCP boundaries. See [diagnostics](diagnostics.md).
@@ -99,6 +102,45 @@ excessive-output errors 500. Error bodies include structured diagnostics.
 
 ## MCP Local And Remote Modes
 
+### Native Streamable HTTP
+
+```sh
+do-md serve --root /workspace/project --port 8080 --mcp
+```
+
+Connect a standard remote MCP client to `http://127.0.0.1:8080/mcp`. This is the
+current Streamable HTTP transport, not the deprecated separate HTTP+SSE transport.
+POST carries MCP messages and JSON responses; DELETE terminates a session. GET/SSE
+listening is not offered (405). The SDK negotiates supported protocol versions.
+
+All nine tools and three resources are available, with the same MCP result shapes
+as stdio. Paths resolve inside the configured server root; there is no extra
+HTTP `directory` envelope on native MCP calls. Resource reads also use the shared
+executor. No tool or resource execution bypasses the worker budget, scoped I/O,
+input limit, timeout or snippet policy.
+
+REST calls and MCP executions share `--max-concurrency`. MCP body readers have
+their own bounded capacity (`maxConcurrency + 1`) so cancellation and protocol
+control messages remain readable while all execution slots are occupied. Body
+size/deadline limits apply before SDK dispatch. Serialized MCP responses are
+bounded by `--max-response-bytes`; oversized payloads become explicit protocol
+errors. As with REST, the minimal fixed error can exceed an exceptionally small
+configured response limit.
+
+Each client has a protocol session. Cancellation notifications target only that
+session's requests; a lost HTTP response alone is not an MCP cancellation.
+Sessions are capped at 256 per listener. Admission prunes sessions idle for five
+minutes that have no active responses or executions. Shutdown aborts owned workers,
+body readers and protocol transports. No executions are retried automatically.
+
+Requests without an Origin header work normally. Browser clients must use an
+explicit allowlist, for example `--mcp-origin https://tools.example.com`; unmatched
+Origins receive 403. Programmatic HTTP server options are `mcp: true` and
+`mcpAllowedOrigins: ["https://tools.example.com"]`. This does not install CORS or
+authentication middleware.
+
+### Stdio And Custom-HTTP Bridge
+
 ```sh
 # Local workers, local filesystem.
 do-md-mcp --root /home/user/project
@@ -144,7 +186,7 @@ surrounding network/proxy access controls.
 
 ## Docker
 
-The optional image uses rolling `node:alpine`, installs production dependencies
+The optional image uses a pinned Node 24 Alpine base, installs production dependencies
 from the lockfile, runs as the non-root `node` user, and has a health check on
 port 8080. Files persist in the bind-mounted workspace; there is no database.
 Match the configured UID/GID to workspace ownership and back up that directory.

@@ -13,6 +13,8 @@ export interface ServerOptions {
   maxResponseBytes?: number;
   maxConcurrency?: number;
   noSnippets?: boolean;
+  mcp?: boolean;
+  mcpAllowedOrigins?: string[];
 }
 export class Server {
   constructor(options: ServerOptions);

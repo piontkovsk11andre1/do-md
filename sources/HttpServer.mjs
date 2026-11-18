@@ -21,6 +21,18 @@ export function parseArgv(argv = []) {
       options.noSnippets = true;
       continue;
     }
+    if (name === "--mcp" && joined.length === 0) {
+      options.mcp = true;
+      continue;
+    }
+    if (name === "--mcp-origin") {
+      const value = joined.length ? joined.join("=") : argv[++index];
+      if (!value || value.startsWith("--")) {
+        throw new Error("--mcp-origin requires a value");
+      }
+      (options.mcpAllowedOrigins ??= []).push(value);
+      continue;
+    }
     if (!Object.hasOwn(names, name)) {
       throw new Error(`unknown option: ${name}`);
     }

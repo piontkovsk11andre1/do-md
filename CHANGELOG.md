@@ -1,6 +1,17 @@
 # Changelog
 
-## 2.0.0-rc.2 — unreleased
+## 2.0.0-rc.3 — unreleased
+
+- Add optional standard Streamable HTTP MCP at `/mcp` with `do-md serve --mcp`.
+- Reuse one MCP tool/resource registration factory for stdio and HTTP transports.
+- Share HTTP root scoping, worker concurrency, execution/input limits and shutdown.
+- Retain per-client protocol sessions for cancellation, with bounded body readers,
+  response sizes and session lifetime/admission.
+- Validate browser Origins through the explicit `--mcp-origin` / `mcpAllowedOrigins` allowlist.
+- Add SDK-client integration coverage for native tools/resources, writes, limits,
+  cross-session cancellation, shared overload and session/worker shutdown.
+
+## 2.0.0-rc.2
 
 ### Contract and runtime fixes
 
